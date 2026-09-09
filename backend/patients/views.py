@@ -1,6 +1,8 @@
 from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAuthenticated
 from .models import Patient
 from .serializers import PatientSerializer
+from accounts.permissions import IsSecretaireOuMedecinOuAdmin, IsAdmin
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -12,3 +14,8 @@ class PatientViewSet(viewsets.ModelViewSet):
     serializer_class = PatientSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['nom', 'prenom', 'contact']
+
+    def get_permissions(self):
+        if self.action == 'destroy':
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]

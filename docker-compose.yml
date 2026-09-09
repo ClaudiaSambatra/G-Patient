@@ -53,6 +53,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: gestion_patients_frontend
+    volumes:
+      - ./frontend:/app:Z
+      - /app/node_modules
+      - /app/.next 
     restart: unless-stopped
     ports:
       - "3000:3000"
