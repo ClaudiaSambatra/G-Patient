@@ -29,7 +29,6 @@ class TestAuthentification:
     def test_role_correctement_assigne(self):
         assert self.user.role == Utilisateur.Role.SECRETAIRE
         assert self.user.role != Utilisateur.Role.ADMIN
-<<<<<<< HEAD
 
     def test_me_endpoint_retourne_profil(self):
         self.client.force_authenticate(user=self.user)
@@ -204,5 +203,4 @@ class TestPermissionsGestionUtilisateurs:
     def test_anonyme_interdit_acces_utilisateurs(self):
         response = self.client.get("/api/accounts/utilisateurs/")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-=======
->>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
+

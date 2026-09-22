@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 from rest_framework import viewsets, filters, status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -156,16 +156,3 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MedecinSerializer
     permission_classes = [IsAuthenticated]
 
-=======
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .serializers import UtilisateurSerializer
-
-
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response(UtilisateurSerializer(request.user).data)
->>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
