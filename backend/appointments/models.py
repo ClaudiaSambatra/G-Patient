@@ -1,6 +1,6 @@
-from django.conf import settings
 from django.db import models
 from patients.models import Patient
+from accounts.models import Medecin
 
 
 class RendezVous(models.Model):
@@ -13,12 +13,12 @@ class RendezVous(models.Model):
         TERMINE = 'TERMINE', 'Terminé'
 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='rendez_vous')
-    medecin = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rendez_vous',
-        limit_choices_to={'role': 'MEDECIN'},
-    )
+    medecin = models.ForeignKey(Medecin, on_delete=models.CASCADE, related_name='rendez_vous')
     date_heure = models.DateTimeField()
+    duree_minutes = models.IntegerField(default=30)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.PLANIFIE)
+    motif = models.CharField(max_length=255, blank=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['date_heure']

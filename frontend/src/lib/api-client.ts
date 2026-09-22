@@ -16,3 +16,19 @@ apiClient.interceptors.request.use((config) => {
   }
   return config
 })
+
+// Intercepteur pour gérer les erreurs de réponse (ex: token expiré)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Si on reçoit une erreur 401 (Non autorisé) et qu'on n'est pas déjà sur la page login
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      if (window.location.pathname !== "/login") {
+        window.localStorage.removeItem("access_token")
+        window.localStorage.removeItem("refresh_token")
+        window.location.href = "/login"
+      }
+    }
+    return Promise.reject(error)
+  }
+)
