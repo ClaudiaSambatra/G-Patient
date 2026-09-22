@@ -1,4 +1,5 @@
 from rest_framework import serializers
+<<<<<<< HEAD
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Utilisateur, Medecin
 
@@ -129,3 +130,13 @@ class MedecinSerializer(serializers.ModelSerializer):
         model = Medecin
         fields = ['id', 'nom', 'prenom', 'email', 'specialite', 'numero_ordre']
 
+=======
+from .models import Utilisateur
+
+
+class UtilisateurSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Utilisateur
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'telephone']
+        read_only_fields = ['id', 'role']
+>>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897

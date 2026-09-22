@@ -13,7 +13,10 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card"
+<<<<<<< HEAD
 import { Activity, Lock, User, ShieldCheck, AlertCircle, Building2 } from "lucide-react"
+=======
+>>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,6 +37,7 @@ export default function LoginPage() {
       })
       window.localStorage.setItem("access_token", data.access)
       window.localStorage.setItem("refresh_token", data.refresh)
+<<<<<<< HEAD
 
       // Récupérer le profil pour orienter l'utilisateur selon son rôle
       try {
@@ -50,12 +54,18 @@ export default function LoginPage() {
       router.push("/patients")
     } catch {
       setError("Identifiants incorrects ou compte inactif. Veuillez réessayer.")
+=======
+      router.push("/patients")
+    } catch {
+      setError("Identifiants incorrects. Veuillez réessayer.")
+>>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
     } finally {
       setLoading(false)
     }
   }
 
   return (
+<<<<<<< HEAD
     <main className="relative flex min-h-screen items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-slate-100 via-indigo-50/40 to-blue-100/50 dark:from-background dark:via-background dark:to-muted/30">
       <div className="w-full max-w-md">
         {/* En-tête Brand */}
@@ -139,6 +149,42 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </div>
+=======
+    <main className="flex min-h-screen items-center justify-center p-8">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle>Gestion de patients</CardTitle>
+          <CardDescription>Connectez-vous à votre espace</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username">Nom d&apos;utilisateur</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Connexion..." : "Se connecter"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+>>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
     </main>
   )
 }

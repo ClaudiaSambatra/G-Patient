@@ -13,6 +13,7 @@ urlpatterns = [
     # Authentification JWT
     path('api/auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+<<<<<<< HEAD
     
     # Comptes
     path('api/accounts/', include('accounts.urls')),
@@ -24,4 +25,10 @@ urlpatterns = [
     path('api/patients/', include('patients.urls')),
     path('api/rendezvous/', include('appointments.urls')),
     path('api/consultations/', include('consultations.urls')),
+=======
+    path('api/auth/', include('accounts.urls')),
+    # Modules métier
+    path('api/patients/', include('patients.urls')),
+    
+>>>>>>> 86992173ce1b8931dd2418e19997e70d831a2897
 ]

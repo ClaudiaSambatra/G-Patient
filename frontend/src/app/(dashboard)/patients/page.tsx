@@ -698,4 +698,4 @@ export default function PatientsPage() {
 
     </div>
   )
-}git commit -m "feat(patients): complete sprint 2 - add gender field, computed age, optional blood group and pagination"
+}
