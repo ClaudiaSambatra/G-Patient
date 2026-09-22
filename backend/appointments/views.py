@@ -2,18 +2,24 @@ from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
 from .models import RendezVous
 from .serializers import RendezVousSerializer
-from accounts.permissions import IsSecretaireOuMedecinOuAdmin
+from accounts.permissions import IsSecretaireOuMedecinOuAdmin, IsSecretaireOuAdmin
 
 class RendezVousViewSet(viewsets.ModelViewSet):
     """
     CRUD complet pour les rendez-vous.
-    Accessible aux Secrétaires, Médecins, et Admins.
-    Les médecins ne voient que leurs propres rendez-vous.
+    Lecture accessible aux Secrétaires, Médecins, et Admins.
+    Création/Modification réservées aux Secrétaires et Admins.
     """
     serializer_class = RendezVousSerializer
-    permission_classes = [IsAuthenticated, IsSecretaireOuMedecinOuAdmin]
     filter_backends = [filters.SearchFilter]
     search_fields = ['motif', 'patient__nom', 'patient__prenom', 'medecin__utilisateur__last_name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [IsAuthenticated, IsSecretaireOuMedecinOuAdmin]
+        else:
+            permission_classes = [IsAuthenticated, IsSecretaireOuAdmin]
+        return [permission() for permission in permission_classes]
 
     def get_queryset(self):
         user = self.request.user

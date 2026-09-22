@@ -66,7 +66,7 @@ export default function RendezVousPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isConsultOpen, setIsConsultOpen] = useState(false)
-  const [selectedRdvId, setSelectedRdvId] = useState<number | null>(null)
+  const [selectedRdv, setSelectedRdv] = useState<RendezVous | null>(null)
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
   const [consultForm, setConsultForm] = useState({
@@ -159,11 +159,11 @@ export default function RendezVousPage() {
         duree_minutes: form.duree_minutes,
         motif: form.motif
       }
-      return apiClient.patch(`/rendezvous/${selectedRdvId}/`, payload)
+      return apiClient.patch(`/rendezvous/${selectedRdv?.id}/`, payload)
     },
     onSuccess: () => {
       setIsEditOpen(false)
-      setSelectedRdvId(null)
+      setSelectedRdv(null)
       setForm({ patient: "", medecin: "", date: "", heure: "", duree_minutes: 30, motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Rendez-vous modifié avec succès.")
@@ -194,11 +194,15 @@ export default function RendezVousPage() {
 
   // Création Consultation
   const createConsultationMutation = useMutation({
-    mutationFn: async () => apiClient.post("/consultations/", { ...consultForm, rendezvous: selectedRdvId }),
+    mutationFn: async () => apiClient.post("/consultations/", { 
+      ...consultForm, 
+      rendez_vous: selectedRdv?.id,
+      patient: selectedRdv?.patient
+    }),
     onSuccess: () => {
       setIsConsultOpen(false)
       setConsultForm({ motif: "", observations: "", diagnostic: "" })
-      setSelectedRdvId(null)
+      setSelectedRdv(null)
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Consultation enregistrée avec succès.")
     },
@@ -349,7 +353,7 @@ export default function RendezVousPage() {
                           {(rdv.statut === "CONFIRME" || rdv.statut === "TERMINE") && currentUser?.role === "MEDECIN" ? (
                             <button
                               onClick={() => {
-                                setSelectedRdvId(rdv.id)
+                                setSelectedRdv(rdv)
                                 setConsultForm({ ...consultForm, motif: rdv.motif || "" })
                                 setIsConsultOpen(true)
                               }}
@@ -362,7 +366,7 @@ export default function RendezVousPage() {
                             <div className="flex justify-end gap-2">
                               <button
                                 onClick={() => {
-                                  setSelectedRdvId(rdv.id)
+                                  setSelectedRdv(rdv)
                                   const dateObj = new Date(rdv.date_heure)
                                   setForm({
                                     patient: rdv.patient.toString(),

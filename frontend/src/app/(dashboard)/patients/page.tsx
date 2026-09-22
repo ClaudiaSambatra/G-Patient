@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   Users, UserPlus, Calendar, Phone, Search, RefreshCw, 
-  CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle
+  CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle,
+  FileText, Stethoscope
 } from "lucide-react"
 
 interface Patient {
@@ -103,6 +104,16 @@ export default function PatientsPage() {
       return data
     },
     retry: false,
+  })
+
+  const { data: consultationsData, isLoading: isLoadingConsultations } = useQuery({
+    queryKey: ["consultations", viewingPatient?.id],
+    queryFn: async () => {
+      if (!viewingPatient) return null
+      const { data } = await apiClient.get(`/consultations/?patient=${viewingPatient.id}`)
+      return data.results || data // Handle paginated or unpaginated response
+    },
+    enabled: !!viewingPatient,
   })
 
   // Mutations
@@ -653,6 +664,49 @@ export default function PatientsPage() {
                 <div>
                   <span className="block text-xs font-medium uppercase text-muted-foreground mb-1">Allergies</span>
                   <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50 whitespace-pre-wrap font-medium text-red-600/80 dark:text-red-400/80">{viewingPatient.allergies || "Aucune allergie connue"}</p>
+                </div>
+                
+                {/* Historique Clinique */}
+                <div className="pt-4 border-t border-border/40">
+                  <span className="block text-sm font-bold uppercase text-indigo-600 mb-3 flex items-center gap-2">
+                    <FileText className="size-4" /> Historique des Consultations
+                  </span>
+                  
+                  {isLoadingConsultations ? (
+                    <div className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCw className="size-3.5 animate-spin"/> Chargement...</div>
+                  ) : !consultationsData || consultationsData.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">Aucune consultation enregistrée.</p>
+                  ) : (
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                      {consultationsData.map((consult: any) => (
+                        <div key={consult.id} className="bg-muted/30 border border-border/60 rounded-xl p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-sm">{consult.motif || "Consultation de suivi"}</h4>
+                            <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded-md border border-border/40">
+                              {new Date(consult.date_consultation).toLocaleDateString('fr-FR')}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                            <Stethoscope className="size-3" /> {consult.medecin_nom}
+                          </div>
+                          
+                          {consult.observations && (
+                            <div className="mb-2">
+                              <span className="text-[10px] font-semibold uppercase text-muted-foreground">Observations / Constantes</span>
+                              <p className="text-sm mt-0.5 whitespace-pre-wrap">{consult.observations}</p>
+                            </div>
+                          )}
+                          
+                          {consult.diagnostic && (
+                            <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+                              <span className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-500">Diagnostic</span>
+                              <p className="text-sm mt-0.5 whitespace-pre-wrap text-foreground">{consult.diagnostic}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               

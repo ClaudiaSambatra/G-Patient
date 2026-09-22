@@ -17,3 +17,22 @@ class RendezVousSerializer(serializers.ModelSerializer):
 
     def get_medecin_nom(self, obj):
         return f"Dr. {obj.medecin.utilisateur.last_name} {obj.medecin.utilisateur.first_name}"
+
+    def validate(self, attrs):
+        # Créer une instance temporaire pour exécuter clean()
+        instance = RendezVous(**attrs)
+        if self.instance:
+            # En cas d'update, on met à jour l'instance existante en mémoire
+            for attr, value in attrs.items():
+                setattr(instance, attr, value)
+            instance.pk = self.instance.pk
+            
+        try:
+            instance.clean()
+        except Exception as e:
+            from rest_framework.exceptions import ValidationError
+            if hasattr(e, 'message_dict'):
+                raise ValidationError(e.message_dict)
+            raise ValidationError(str(e))
+            
+        return attrs
