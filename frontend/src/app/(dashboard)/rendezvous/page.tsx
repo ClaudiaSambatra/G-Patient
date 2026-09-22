@@ -19,7 +19,8 @@ import {
   XCircle,
   RefreshCw,
   Search,
-  FileText
+  FileText,
+  Edit
 } from "lucide-react"
 
 interface Patient {
@@ -63,6 +64,7 @@ export default function RendezVousPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   const [isConsultOpen, setIsConsultOpen] = useState(false)
   const [selectedRdvId, setSelectedRdvId] = useState<number | null>(null)
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
@@ -145,6 +147,28 @@ export default function RendezVousPage() {
       showNotification("success", "Rendez-vous planifié avec succès.")
     },
     onError: () => showNotification("error", "Erreur lors de la planification."),
+  })
+
+  // Mise à jour complète RDV
+  const updateFullMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        patient: form.patient,
+        medecin: form.medecin,
+        date_heure: `${form.date}T${form.heure}:00Z`,
+        duree_minutes: form.duree_minutes,
+        motif: form.motif
+      }
+      return apiClient.patch(`/rendezvous/${selectedRdvId}/`, payload)
+    },
+    onSuccess: () => {
+      setIsEditOpen(false)
+      setSelectedRdvId(null)
+      setForm({ patient: "", medecin: "", date: "", heure: "", duree_minutes: 30, motif: "" })
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      showNotification("success", "Rendez-vous modifié avec succès.")
+    },
+    onError: () => showNotification("error", "Erreur lors de la modification."),
   })
 
   // Mise à jour Statut RDV
@@ -335,17 +359,38 @@ export default function RendezVousPage() {
                               Consulter
                             </button>
                           ) : (currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") ? (
-                            <button
-                              onClick={() => {
-                                if (window.confirm("Voulez-vous vraiment supprimer ce rendez-vous ?")) {
-                                  deleteMutation.mutate(rdv.id)
-                                }
-                              }}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                            >
-                              <XCircle className="size-3.5" />
-                              Supprimer
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedRdvId(rdv.id)
+                                  const dateObj = new Date(rdv.date_heure)
+                                  setForm({
+                                    patient: rdv.patient.toString(),
+                                    medecin: rdv.medecin.toString(),
+                                    date: dateObj.toISOString().split("T")[0],
+                                    heure: dateObj.toTimeString().slice(0, 5),
+                                    duree_minutes: rdv.duree_minutes,
+                                    motif: rdv.motif || ""
+                                  })
+                                  setIsEditOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
+                              >
+                                <Edit className="size-3.5" />
+                                Éditer
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Voulez-vous vraiment supprimer ce rendez-vous ?")) {
+                                    deleteMutation.mutate(rdv.id)
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                              >
+                                <XCircle className="size-3.5" />
+                                Supprimer
+                              </button>
+                            </div>
                           ) : (
                             <span className="text-xs text-muted-foreground italic">—</span>
                           )}
@@ -420,6 +465,73 @@ export default function RendezVousPage() {
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
                 <Button type="submit" disabled={createMutation.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                   {createMutation.isPending ? "Enregistrement..." : "Confirmer"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Édition */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Edit className="size-5 text-blue-600" /> Modifier le RDV
+              </h3>
+              <button onClick={() => setIsEditOpen(false)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <XCircle className="size-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); updateFullMutation.mutate(); }} className="mt-6 flex flex-col gap-4">
+              <div className="space-y-1">
+                <Label>Patient *</Label>
+                <select 
+                  required 
+                  value={form.patient} 
+                  onChange={e => setForm({...form, patient: e.target.value})}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Sélectionner un patient</option>
+                  {patientsData?.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Médecin *</Label>
+                <select 
+                  required 
+                  value={form.medecin} 
+                  onChange={e => setForm({...form, medecin: e.target.value})}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Sélectionner un médecin</option>
+                  {medecinsData?.map(m => <option key={m.id} value={m.id}>Dr. {m.nom} {m.prenom} - {m.specialite}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Date *</Label>
+                  <Input type="date" required value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Heure *</Label>
+                  <Input type="time" required value={form.heure} onChange={e => setForm({...form, heure: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Motif</Label>
+                <Input value={form.motif} onChange={e => setForm({...form, motif: e.target.value})} placeholder="Consultation de suivi..." />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Annuler</Button>
+                <Button type="submit" disabled={updateFullMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {updateFullMutation.isPending ? "Modification..." : "Enregistrer"}
                 </Button>
               </div>
             </form>
