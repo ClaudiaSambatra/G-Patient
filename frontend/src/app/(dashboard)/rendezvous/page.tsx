@@ -76,7 +76,8 @@ export default function RendezVousPage() {
   const [form, setForm] = useState({
     patient: "",
     medecin: "",
-    date_heure: "",
+    date: "",
+    heure: "",
     duree_minutes: 30,
     motif: "",
   })
@@ -126,12 +127,20 @@ export default function RendezVousPage() {
     },
   })
 
-  // Création RDV
   const createMutation = useMutation({
-    mutationFn: async () => apiClient.post("/rendezvous/", form),
+    mutationFn: async () => {
+      const payload = {
+        patient: form.patient,
+        medecin: form.medecin,
+        date_heure: `${form.date}T${form.heure}:00Z`,
+        duree_minutes: form.duree_minutes,
+        motif: form.motif
+      }
+      return apiClient.post("/rendezvous/", payload)
+    },
     onSuccess: () => {
       setIsCreateOpen(false)
-      setForm({ patient: "", medecin: "", date_heure: "", duree_minutes: 30, motif: "" })
+      setForm({ patient: "", medecin: "", date: "", heure: "", duree_minutes: 30, motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Rendez-vous planifié avec succès.")
     },
@@ -205,10 +214,12 @@ export default function RendezVousPage() {
             <button onClick={() => refetch()} title="Rafraîchir" className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground">
               <RefreshCw className="size-4" />
             </button>
-            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/35 active:scale-[0.99]">
-              <Plus className="size-4.5" />
-              <span>Nouveau RDV</span>
-            </button>
+            {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
+              <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/35 active:scale-[0.99]">
+                <Plus className="size-4.5" />
+                <span>Nouveau RDV</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -282,16 +293,20 @@ export default function RendezVousPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <select
-                            value={rdv.statut}
-                            onChange={(e) => updateStatusMutation.mutate({ id: rdv.id, statut: e.target.value })}
-                            className="text-xs font-medium rounded-md border border-input bg-transparent px-2 py-1 shadow-sm focus:outline-none"
-                          >
-                            <option value="PLANIFIE">Planifié</option>
-                            <option value="CONFIRME">Confirmé</option>
-                            <option value="ANNULE">Annulé</option>
-                            <option value="TERMINE">Terminé</option>
-                          </select>
+                          {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") ? (
+                            <select
+                              value={rdv.statut}
+                              onChange={(e) => updateStatusMutation.mutate({ id: rdv.id, statut: e.target.value })}
+                              className="text-xs font-medium rounded-md border border-input bg-transparent px-2 py-1 shadow-sm focus:outline-none"
+                            >
+                              <option value="PLANIFIE">Planifié</option>
+                              <option value="CONFIRME">Confirmé</option>
+                              <option value="ANNULE">Annulé</option>
+                              <option value="TERMINE">Terminé</option>
+                            </select>
+                          ) : (
+                            getStatusBadge(rdv.statut)
+                          )}
                         </td>
                         <td className="py-3 px-4 text-muted-foreground truncate max-w-[200px]" title={rdv.motif}>
                           {rdv.motif || <span className="italic opacity-50">Non renseigné</span>}
@@ -361,9 +376,15 @@ export default function RendezVousPage() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <Label>Date et Heure *</Label>
-                <Input type="datetime-local" required value={form.date_heure} onChange={e => setForm({...form, date_heure: e.target.value})} />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Date *</Label>
+                  <Input type="date" required value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Heure *</Label>
+                  <Input type="time" required value={form.heure} onChange={e => setForm({...form, heure: e.target.value})} />
+                </div>
               </div>
 
               <div className="space-y-1">
