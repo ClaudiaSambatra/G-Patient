@@ -158,6 +158,16 @@ export default function RendezVousPage() {
     onError: () => showNotification("error", "Erreur lors de la mise à jour."),
   })
 
+  // Suppression RDV
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => apiClient.delete(`/rendezvous/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      showNotification("success", "Rendez-vous supprimé avec succès.")
+    },
+    onError: () => showNotification("error", "Erreur lors de la suppression."),
+  })
+
   // Création Consultation
   const createConsultationMutation = useMutation({
     mutationFn: async () => apiClient.post("/consultations/", { ...consultForm, rendezvous: selectedRdvId }),
@@ -312,7 +322,7 @@ export default function RendezVousPage() {
                           {rdv.motif || <span className="italic opacity-50">Non renseigné</span>}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          {(rdv.statut === "CONFIRME" || rdv.statut === "TERMINE") && currentUser?.role === "MEDECIN" && (
+                          {(rdv.statut === "CONFIRME" || rdv.statut === "TERMINE") && currentUser?.role === "MEDECIN" ? (
                             <button
                               onClick={() => {
                                 setSelectedRdvId(rdv.id)
@@ -324,6 +334,20 @@ export default function RendezVousPage() {
                               <FileText className="size-3.5" />
                               Consulter
                             </button>
+                          ) : (currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") ? (
+                            <button
+                              onClick={() => {
+                                if (window.confirm("Voulez-vous vraiment supprimer ce rendez-vous ?")) {
+                                  deleteMutation.mutate(rdv.id)
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                            >
+                              <XCircle className="size-3.5" />
+                              Supprimer
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">—</span>
                           )}
                         </td>
                       </tr>
