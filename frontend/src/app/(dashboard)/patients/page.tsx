@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   Users, UserPlus, Calendar, Phone, Search, RefreshCw, 
   CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle,
-  FileText, Stethoscope
+  FileText, Stethoscope, Plus
 } from "lucide-react"
 
 interface Patient {
@@ -82,6 +82,10 @@ export default function PatientsPage() {
   const [editForm, setEditForm] = useState({ 
     nom: "", prenom: "", sexe: "M", date_naissance: "", contact: "",
     adresse: "", antecedents: "", allergies: "", groupe_sanguin: ""
+  })
+  const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false)
+  const [consultationForm, setConsultationForm] = useState({
+    motif: "", observations: "", diagnostic: ""
   })
 
   // Queries
@@ -168,7 +172,27 @@ export default function PatientsPage() {
     }
   })
 
+  const createConsultation = useMutation({
+    mutationFn: async () => {
+      if (!viewingPatient) return
+      return apiClient.post("/consultations/", {
+        ...consultationForm,
+        patient: viewingPatient.id
+      })
+    },
+    onSuccess: () => {
+      setConsultationForm({ motif: "", observations: "", diagnostic: "" })
+      setIsConsultationModalOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["consultations", viewingPatient?.id] })
+      showNotification("success", "Consultation enregistrée avec succès.")
+    },
+    onError: () => {
+      showNotification("error", "Erreur lors de l'enregistrement de la consultation.")
+    }
+  })
+
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.is_superuser
+  const isMedecin = currentUser?.role === "MEDECIN"
 
   if (isError) {
     return (
@@ -668,9 +692,20 @@ export default function PatientsPage() {
                 
                 {/* Historique Clinique */}
                 <div className="pt-4 border-t border-border/40">
-                  <span className="block text-sm font-bold uppercase text-indigo-600 mb-3 flex items-center gap-2">
-                    <FileText className="size-4" /> Historique des Consultations
-                  </span>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="block text-sm font-bold uppercase text-indigo-600 flex items-center gap-2">
+                      <FileText className="size-4" /> Historique des Consultations
+                    </span>
+                    {isMedecin && (
+                      <Button 
+                        size="sm" 
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white h-8"
+                        onClick={() => setIsConsultationModalOpen(true)}
+                      >
+                        <Plus className="size-4 mr-1" /> Nouvelle
+                      </Button>
+                    )}
+                  </div>
                   
                   {isLoadingConsultations ? (
                     <div className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCw className="size-3.5 animate-spin"/> Chargement...</div>
@@ -746,6 +781,77 @@ export default function PatientsPage() {
                 {deletePatient.isPending ? "Suppression..." : "Oui, supprimer"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* MODAL 5 : NOUVELLE CONSULTATION           */}
+      {/* ========================================= */}
+      {isConsultationModalOpen && viewingPatient && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Stethoscope className="size-5 text-indigo-600" /> Nouvelle consultation
+              </h3>
+              <button
+                onClick={() => setIsConsultationModalOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+            
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                createConsultation.mutate()
+              }}
+              className="mt-6 flex flex-col gap-5"
+            >
+              <div className="space-y-1">
+                <Label>Patient</Label>
+                <Input disabled value={`${viewingPatient.nom} ${viewingPatient.prenom}`} className="bg-muted/50" />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Motif de la consultation *</Label>
+                <Input 
+                  required 
+                  placeholder="Ex: Fièvre, Douleurs abdominales..." 
+                  value={consultationForm.motif} 
+                  onChange={e => setConsultationForm({...consultationForm, motif: e.target.value})} 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Observations (Constantes, examen clinique...)</Label>
+                <Textarea 
+                  className="min-h-[100px]"
+                  placeholder="Tension: 12/8, Température: 38°C..."
+                  value={consultationForm.observations} 
+                  onChange={e => setConsultationForm({...consultationForm, observations: e.target.value})} 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Diagnostic</Label>
+                <Textarea 
+                  className="min-h-[80px]"
+                  placeholder="Ex: Angine bactérienne"
+                  value={consultationForm.diagnostic} 
+                  onChange={e => setConsultationForm({...consultationForm, diagnostic: e.target.value})} 
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+                <Button type="button" variant="outline" onClick={() => setIsConsultationModalOpen(false)}>Annuler</Button>
+                <Button type="submit" disabled={createConsultation.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                  {createConsultation.isPending ? "Enregistrement..." : "Enregistrer"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
