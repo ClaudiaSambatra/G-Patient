@@ -39,3 +39,37 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(date_heure__date=date_str)
 
         return queryset
+
+from .models import AbsenceMedecin
+from .serializers import AbsenceMedecinSerializer
+from accounts.permissions import IsMedecin
+
+class AbsenceMedecinViewSet(viewsets.ModelViewSet):
+    """
+    Gestion des absences / disponibilités des médecins.
+    Un médecin peut déclarer ses absences, la secrétaire peut aussi les gérer.
+    """
+    serializer_class = AbsenceMedecinSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = AbsenceMedecin.objects.all()
+
+        if user.role == 'MEDECIN':
+            queryset = queryset.filter(medecin__utilisateur=user)
+
+        medecin_id = self.request.query_params.get('medecin')
+        if medecin_id:
+            queryset = queryset.filter(medecin_id=medecin_id)
+            
+        return queryset
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'MEDECIN':
+            serializer.save(medecin=user.medecin)
+        else:
+            serializer.save()
