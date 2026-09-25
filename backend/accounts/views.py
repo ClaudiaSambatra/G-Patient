@@ -156,3 +156,39 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MedecinSerializer
     permission_classes = [IsAuthenticated]
 
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.utils import timezone
+from patients.models import Patient
+from appointments.models import RendezVous
+from consultations.models import Consultation
+
+class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = timezone.now().date()
+        
+        patients_count = Patient.objects.count()
+        rdv_du_jour = RendezVous.objects.filter(date_heure__date=today).count()
+        consultations_count = Consultation.objects.count()
+        medecins_actifs = Medecin.objects.filter(utilisateur__is_active=True).count()
+        
+        # Activité par médecin
+        activite_medecins = []
+        for m in Medecin.objects.filter(utilisateur__is_active=True):
+            consultations_medecin = Consultation.objects.filter(medecin=m.utilisateur).count()
+            activite_medecins.append({
+                'medecin': f"Dr. {m.utilisateur.last_name}",
+                'consultations': consultations_medecin
+            })
+            
+        return Response({
+            "total_patients": patients_count,
+            "rdv_du_jour": rdv_du_jour,
+            "total_consultations": consultations_count,
+            "medecins_actifs": medecins_actifs,
+            "activite_medecins": activite_medecins
+        })
+

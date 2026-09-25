@@ -15,6 +15,8 @@ import {
   Calendar as CalendarIcon,
   FileText,
   FileSignature,
+  CreditCard,
+  BarChart3,
 } from "lucide-react"
 
 export interface CurrentUser {
@@ -131,6 +133,34 @@ export function Sidebar() {
           <FileSignature className="size-4.5" />
           Ordonnances
         </Link>
+
+        <Link
+          href="/factures"
+          id="nav-link-factures"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/factures"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <CreditCard className="size-4.5" />
+          Facturation
+        </Link>
+
+        {isAdmin && (
+          <Link
+            href="/statistiques"
+            id="nav-link-statistiques"
+            className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+              pathname === "/statistiques"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <BarChart3 className="size-4.5" />
+            Statistiques
+          </Link>
+        )}
 
         {isAdmin && (
           <Link

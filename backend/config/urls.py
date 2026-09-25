@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/rendezvous/', include('appointments.urls')),
     path('api/consultations/', include('consultations.urls')),
     path('api/prescriptions/', include('prescriptions.urls')),
+    path('api/billing/', include('billing.urls')),
 ]
 
 from django.conf import settings
