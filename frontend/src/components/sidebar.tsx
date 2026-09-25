@@ -17,6 +17,7 @@ import {
   FileSignature,
   CreditCard,
   BarChart3,
+  Pill,
 } from "lucide-react"
 
 export interface CurrentUser {
@@ -145,6 +146,19 @@ export function Sidebar() {
         >
           <CreditCard className="size-4.5" />
           Facturation
+        </Link>
+
+        <Link
+          href="/pharmacie"
+          id="nav-link-pharmacie"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/pharmacie"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <Pill className="size-4.5" />
+          Pharmacie
         </Link>
 
         {isAdmin && (
