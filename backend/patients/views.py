@@ -19,3 +19,23 @@ class PatientViewSet(viewsets.ModelViewSet):
         if self.action == 'destroy':
             return [IsAuthenticated(), IsAdmin()]
         return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]
+
+
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import DocumentMedical
+from .serializers import DocumentMedicalSerializer
+
+class DocumentMedicalViewSet(viewsets.ModelViewSet):
+    queryset = DocumentMedical.objects.all()
+    serializer_class = DocumentMedicalSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+        return queryset

@@ -13,8 +13,16 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   Users, UserPlus, Calendar, Phone, Search, RefreshCw, 
   CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle,
-  FileText, Stethoscope, Plus
+  FileText, Stethoscope, Plus, FolderOpen, Download, Upload
 } from "lucide-react"
+
+interface DocumentMedical {
+  id: number
+  nom: string
+  fichier: string
+  type_document: string
+  date_depot: string
+}
 
 interface Patient {
   id: number
@@ -28,6 +36,7 @@ interface Patient {
   antecedents: string
   allergies: string
   groupe_sanguin: string
+  documents?: DocumentMedical[]
   date_creation: string
   date_modification: string
 }
@@ -87,6 +96,10 @@ export default function PatientsPage() {
   const [consultationForm, setConsultationForm] = useState({
     motif: "", observations: "", diagnostic: ""
   })
+  
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false)
+  const [documentPatient, setDocumentPatient] = useState<Patient | null>(null)
+  const [docForm, setDocForm] = useState({ nom: "", type_document: "", file: null as File | null })
 
   // Queries
   const { data: currentUser } = useQuery<CurrentUser>({
@@ -188,6 +201,28 @@ export default function PatientsPage() {
     },
     onError: () => {
       showNotification("error", "Erreur lors de l'enregistrement de la consultation.")
+    }
+  })
+
+  const uploadDocument = useMutation({
+    mutationFn: async () => {
+      if (!documentPatient || !docForm.file) return
+      const formData = new FormData()
+      formData.append("patient", documentPatient.id.toString())
+      formData.append("nom", docForm.nom)
+      formData.append("type_document", docForm.type_document)
+      formData.append("fichier", docForm.file)
+      return apiClient.post("/patients/documents/", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      })
+    },
+    onSuccess: () => {
+      setDocForm({ nom: "", type_document: "", file: null })
+      queryClient.invalidateQueries({ queryKey: ["patients"] })
+      showNotification("success", "Document ajouté avec succès.")
+    },
+    onError: () => {
+      showNotification("error", "Erreur lors de l'ajout du document.")
     }
   })
 
@@ -375,6 +410,18 @@ export default function PatientsPage() {
                                 className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               >
                                 <Eye className="size-4" />
+                              </button>
+
+                              {/* Documents */}
+                              <button
+                                onClick={() => {
+                                  setDocumentPatient(p)
+                                  setIsDocumentsModalOpen(true)
+                                }}
+                                title="Documents médicaux"
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30"
+                              >
+                                <FolderOpen className="size-4" />
                               </button>
 
                               {/* Modifier */}
@@ -852,6 +899,121 @@ export default function PatientsPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* MODAL 6 : DOCUMENTS MEDICAUX              */}
+      {/* ========================================= */}
+      {isDocumentsModalOpen && documentPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-4 shrink-0">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-emerald-600">
+                <FolderOpen className="size-5" /> Documents - {documentPatient.nom} {documentPatient.prenom}
+              </h3>
+              <button
+                onClick={() => setIsDocumentsModalOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+              
+              {/* Formulaire d'upload */}
+              <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Upload className="size-4 text-muted-foreground" /> Ajouter un nouveau document
+                </h4>
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    uploadDocument.mutate()
+                  }}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+                >
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nom du document *</Label>
+                    <Input 
+                      required 
+                      placeholder="Ex: Analyse de sang" 
+                      value={docForm.nom} 
+                      onChange={e => setDocForm({...docForm, nom: e.target.value})} 
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Type de document</Label>
+                    <select 
+                      value={docForm.type_document}
+                      onChange={e => setDocForm({...docForm, type_document: e.target.value})}
+                      className="flex h-8 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Sélectionner</option>
+                      <option value="Laboratoire">Laboratoire</option>
+                      <option value="Imagerie">Imagerie</option>
+                      <option value="Ordonnance Externe">Ordonnance Externe</option>
+                      <option value="Autre">Autre</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs">Fichier (PDF, Image...) *</Label>
+                    <Input 
+                      type="file" 
+                      required 
+                      onChange={e => setDocForm({...docForm, file: e.target.files ? e.target.files[0] : null})} 
+                      className="h-8 text-sm cursor-pointer file:h-full file:bg-transparent file:text-sm file:font-medium file:text-foreground"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={uploadDocument.isPending || !docForm.file} 
+                    className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+                  >
+                    {uploadDocument.isPending ? "Upload..." : "Enregistrer"}
+                  </Button>
+                </form>
+              </div>
+
+              {/* Liste des documents existants */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Fichiers enregistrés</h4>
+                {!documentPatient.documents || documentPatient.documents.length === 0 ? (
+                  <p className="text-sm italic text-muted-foreground bg-muted/20 p-4 rounded-lg text-center">Aucun document pour ce patient.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {documentPatient.documents.map((doc) => (
+                      <div key={doc.id} className="flex items-start justify-between p-3 rounded-lg border border-border/60 bg-card hover:bg-muted/20 transition-colors">
+                        <div className="flex items-start gap-3 overflow-hidden">
+                          <FileText className="size-8 text-emerald-500/70 shrink-0 mt-0.5" />
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-semibold text-sm truncate" title={doc.nom}>{doc.nom}</span>
+                            <span className="text-xs text-muted-foreground">{doc.type_document || "Non spécifié"}</span>
+                            <span className="text-[10px] text-muted-foreground mt-1">{new Date(doc.date_depot).toLocaleDateString('fr-FR')}</span>
+                          </div>
+                        </div>
+                        <a 
+                          href={doc.fichier} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="shrink-0 p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md transition-colors"
+                          title="Télécharger / Voir"
+                        >
+                          <Download className="size-4" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-border/60 mt-4 shrink-0">
+              <Button variant="outline" onClick={() => setIsDocumentsModalOpen(false)}>Fermer</Button>
+            </div>
           </div>
         </div>
       )}

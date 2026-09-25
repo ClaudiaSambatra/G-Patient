@@ -13,6 +13,8 @@ import {
   UserCheck,
   Building2,
   Calendar as CalendarIcon,
+  FileText,
+  FileSignature,
 } from "lucide-react"
 
 export interface CurrentUser {
@@ -102,6 +104,32 @@ export function Sidebar() {
         >
           <CalendarIcon className="size-4.5" />
           Rendez-vous
+        </Link>
+
+        <Link
+          href="/consultations"
+          id="nav-link-consultations"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/consultations"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <FileText className="size-4.5" />
+          Consultations
+        </Link>
+
+        <Link
+          href="/ordonnances"
+          id="nav-link-ordonnances"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/ordonnances"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <FileSignature className="size-4.5" />
+          Ordonnances
         </Link>
 
         {isAdmin && (
