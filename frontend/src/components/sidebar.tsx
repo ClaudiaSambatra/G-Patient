@@ -66,13 +66,13 @@ export function Sidebar() {
           className="group flex items-center gap-2.5 transition-transform hover:scale-[1.02]"
           id="nav-brand-logo"
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr bg-primary text-white shadow-md shadow-primary/20">
             <Activity className="size-5 transition-transform group-hover:rotate-6" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
               Gestion Patients
-              <span className="rounded-full bg-blue-50 px-1.5 py-0 text-[9px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              <span className="rounded-full bg-primary/10 px-1.5 py-0 text-[9px] font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                 Pro
               </span>
             </span>
@@ -196,11 +196,11 @@ export function Sidebar() {
             id="nav-link-utilisateurs"
             className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
               pathname === "/utilisateurs"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/25"
+                ? "bg-primary text-white shadow-sm shadow-primary/25"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            <Shield className="size-4.5 text-indigo-200" />
+            <Shield className="size-4.5 text-primary-foreground" />
             <span className="flex-1">Utilisateurs</span>
             <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
               Admin
@@ -212,7 +212,7 @@ export function Sidebar() {
       <div className="p-4 border-t border-border/60">
         {user && (
           <div className="flex items-center gap-3 mb-4 px-2" id="nav-user-badge">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-xs">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br bg-accent text-xs font-bold text-white shadow-xs">
               {(user.first_name?.[0] || user.username[0] || "U").toUpperCase()}
               {(user.last_name?.[0] || "").toUpperCase()}
             </div>
@@ -222,7 +222,7 @@ export function Sidebar() {
               </span>
               <span className="flex items-center gap-1 text-[10px] leading-tight font-medium text-muted-foreground mt-0.5">
                 {user.role === "ADMIN" && (
-                  <span className="text-indigo-600 dark:text-indigo-400 flex items-center gap-0.5">
+                  <span className="text-primary dark:text-primary/80 flex items-center gap-0.5">
                     <Shield className="size-2.5" /> Admin
                   </span>
                 )}
