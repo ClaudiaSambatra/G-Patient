@@ -1,32 +1,8 @@
 from rest_framework import serializers
-from .models import RendezVous, AbsenceMedecin
-
-class AbsenceMedecinSerializer(serializers.ModelSerializer):
-    medecin_nom = serializers.SerializerMethodField()
-    medecin = serializers.PrimaryKeyRelatedField(queryset=Medecin.objects.all(), required=False)
-
-    class Meta:
-        model = AbsenceMedecin
-        fields = '__all__'
-        
-    def get_medecin_nom(self, obj):
-        return f"Dr. {obj.medecin.utilisateur.last_name} {obj.medecin.utilisateur.first_name}"
-
-    def validate(self, attrs):
-        instance = AbsenceMedecin(**attrs)
-        if self.instance:
-            for attr, value in attrs.items():
-                setattr(instance, attr, value)
-        try:
-            instance.clean()
-        except Exception as e:
-            from rest_framework.exceptions import ValidationError
-            if hasattr(e, 'message_dict'):
-                raise ValidationError(e.message_dict)
-            raise ValidationError(str(e))
-        return attrs
+from .models import RendezVous
 from patients.models import Patient
 from accounts.models import Medecin
+
 
 class RendezVousSerializer(serializers.ModelSerializer):
     patient_nom = serializers.SerializerMethodField()

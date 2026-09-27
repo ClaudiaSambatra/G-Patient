@@ -150,31 +150,7 @@ export function Sidebar() {
         </Link>
 
         <Link
-          href="/pharmacie"
-          id="nav-link-pharmacie"
-          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
-            pathname === "/pharmacie"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          <Pill className="size-4.5" />
-          Pharmacie
-        </Link>
-
         <Link
-          href="/plannings"
-          id="nav-link-plannings"
-          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
-            pathname === "/plannings"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          <CalendarClock className="size-4.5" />
-          Plannings
-        </Link>
-
         {isAdmin && (
           <Link
             href="/statistiques"

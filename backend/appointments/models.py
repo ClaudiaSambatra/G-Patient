@@ -54,30 +54,4 @@ class RendezVous(models.Model):
                         'date_heure': "Le médecin a déjà un rendez-vous planifié sur cette plage horaire."
                     })
             
-            # Vérifier si le médecin est absent / en congé
-            absences = AbsenceMedecin.objects.filter(medecin=self.medecin)
-            for absence in absences:
-                if start_time < absence.date_fin and end_time > absence.date_debut:
-                    raise ValidationError({
-                        'date_heure': f"Le médecin est indisponible sur cette période ({absence.motif})."
-                    })
-
-class AbsenceMedecin(models.Model):
-    medecin = models.ForeignKey(Medecin, on_delete=models.CASCADE, related_name='absences')
-    date_debut = models.DateTimeField()
-    date_fin = models.DateTimeField()
-    motif = models.CharField(max_length=255, help_text="Congé, Maladie, Formation, etc.")
-    date_creation = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['date_debut']
-
-    def __str__(self):
-        return f"Absence {self.medecin} du {self.date_debut:%d/%m/%Y} au {self.date_fin:%d/%m/%Y}"
-
-    def clean(self):
-        super().clean()
-        from django.core.exceptions import ValidationError
-        if self.date_debut and self.date_fin and self.date_debut >= self.date_fin:
-            raise ValidationError("La date de fin doit être ultérieure à la date de début.")
 

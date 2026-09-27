@@ -25,7 +25,6 @@ urlpatterns = [
     path('api/consultations/', include('consultations.urls')),
     path('api/prescriptions/', include('prescriptions.urls')),
     path('api/billing/', include('billing.urls')),
-    path('api/pharmacy/', include('pharmacy.urls')),
 ]
 
 from django.conf import settings
