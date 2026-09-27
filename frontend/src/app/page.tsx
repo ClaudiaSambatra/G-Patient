@@ -11,13 +11,13 @@ export default function Home() {
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr bg-primary text-white shadow-md shadow-primary/20">
               <Activity className="size-5" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
                 G-Patient
-                <span className="rounded-full bg-blue-50 px-1.5 py-0 text-[9px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                <span className="rounded-full bg-primary/10 px-1.5 py-0 text-[9px] font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                   Pro
                 </span>
               </span>
@@ -33,7 +33,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/login">
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+              <Button className="bg-accent hover:bg-accent/90 text-white gap-2">
                 Se connecter <ArrowRight className="size-4" />
               </Button>
             </Link>
@@ -46,18 +46,18 @@ export default function Home() {
         <section className="relative overflow-hidden pt-24 pb-32">
           {/* Background decorations */}
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-          <div className="absolute -top-40 -right-40 -z-10 size-[500px] rounded-full bg-blue-500/10 blur-[100px]"></div>
-          <div className="absolute -bottom-40 -left-40 -z-10 size-[500px] rounded-full bg-indigo-500/10 blur-[100px]"></div>
+          <div className="absolute -top-40 -right-40 -z-10 size-[500px] rounded-full bg-primary/100/10 blur-[100px]"></div>
+          <div className="absolute -bottom-40 -left-40 -z-10 size-[500px] rounded-full bg-primary/10 blur-[100px]"></div>
 
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-            <div className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-600 mb-8 backdrop-blur-md">
-              <span className="flex size-2 rounded-full bg-indigo-500 mr-2 animate-pulse"></span>
+            <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-8 backdrop-blur-md">
+              <span className="flex size-2 rounded-full bg-primary mr-2 animate-pulse"></span>
               Système d'Information Hospitalier (SIH) de nouvelle génération
             </div>
             
             <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl xl:text-7xl">
               Simplifiez la gestion de vos <br className="hidden sm:block" />
-              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r bg-primary bg-clip-text text-transparent">
                 dossiers médicaux
               </span>
             </h1>
@@ -70,7 +70,7 @@ export default function Home() {
             
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/login">
-                <Button size="lg" className="h-14 px-8 text-base bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto shadow-lg shadow-indigo-500/25 transition-all hover:scale-105">
+                <Button size="lg" className="h-14 px-8 text-base bg-accent hover:bg-accent/90 text-white w-full sm:w-auto shadow-lg shadow-primary/25 transition-all hover:scale-105">
                   Accéder à l'application
                 </Button>
               </Link>
