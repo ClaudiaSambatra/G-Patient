@@ -360,13 +360,13 @@ export default function UtilisateursPage() {
         {/* En-tête de la page */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary dark:text-indigo-400">
               <Shield className="size-3.5" />
               <span>Administration & Sécurité</span>
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-3">
               Gestion des comptes utilisateurs
-              <span className="rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              <span className="rounded-full bg-primary/20 px-3 py-0.5 text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                 {usersData?.count ?? 0} comptes
               </span>
             </h1>
@@ -390,7 +390,7 @@ export default function UtilisateursPage() {
                 setCreateError(null)
               }}
               id="btn-open-create-user"
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/35 active:scale-[0.99]"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-all hover:scale-[1.01] hover:shadow-primary/35 active:scale-[0.99]"
             >
               <UserPlus className="size-4.5" />
               <span>Nouvel utilisateur</span>
@@ -404,7 +404,7 @@ export default function UtilisateursPage() {
           <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-indigo-200">
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="text-xs font-medium uppercase tracking-wider">Total</span>
-              <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-600">
+              <div className="rounded-lg bg-primary/100/10 p-2 text-primary">
                 <Users className="size-4" />
               </div>
             </div>
@@ -446,11 +446,11 @@ export default function UtilisateursPage() {
           <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200">
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="text-xs font-medium uppercase tracking-wider">Admins</span>
-              <div className="rounded-lg bg-purple-500/10 p-2 text-purple-600">
+              <div className="rounded-lg bg-accent/10 p-2 text-accent">
                 <Shield className="size-4" />
               </div>
             </div>
-            <div className="mt-3 text-2xl font-bold text-purple-600 dark:text-purple-400">
+            <div className="mt-3 text-2xl font-bold text-accent dark:text-accent">
               {statsData?.admins ?? 0}
             </div>
             <div className="mt-1 text-[11px] text-muted-foreground">Accès complet</div>
@@ -485,7 +485,7 @@ export default function UtilisateursPage() {
               placeholder="Rechercher par nom, prénom, email, identifiant..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-10 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="h-10 w-full rounded-xl border border-border bg-background pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
@@ -527,7 +527,7 @@ export default function UtilisateursPage() {
                 onClick={() => setRoleFilter("ADMIN")}
                 className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
                   roleFilter === "ADMIN"
-                    ? "bg-indigo-600 text-white shadow-xs"
+                    ? "bg-primary text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -539,7 +539,7 @@ export default function UtilisateursPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-xl border border-border bg-background px-3 text-xs font-medium text-foreground focus:border-indigo-500 focus:outline-none"
+              className="h-9 rounded-xl border border-border bg-background px-3 text-xs font-medium text-foreground focus:border-primary focus:outline-none"
             >
               <option value="">Tous les statuts</option>
               <option value="true">Actifs uniquement</option>
@@ -566,7 +566,7 @@ export default function UtilisateursPage() {
                 {isLoadingUsers ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                      <RefreshCw className="mx-auto size-6 animate-spin mb-2 text-indigo-600" />
+                      <RefreshCw className="mx-auto size-6 animate-spin mb-2 text-primary" />
                       Chargement des utilisateurs…
                     </td>
                   </tr>
@@ -597,7 +597,7 @@ export default function UtilisateursPage() {
                         {/* Identité */}
                         <td className="py-4 pl-6 pr-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-blue-500/20 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-900">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-blue-500/20 text-primary dark:text-primary-foreground font-bold text-xs border border-indigo-200 dark:border-indigo-900">
                               {initials}
                             </div>
                             <div>
@@ -608,7 +608,7 @@ export default function UtilisateursPage() {
                                   <span className="italic text-muted-foreground">Nom non renseigné</span>
                                 )}
                                 {isSelf && (
-                                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                                     Vous
                                   </span>
                                 )}
@@ -623,7 +623,7 @@ export default function UtilisateursPage() {
                         {/* Rôle */}
                         <td className="py-4 px-4">
                           {u.role === "ADMIN" && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/50 dark:text-indigo-300">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:border-indigo-900/50 dark:bg-primary/20/50 dark:text-primary-foreground">
                               <Shield className="size-3 text-indigo-500" />
                               Administrateur
                             </span>
@@ -709,7 +709,7 @@ export default function UtilisateursPage() {
                               }}
                               title="Réinitialiser le mot de passe"
                               id={`btn-reset-password-${u.id}`}
-                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50"
+                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20/50"
                             >
                               <KeyRound className="size-4" />
                             </button>
@@ -771,11 +771,11 @@ export default function UtilisateursPage() {
       {/* MODAL 1 : CRÉATION D'UTILISATEUR                                         */}
       {/* ========================================================================= */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/20">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
                   <UserPlus className="size-5" />
                 </div>
                 <div>
@@ -845,11 +845,11 @@ export default function UtilisateursPage() {
                     onClick={() => setCreateForm({ ...createForm, role: "ADMIN" })}
                     className={`flex flex-col items-center text-center p-3 rounded-xl border text-xs transition-all ${
                       createForm.role === "ADMIN"
-                        ? "border-indigo-500 bg-indigo-50/50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200 shadow-xs ring-2 ring-indigo-500/20"
+                        ? "border-primary bg-primary/10/50 text-primary-foreground dark:bg-primary/20/40 dark:text-primary-foreground shadow-xs ring-2 ring-primary/20"
                         : "border-border hover:border-muted-foreground/40 text-muted-foreground"
                     }`}
                   >
-                    <Shield className="size-5 mb-1.5 text-indigo-600" />
+                    <Shield className="size-5 mb-1.5 text-primary" />
                     <span className="font-bold">Administrateur</span>
                     <span className="text-[10px] opacity-75 mt-0.5">Gestion complète & comptes</span>
                   </button>
@@ -869,7 +869,7 @@ export default function UtilisateursPage() {
                     value={createForm.username}
                     onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
                     placeholder="ex: dr.rakoto"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -883,7 +883,7 @@ export default function UtilisateursPage() {
                     value={createForm.email}
                     onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                     placeholder="contact@hopital.mg"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -898,7 +898,7 @@ export default function UtilisateursPage() {
                     value={createForm.first_name}
                     onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })}
                     placeholder="Jean"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -909,7 +909,7 @@ export default function UtilisateursPage() {
                     value={createForm.last_name}
                     onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })}
                     placeholder="Rakotomalala"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -925,7 +925,7 @@ export default function UtilisateursPage() {
                   value={createForm.telephone}
                   onChange={(e) => setCreateForm({ ...createForm, telephone: e.target.value })}
                   placeholder="034 00 000 00"
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -938,7 +938,7 @@ export default function UtilisateursPage() {
                   <button
                     type="button"
                     onClick={handleGeneratePasswordForCreate}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 flex items-center gap-1"
+                    className="text-[11px] font-semibold text-primary hover:text-primary dark:text-indigo-400 flex items-center gap-1"
                   >
                     <KeyRound className="size-3" />
                     {copiedPassword ? "Copié !" : "Générer un mot de passe fort"}
@@ -952,7 +952,7 @@ export default function UtilisateursPage() {
                     value={createForm.password}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     placeholder="Mot de passe ou généré automatiquement"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-10 text-sm font-mono focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-10 text-sm font-mono focus:border-primary focus:outline-none"
                   />
                   {createForm.password && (
                     <button
@@ -978,7 +978,7 @@ export default function UtilisateursPage() {
                   id="create-user-is-active"
                   checked={createForm.is_active}
                   onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })}
-                  className="size-4 rounded-md border-border text-indigo-600 focus:ring-indigo-500"
+                  className="size-4 rounded-md border-border text-primary focus:ring-primary"
                 />
                 <label htmlFor="create-user-is-active" className="text-xs text-foreground cursor-pointer">
                   Activer immédiatement le compte (l&apos;utilisateur pourra se connecter sans délai)
@@ -998,7 +998,7 @@ export default function UtilisateursPage() {
                   type="submit"
                   disabled={createMutation.isPending}
                   id="btn-submit-create-user"
-                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
                 >
                   {createMutation.isPending ? "Création en cours…" : "Créer le compte"}
                 </button>
@@ -1012,11 +1012,11 @@ export default function UtilisateursPage() {
       {/* MODAL 2 : MODIFICATION D'UTILISATEUR                                     */}
       {/* ========================================================================= */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
                   <Edit3 className="size-5" />
                 </div>
                 <div>
@@ -1086,11 +1086,11 @@ export default function UtilisateursPage() {
                     onClick={() => setEditForm({ ...editForm, role: "ADMIN" })}
                     className={`flex flex-col items-center text-center p-3 rounded-xl border text-xs transition-all ${
                       editForm.role === "ADMIN"
-                        ? "border-indigo-500 bg-indigo-50/50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200 ring-2 ring-indigo-500/20"
+                        ? "border-primary bg-primary/10/50 text-primary-foreground dark:bg-primary/20/40 dark:text-primary-foreground ring-2 ring-primary/20"
                         : "border-border text-muted-foreground"
                     }`}
                   >
-                    <Shield className="size-5 mb-1.5 text-indigo-600" />
+                    <Shield className="size-5 mb-1.5 text-primary" />
                     <span className="font-bold">Administrateur</span>
                   </button>
                 </div>
@@ -1108,7 +1108,7 @@ export default function UtilisateursPage() {
                     id="edit-user-email"
                     value={editForm.email}
                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -1120,7 +1120,7 @@ export default function UtilisateursPage() {
                     id="edit-user-telephone"
                     value={editForm.telephone}
                     onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -1134,7 +1134,7 @@ export default function UtilisateursPage() {
                     id="edit-user-firstname"
                     value={editForm.first_name}
                     onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
                 <div>
@@ -1144,7 +1144,7 @@ export default function UtilisateursPage() {
                     id="edit-user-lastname"
                     value={editForm.last_name}
                     onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -1157,7 +1157,7 @@ export default function UtilisateursPage() {
                   checked={editForm.is_active}
                   onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
                   disabled={editingUser.id === currentUser?.id}
-                  className="size-4 rounded-md border-border text-indigo-600 focus:ring-indigo-500"
+                  className="size-4 rounded-md border-border text-primary focus:ring-primary"
                 />
                 <label htmlFor="edit-user-is-active" className="text-xs text-foreground cursor-pointer">
                   Compte actif {editingUser.id === currentUser?.id && "(votre propre compte reste actif)"}
@@ -1177,7 +1177,7 @@ export default function UtilisateursPage() {
                   type="submit"
                   disabled={updateMutation.isPending}
                   id="btn-submit-edit-user"
-                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
                 >
                   {updateMutation.isPending ? "Enregistrement…" : "Sauvegarder"}
                 </button>
@@ -1191,11 +1191,11 @@ export default function UtilisateursPage() {
       {/* MODAL 3 : RÉINITIALISATION DU MOT DE PASSE                                */}
       {/* ========================================================================= */}
       {resettingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/20">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-accent text-white shadow-md shadow-accent/20">
                   <KeyRound className="size-5" />
                 </div>
                 <div>
@@ -1231,7 +1231,7 @@ export default function UtilisateursPage() {
                 <button
                   type="button"
                   onClick={handleGeneratePasswordForReset}
-                  className="text-xs font-semibold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1"
+                  className="text-xs font-semibold text-accent hover:text-accent dark:text-accent flex items-center gap-1"
                 >
                   <KeyRound className="size-3" />
                   Générer automatiquement
@@ -1250,7 +1250,7 @@ export default function UtilisateursPage() {
                   onChange={(e) =>
                     setResetPasswordForm({ ...resetPasswordForm, new_password: e.target.value })
                   }
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-purple-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-accent focus:outline-none"
                 />
               </div>
 
@@ -1266,7 +1266,7 @@ export default function UtilisateursPage() {
                   onChange={(e) =>
                     setResetPasswordForm({ ...resetPasswordForm, confirm_password: e.target.value })
                   }
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-purple-500 focus:outline-none"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-accent focus:outline-none"
                 />
               </div>
 
@@ -1282,7 +1282,7 @@ export default function UtilisateursPage() {
                   type="submit"
                   disabled={resetPasswordMutation.isPending}
                   id="btn-submit-reset-password"
-                  className="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-purple-500/20 hover:bg-purple-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white shadow-md shadow-accent/20 hover:bg-accent/90 disabled:opacity-50"
                 >
                   {resetPasswordMutation.isPending ? "Mise à jour…" : "Appliquer le mot de passe"}
                 </button>
@@ -1296,7 +1296,7 @@ export default function UtilisateursPage() {
       {/* MODAL 4 : CONFIRMATION DE SUPPRESSION                                     */}
       {/* ========================================================================= */}
       {deletingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-destructive mb-3">
               <div className="flex size-10 items-center justify-center rounded-xl bg-destructive/10">
