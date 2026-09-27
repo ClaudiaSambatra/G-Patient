@@ -56,11 +56,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-slate-100 via-indigo-50/40 to-blue-100/50 dark:from-background dark:via-background dark:to-muted/30">
+    <main className="relative flex min-h-screen items-center justify-center p-4 sm:p-8 bg-background">
       <div className="w-full max-w-md">
         {/* En-tête Brand */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-xl shadow-indigo-500/25">
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl">
             <Activity className="size-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -71,7 +71,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Card className="border-border/80 shadow-xl rounded-2xl backdrop-blur-md bg-card/90">
+        <Card className="border-border shadow-xl rounded-2xl backdrop-blur-md bg-card">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-lg font-semibold">Connexion à votre espace</CardTitle>
             <CardDescription className="text-xs">
@@ -91,7 +91,7 @@ export default function LoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="ex: dr.rakoto"
-                    className="pl-9 h-10 rounded-xl"
+                    className="pl-9 h-10 rounded-xl bg-background"
                     required
                   />
                 </div>
@@ -109,7 +109,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 h-10 rounded-xl"
+                    className="pl-9 h-10 rounded-xl bg-background"
                     required
                   />
                 </div>
@@ -126,7 +126,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 id="btn-login-submit"
-                className="w-full h-10 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold shadow-md shadow-indigo-500/20 mt-1"
+                className="w-full h-10 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold shadow-md mt-1"
               >
                 {loading ? "Vérification…" : "Se connecter"}
               </Button>
