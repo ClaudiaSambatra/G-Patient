@@ -149,8 +149,6 @@ export function Sidebar() {
           Facturation
         </Link>
 
-        <Link
-        <Link
         {isAdmin && (
           <Link
             href="/statistiques"
