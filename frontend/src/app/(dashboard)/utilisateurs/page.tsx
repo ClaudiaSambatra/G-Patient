@@ -89,6 +89,7 @@ export default function UtilisateursPage() {
 
   // Formulaire d'édition
   const [editForm, setEditForm] = useState({
+    username: "",
     first_name: "",
     last_name: "",
     email: "",
@@ -302,6 +303,7 @@ export default function UtilisateursPage() {
   function openEditModal(user: Utilisateur) {
     setEditingUser(user)
     setEditForm({
+      username: user.username,
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
@@ -1096,8 +1098,21 @@ export default function UtilisateursPage() {
                 </div>
               </div>
 
-              {/* Email & Téléphone */}
+              {/* Identifiant & Email */}
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-foreground block mb-1">
+                    Identifiant de connexion *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    id="edit-user-username"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-medium text-foreground block mb-1">
                     Adresse email
@@ -1108,18 +1123,6 @@ export default function UtilisateursPage() {
                     id="edit-user-email"
                     value={editForm.email}
                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground block mb-1">
-                    Téléphone
-                  </label>
-                  <input
-                    type="text"
-                    id="edit-user-telephone"
-                    value={editForm.telephone}
-                    onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })}
                     className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -1147,6 +1150,20 @@ export default function UtilisateursPage() {
                     className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Téléphone */}
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">
+                  Téléphone professionnel
+                </label>
+                <input
+                  type="text"
+                  id="edit-user-telephone"
+                  value={editForm.telephone}
+                  onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })}
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                />
               </div>
 
               {/* Statut actif */}
