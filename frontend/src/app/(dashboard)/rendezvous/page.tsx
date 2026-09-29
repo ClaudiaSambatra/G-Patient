@@ -134,7 +134,7 @@ export default function RendezVousPage() {
       const payload = {
         patient: form.patient,
         medecin: form.medecin,
-        date_heure: `${form.date}T${form.heure}:00Z`,
+        date_heure: new Date(`${form.date}T${form.heure}:00`).toISOString(),
         duree_minutes: form.duree_minutes,
         motif: form.motif
       }
@@ -155,7 +155,7 @@ export default function RendezVousPage() {
       const payload = {
         patient: form.patient,
         medecin: form.medecin,
-        date_heure: `${form.date}T${form.heure}:00Z`,
+        date_heure: new Date(`${form.date}T${form.heure}:00`).toISOString(),
         duree_minutes: form.duree_minutes,
         motif: form.motif
       }
@@ -368,10 +368,11 @@ export default function RendezVousPage() {
                                 onClick={() => {
                                   setSelectedRdv(rdv)
                                   const dateObj = new Date(rdv.date_heure)
+                                  const localDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`
                                   setForm({
                                     patient: rdv.patient.toString(),
                                     medecin: rdv.medecin.toString(),
-                                    date: dateObj.toISOString().split("T")[0],
+                                    date: localDateStr,
                                     heure: dateObj.toTimeString().slice(0, 5),
                                     duree_minutes: rdv.duree_minutes,
                                     motif: rdv.motif || ""
