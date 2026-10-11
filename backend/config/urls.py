@@ -3,6 +3,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from accounts.views import MedecinViewSet, MyTokenObtainPairView
+from accounts.password_reset_views import RequestOTPView, ResetPasswordView
 
 medecin_router = DefaultRouter()
 medecin_router.register(r'', MedecinViewSet, basename='medecin')
@@ -13,6 +14,11 @@ urlpatterns = [
     # Authentification JWT
     path('api/auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # Mot de passe oublié
+    path('api/auth/request-otp/', RequestOTPView.as_view(), name='request_otp'),
+    path('api/auth/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
+    
     # Comptes
     path('api/accounts/', include('accounts.urls')),
 

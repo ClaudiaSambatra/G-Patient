@@ -22,7 +22,7 @@ export default function Home() {
                 </span>
               </span>
               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Building2 className="size-2.5" /> CHU Antananarivo
+                <Building2 className="size-2.5" /> Centre Médical
               </span>
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border/40 py-8 bg-white dark:bg-background">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} CHU Antananarivo. Tous droits réservés.</p>
+          <p>© {new Date().getFullYear()} Tous droits réservés.</p>
           <div className="flex gap-4">
             <span className="hover:text-foreground cursor-pointer">Support Technique</span>
             <span className="hover:text-foreground cursor-pointer">Mentions Légales</span>

@@ -77,7 +77,7 @@ export function Sidebar() {
               </span>
             </span>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Building2 className="size-2.5" /> CHU Antananarivo
+              <Building2 className="size-2.5" /> Centre Médical
             </span>
           </div>
         </Link>
