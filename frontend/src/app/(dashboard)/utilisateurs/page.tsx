@@ -1051,48 +1051,57 @@ export default function UtilisateursPage() {
               }}
               className="mt-5 space-y-4"
             >
-              {/* Choix du rôle */}
+              {/* Choix du rôle (non modifiable lors de l'édition) */}
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">
-                  Rôle métier *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Rôle métier <span className="text-[11px] font-normal lowercase text-muted-foreground">(non modifiable)</span>
+                  </label>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Lock className="size-3" />
+                    Fixé à la création
+                  </span>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
-                    onClick={() => setEditForm({ ...editForm, role: "MEDECIN" })}
+                    disabled={true}
+                    title={editingUser.role === "MEDECIN" ? "Rôle actuel de l'utilisateur" : "Rôle non modifiable"}
                     className={`flex flex-col items-center text-center p-3 rounded-xl border text-xs transition-all ${
-                      editForm.role === "MEDECIN"
-                        ? "border-emerald-500 bg-emerald-50/50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200 ring-2 ring-emerald-500/20"
-                        : "border-border text-muted-foreground"
+                      editingUser.role === "MEDECIN"
+                        ? "border-emerald-500 bg-emerald-50/50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200 ring-2 ring-emerald-500/20 shadow-xs cursor-default"
+                        : "opacity-40 grayscale bg-muted/40 border-dashed border-border/60 text-muted-foreground/60 cursor-not-allowed select-none"
                     }`}
                   >
-                    <Stethoscope className="size-5 mb-1.5 text-emerald-600" />
+                    <Stethoscope className={`size-5 mb-1.5 ${editingUser.role === "MEDECIN" ? "text-emerald-600" : "text-muted-foreground"}`} />
                     <span className="font-bold">Médecin</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setEditForm({ ...editForm, role: "SECRETAIRE" })}
+                    disabled={true}
+                    title={editingUser.role === "SECRETAIRE" ? "Rôle actuel de l'utilisateur" : "Rôle non modifiable"}
                     className={`flex flex-col items-center text-center p-3 rounded-xl border text-xs transition-all ${
-                      editForm.role === "SECRETAIRE"
-                        ? "border-amber-500 bg-amber-50/50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 ring-2 ring-amber-500/20"
-                        : "border-border text-muted-foreground"
+                      editingUser.role === "SECRETAIRE"
+                        ? "border-amber-500 bg-amber-50/50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 ring-2 ring-amber-500/20 shadow-xs cursor-default"
+                        : "opacity-40 grayscale bg-muted/40 border-dashed border-border/60 text-muted-foreground/60 cursor-not-allowed select-none"
                     }`}
                   >
-                    <Briefcase className="size-5 mb-1.5 text-amber-600" />
+                    <Briefcase className={`size-5 mb-1.5 ${editingUser.role === "SECRETAIRE" ? "text-amber-600" : "text-muted-foreground"}`} />
                     <span className="font-bold">Secrétaire</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setEditForm({ ...editForm, role: "ADMIN" })}
+                    disabled={true}
+                    title={editingUser.role === "ADMIN" ? "Rôle actuel de l'utilisateur" : "Rôle non modifiable"}
                     className={`flex flex-col items-center text-center p-3 rounded-xl border text-xs transition-all ${
-                      editForm.role === "ADMIN"
-                        ? "border-primary bg-primary/10/50 text-primary-foreground dark:bg-primary/20/40 dark:text-primary-foreground ring-2 ring-primary/20"
-                        : "border-border text-muted-foreground"
+                      editingUser.role === "ADMIN"
+                        ? "border-primary bg-primary/10 text-primary-foreground dark:bg-primary/20 dark:text-primary ring-2 ring-primary/20 shadow-xs cursor-default"
+                        : "opacity-40 grayscale bg-muted/40 border-dashed border-border/60 text-muted-foreground/60 cursor-not-allowed select-none"
                     }`}
                   >
-                    <Shield className="size-5 mb-1.5 text-primary" />
+                    <Shield className={`size-5 mb-1.5 ${editingUser.role === "ADMIN" ? "text-primary" : "text-muted-foreground"}`} />
                     <span className="font-bold">Administrateur</span>
                   </button>
                 </div>
