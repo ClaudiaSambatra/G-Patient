@@ -29,7 +29,8 @@ import {
   Eye,
   Check,
   Ban,
-  AlertTriangle
+  AlertTriangle,
+  FileSignature
 } from "lucide-react"
 
 interface Patient {
@@ -69,6 +70,7 @@ interface ConsultationData {
   patient: number
   patient_nom: string
   patient_prenom: string
+  medecin: number
   medecin_nom: string
   rendez_vous: number | null
   date_consultation: string
@@ -127,6 +129,19 @@ export default function RendezVousPage() {
   const [isConsultReadOnlyOpen, setIsConsultReadOnlyOpen] = useState(false)
   const [selectedRdv, setSelectedRdv] = useState<RendezVous | null>(null)
   const [existingConsultation, setExistingConsultation] = useState<ConsultationData | null>(null)
+  const [isEditingConsultation, setIsEditingConsultation] = useState(false)
+  const [editConsultForm, setEditConsultForm] = useState({
+    motif: "",
+    observations: "",
+    diagnostic: "",
+    compte_rendu: ""
+  })
+  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false)
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    medicaments: "",
+    posologie: "",
+    duree: ""
+  })
 
   // Notifications et erreurs de formulaire
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
@@ -403,6 +418,48 @@ export default function RendezVousPage() {
     },
   })
 
+  // Mutation Modification Consultation
+  const updateConsultationMutation = useMutation({
+    mutationFn: async () => {
+      if (!existingConsultation) return
+      return apiClient.patch<ConsultationData>(`/consultations/${existingConsultation.id}/`, editConsultForm)
+    },
+    onSuccess: (res) => {
+      setIsEditingConsultation(false)
+      if (res?.data) {
+        setExistingConsultation(res.data)
+      }
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      queryClient.invalidateQueries({ queryKey: ["consultations"] })
+      showNotification("success", "Consultation modifiée avec succès.")
+    },
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de la modification de la consultation.")
+      showNotification("error", msg)
+    },
+  })
+
+  // Mutation Création Ordonnance
+  const createPrescriptionMutation = useMutation({
+    mutationFn: async () => {
+      if (!existingConsultation) return
+      return apiClient.post("/prescriptions/", {
+        consultation: existingConsultation.id,
+        ...prescriptionForm
+      })
+    },
+    onSuccess: () => {
+      setIsPrescriptionModalOpen(false)
+      setPrescriptionForm({ medicaments: "", posologie: "", duree: "" })
+      queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
+      showNotification("success", "Ordonnance rédigée avec succès.")
+    },
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de la création de l'ordonnance.")
+      showNotification("error", msg)
+    },
+  })
+
   // Ouvrir consultation : consultation existante ou rédaction
   async function handleOpenConsultation(rdv: RendezVous) {
     setSelectedRdv(rdv)
@@ -410,6 +467,13 @@ export default function RendezVousPage() {
       const { data } = await apiClient.get<{ results: ConsultationData[] }>(`/consultations/?rendez_vous=${rdv.id}`)
       if (data.results && data.results.length > 0) {
         setExistingConsultation(data.results[0])
+        setIsEditingConsultation(false)
+        setEditConsultForm({
+          motif: data.results[0].motif || "",
+          observations: data.results[0].observations || "",
+          diagnostic: data.results[0].diagnostic || "",
+          compte_rendu: data.results[0].compte_rendu || ""
+        })
         setIsConsultReadOnlyOpen(true)
       } else {
         setConsultForm({
@@ -1551,14 +1615,15 @@ export default function RendezVousPage() {
         </div>
       )}
 
-      {/* MODAL CONSULTATION EXISTANTE (LECTURE SEULE) */}
+      {/* MODAL CONSULTATION EXISTANTE (LECTURE SEULE / ÉDITION POUR AUTEUR) */}
       {isConsultReadOnlyOpen && existingConsultation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div>
                 <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Eye className="size-5 text-emerald-600" /> Consultation médicale (Terminée)
+                  <Eye className="size-5 text-emerald-600" />
+                  {isEditingConsultation ? "Modifier la consultation" : "Consultation médicale (Terminée)"}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Consultation du {new Date(existingConsultation.date_consultation).toLocaleString("fr-FR")} — {existingConsultation.medecin_nom}
@@ -1566,53 +1631,252 @@ export default function RendezVousPage() {
               </div>
               <button 
                 type="button" 
-                onClick={() => setIsConsultReadOnlyOpen(false)} 
+                onClick={() => {
+                  setIsConsultReadOnlyOpen(false)
+                  setIsEditingConsultation(false)
+                }} 
                 className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <XCircle className="size-5" />
               </button>
             </div>
 
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="rounded-xl bg-muted/40 p-3 border border-border/60">
-                <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
-                <span className="font-bold text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</span>
-              </div>
-
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Motif</span>
-                <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground font-medium">
-                  {existingConsultation.motif}
+            {isEditingConsultation ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  updateConsultationMutation.mutate()
+                }}
+                className="mt-5 space-y-4 text-sm"
+              >
+                <div className="rounded-xl bg-muted/40 p-3 border border-border/60">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
+                  <span className="font-bold text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</span>
                 </div>
-              </div>
 
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Observations cliniques</span>
-                <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground whitespace-pre-wrap">
-                  {existingConsultation.observations || <span className="italic text-muted-foreground">Aucune observation renseignée</span>}
+                <div>
+                  <Label htmlFor="edit-motif">Motif *</Label>
+                  <Input
+                    id="edit-motif"
+                    value={editConsultForm.motif}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, motif: e.target.value }))}
+                    required
+                    className="mt-1"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Diagnostic</span>
-                <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground font-semibold whitespace-pre-wrap">
-                  {existingConsultation.diagnostic || <span className="italic text-muted-foreground font-normal">Non renseigné</span>}
+                <div>
+                  <Label htmlFor="edit-observations">Observations cliniques (Constantes vitales)</Label>
+                  <textarea
+                    id="edit-observations"
+                    value={editConsultForm.observations}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, observations: e.target.value }))}
+                    rows={3}
+                    className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Compte rendu médical</span>
-                <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground whitespace-pre-wrap">
-                  {existingConsultation.compte_rendu || <span className="italic text-muted-foreground">Aucun compte rendu rédigé</span>}
+                <div>
+                  <Label htmlFor="edit-diagnostic">Diagnostic *</Label>
+                  <textarea
+                    id="edit-diagnostic"
+                    value={editConsultForm.diagnostic}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, diagnostic: e.target.value }))}
+                    rows={3}
+                    required
+                    className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring font-semibold"
+                  />
                 </div>
+
+                <div>
+                  <Label htmlFor="edit-compte-rendu">Compte rendu médical</Label>
+                  <textarea
+                    id="edit-compte-rendu"
+                    value={editConsultForm.compte_rendu}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, compte_rendu: e.target.value }))}
+                    rows={3}
+                    className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-5 border-t border-border/60 mt-6">
+                  <Button type="button" variant="outline" onClick={() => setIsEditingConsultation(false)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateConsultationMutation.isPending}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                  >
+                    {updateConsultationMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="mt-5 space-y-4 text-sm">
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/60">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
+                    <span className="font-bold text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Motif</span>
+                    <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground font-medium">
+                      {existingConsultation.motif}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Observations cliniques</span>
+                    <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground whitespace-pre-wrap">
+                      {existingConsultation.observations || <span className="italic text-muted-foreground">Aucune observation renseignée</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Diagnostic</span>
+                    <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground font-semibold whitespace-pre-wrap">
+                      {existingConsultation.diagnostic || <span className="italic text-muted-foreground font-normal">Non renseigné</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Compte rendu médical</span>
+                    <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground whitespace-pre-wrap">
+                      {existingConsultation.compte_rendu || <span className="italic text-muted-foreground">Aucun compte rendu rédigé</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/60 mt-6">
+                  <div>
+                    {currentUser?.role === "MEDECIN" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsPrescriptionModalOpen(true)}
+                        className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                      >
+                        <FileSignature className="size-4" /> Rédiger une ordonnance
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {currentUser?.role === "MEDECIN" && existingConsultation.medecin === currentUser?.id && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setEditConsultForm({
+                            motif: existingConsultation.motif || "",
+                            observations: existingConsultation.observations || "",
+                            diagnostic: existingConsultation.diagnostic || "",
+                            compte_rendu: existingConsultation.compte_rendu || ""
+                          })
+                          setIsEditingConsultation(true)
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Edit className="size-4" /> Modifier
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      onClick={() => setIsConsultReadOnlyOpen(false)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      Fermer
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CRÉATION ORDONNANCE */}
+      {isPrescriptionModalOpen && existingConsultation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <FileSignature className="size-5 text-primary" /> Rédiger une ordonnance
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Patient : <strong className="text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</strong>
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsPrescriptionModalOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <XCircle className="size-5" />
+              </button>
             </div>
 
-            <div className="flex justify-end pt-5 border-t border-border/60 mt-6">
-              <Button type="button" onClick={() => setIsConsultReadOnlyOpen(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Fermer
-              </Button>
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                createPrescriptionMutation.mutate()
+              }}
+              className="mt-5 space-y-4"
+            >
+              <div>
+                <Label htmlFor="presc-medicaments">Médicaments * (un par ligne)</Label>
+                <textarea
+                  id="presc-medicaments"
+                  required
+                  rows={4}
+                  placeholder="Ex : Paracétamol 1g&#10;Amoxicilline 500mg"
+                  value={prescriptionForm.medicaments}
+                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, medicaments: e.target.value }))}
+                  className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="presc-posologie">Posologie *</Label>
+                <textarea
+                  id="presc-posologie"
+                  required
+                  rows={3}
+                  placeholder="Ex : 1 comprimé 3 fois par jour au cours des repas"
+                  value={prescriptionForm.posologie}
+                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, posologie: e.target.value }))}
+                  className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="presc-duree">Durée du traitement *</Label>
+                <Input
+                  id="presc-duree"
+                  required
+                  placeholder="Ex : 7 jours, 2x/jour"
+                  value={prescriptionForm.duree}
+                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, duree: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+                <Button type="button" variant="outline" onClick={() => setIsPrescriptionModalOpen(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createPrescriptionMutation.isPending}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  {createPrescriptionMutation.isPending ? "Enregistrement..." : "Enregistrer l'ordonnance"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
