@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import Utilisateur, Medecin
@@ -15,6 +16,8 @@ from .serializers import (
     ResetPasswordSerializer,
     MedecinSerializer,
     MyTokenObtainPairSerializer,
+    UserProfileUpdateSerializer,
+    ChangePasswordSerializer,
 )
 
 
@@ -24,16 +27,84 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
 class MeView(APIView):
     """
-    Retourne le profil de l'utilisateur actuellement connecté.
+    Gestion du profil de l'utilisateur connecté.
+    GET : retourne le profil (avec URL absolue de la photo ou null).
+    PATCH : met à jour first_name, last_name, telephone, et optionnellement la photo.
     """
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
-        serializer = UtilisateurSerializer(request.user)
+        serializer = UtilisateurSerializer(request.user, context={'request': request})
         data = serializer.data
         data['full_name'] = request.user.get_full_name() or request.user.username
         data['role_display'] = request.user.get_role_display()
+        if hasattr(request.user, 'medecin_profile'):
+            data['medecin_id'] = request.user.medecin_profile.id
+            data['absent_aujourdhui'] = request.user.medecin_profile.absent_aujourdhui
         return Response(data)
+
+    def patch(self, request):
+        serializer = UserProfileUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        full_serializer = UtilisateurSerializer(request.user, context={'request': request})
+        data = full_serializer.data
+        data['full_name'] = request.user.get_full_name() or request.user.username
+        data['role_display'] = request.user.get_role_display()
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class MePhotoView(APIView):
+    """
+    Gestion dédiée de la photo de profil.
+    DELETE : supprime la photo (le fichier et la valeur en base).
+    POST : permet également l'upload direct de la photo en multipart/form-data.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def delete(self, request):
+        if request.user.photo:
+            request.user.photo.delete(save=False)
+            request.user.photo = None
+            request.user.save(update_fields=['photo'])
+        return Response({"message": "Photo supprimée avec succès."}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = UserProfileUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        full_serializer = UtilisateurSerializer(request.user, context={'request': request})
+        data = full_serializer.data
+        data['full_name'] = request.user.get_full_name() or request.user.username
+        data['role_display'] = request.user.get_role_display()
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    """
+    Changement de mot de passe par l'utilisateur connecté.
+    POST /api/accounts/me/change-password/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Mot de passe modifié avec succès."}, status=status.HTTP_200_OK)
 
 
 class UtilisateurViewSet(viewsets.ModelViewSet):
@@ -151,10 +222,42 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Module Médecin : Lecture seule, accessible à tout utilisateur authentifié.
     Sert à peupler les listes déroulantes de praticiens lors de la création de rendez-vous.
+    Permet également la mise à jour de la présence du jour.
     """
     queryset = Medecin.objects.all().order_by('utilisateur__last_name', 'utilisateur__first_name')
     serializer_class = MedecinSerializer
     permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='presence')
+    def presence(self, request, pk=None):
+        medecin = self.get_object()
+        user = request.user
+        
+        # Vérification des permissions :
+        # Médecin uniquement pour lui-même, Secrétaire ou Admin pour tous
+        is_own_profile = hasattr(user, 'medecin_profile') and user.medecin_profile.id == medecin.id
+        is_staff_or_secretaire = user.role in [Utilisateur.Role.ADMIN, Utilisateur.Role.SECRETAIRE] or user.is_superuser
+        
+        if not (is_own_profile or is_staff_or_secretaire):
+            return Response(
+                {"detail": "Vous ne pouvez modifier que votre propre présence."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        absent_raw = request.data.get('absent')
+        if absent_raw is None:
+            return Response(
+                {"detail": "Le champ 'absent' (booléen) est requis."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        absent = bool(absent_raw) if isinstance(absent_raw, bool) else str(absent_raw).lower() in ['true', '1']
+        if absent:
+            medecin.date_absence = timezone.localdate()
+        else:
+            medecin.date_absence = None
+        medecin.save(update_fields=['date_absence'])
+        
+        return Response(MedecinSerializer(medecin, context={'request': request}).data, status=status.HTTP_200_OK)
 
 
 from rest_framework.views import APIView

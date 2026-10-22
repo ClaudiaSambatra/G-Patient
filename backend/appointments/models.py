@@ -30,8 +30,31 @@ class RendezVous(models.Model):
     def clean(self):
         super().clean()
         from django.core.exceptions import ValidationError
+        from django.utils import timezone
         import datetime
+
         if self.date_heure and self.medecin:
+            rdv_date = timezone.localtime(self.date_heure).date() if timezone.is_aware(self.date_heure) else self.date_heure.date()
+            today = timezone.localdate()
+
+            # Règle 1 : Présence du médecin
+            if rdv_date == today and getattr(self.medecin, 'absent_aujourdhui', False):
+                is_new = self.pk is None
+                is_moved_or_changed_medecin = False
+                if self.pk:
+                    existing = RendezVous.objects.filter(pk=self.pk).only('date_heure', 'medecin_id').first()
+                    if existing:
+                        existing_date = timezone.localtime(existing.date_heure).date() if timezone.is_aware(existing.date_heure) else existing.date_heure.date()
+                        if existing_date != rdv_date or existing.medecin_id != self.medecin_id:
+                            is_moved_or_changed_medecin = True
+                    else:
+                        is_moved_or_changed_medecin = True
+
+                if is_new or is_moved_or_changed_medecin:
+                    raise ValidationError({
+                        'date_heure': "Ce médecin est absent aujourd'hui."
+                    })
+
             # Calculer la fin du rdv
             start_time = self.date_heure
             end_time = start_time + datetime.timedelta(minutes=self.duree_minutes)

@@ -8,6 +8,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
     patient_nom = serializers.SerializerMethodField()
     medecin_nom = serializers.SerializerMethodField()
     patient_contact = serializers.CharField(source='patient.contact', read_only=True)
+    medecin_absent_aujourdhui = serializers.BooleanField(source='medecin.absent_aujourdhui', read_only=True)
 
     class Meta:
         model = RendezVous

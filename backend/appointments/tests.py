@@ -21,8 +21,12 @@ def setup_data():
     secretaire = Utilisateur.objects.create_user(username='secr', password='password', role='SECRETAIRE')
     
     # Médecins
-    medecin1 = Medecin.objects.create(utilisateur=medecin1_user, specialite='Généraliste')
-    medecin2 = Medecin.objects.create(utilisateur=medecin2_user, specialite='Cardiologue')
+    medecin1, _ = Medecin.objects.get_or_create(utilisateur=medecin1_user, defaults={'specialite': 'Généraliste'})
+    medecin1.specialite = 'Généraliste'
+    medecin1.save()
+    medecin2, _ = Medecin.objects.get_or_create(utilisateur=medecin2_user, defaults={'specialite': 'Cardiologue'})
+    medecin2.specialite = 'Cardiologue'
+    medecin2.save()
     
     # Patient
     patient = Patient.objects.create(
@@ -93,3 +97,115 @@ def test_patch_rendezvous_status(api_client, setup_data):
     
     rdv.refresh_from_db()
     assert rdv.statut == 'CONFIRME'
+
+
+# ============================================================================
+# Tests : Statut de présence du médecin (du jour)
+# ============================================================================
+
+@pytest.mark.django_db
+def test_medecin_modifies_own_presence(api_client, setup_data):
+    med1_user = setup_data['medecin1']
+    med1_profile = setup_data['medecin1_profile']
+    url = reverse('medecin-presence', args=[med1_profile.id])
+
+    # Le médecin déclare son absence
+    api_client.force_authenticate(user=med1_user)
+    response = api_client.post(url, {'absent': True}, format='json')
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data['absent_aujourdhui'] is True
+    med1_profile.refresh_from_db()
+    assert med1_profile.absent_aujourdhui is True
+
+    # Le médecin redevient présent
+    response = api_client.post(url, {'absent': False}, format='json')
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data['absent_aujourdhui'] is False
+    med1_profile.refresh_from_db()
+    assert med1_profile.absent_aujourdhui is False
+
+
+@pytest.mark.django_db
+def test_medecin_cannot_modify_other_medecin_presence(api_client, setup_data):
+    med1_user = setup_data['medecin1']
+    med2_profile = setup_data['medecin2_profile']
+    url = reverse('medecin-presence', args=[med2_profile.id])
+
+    api_client.force_authenticate(user=med1_user)
+    response = api_client.post(url, {'absent': True}, format='json')
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_secretaire_and_admin_can_modify_any_medecin_presence(api_client, setup_data):
+    med1_profile = setup_data['medecin1_profile']
+    url = reverse('medecin-presence', args=[med1_profile.id])
+
+    # Secrétaire
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    res_sec = api_client.post(url, {'absent': True}, format='json')
+    assert res_sec.status_code == status.HTTP_200_OK
+    assert res_sec.data['absent_aujourdhui'] is True
+
+    # Admin
+    api_client.force_authenticate(user=setup_data['admin'])
+    res_adm = api_client.post(url, {'absent': False}, format='json')
+    assert res_adm.status_code == status.HTTP_200_OK
+    assert res_adm.data['absent_aujourdhui'] is False
+
+
+@pytest.mark.django_db
+def test_rendezvous_today_refused_for_absent_medecin(api_client, setup_data):
+    from django.utils import timezone
+    med1_profile = setup_data['medecin1_profile']
+    med1_profile.date_absence = timezone.localdate()
+    med1_profile.save()
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-list')
+
+    # RDV fixé à aujourd'hui
+    today_dt = timezone.now().replace(hour=14, minute=0, second=0, microsecond=0)
+    data = {
+        'patient': setup_data['patient'].id,
+        'medecin': med1_profile.id,
+        'date_heure': today_dt.isoformat(),
+        'motif': 'Urgence'
+    }
+    response = api_client.post(url, data, format='json')
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Ce médecin est absent aujourd'hui." in str(response.data)
+
+
+@pytest.mark.django_db
+def test_rendezvous_other_day_accepted_for_absent_medecin(api_client, setup_data):
+    from django.utils import timezone
+    med1_profile = setup_data['medecin1_profile']
+    med1_profile.date_absence = timezone.localdate()
+    med1_profile.save()
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-list')
+
+    # RDV fixé à demain
+    tomorrow_dt = timezone.now().replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    data = {
+        'patient': setup_data['patient'].id,
+        'medecin': med1_profile.id,
+        'date_heure': tomorrow_dt.isoformat(),
+        'motif': 'Suivi demain'
+    }
+    response = api_client.post(url, data, format='json')
+    assert response.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+def test_medecin_absence_resets_next_day(setup_data):
+    from django.utils import timezone
+    med1_profile = setup_data['medecin1_profile']
+    # Simulation d'une absence posée hier
+    med1_profile.date_absence = timezone.localdate() - timedelta(days=1)
+    med1_profile.save()
+
+    assert med1_profile.absent_aujourdhui is False
+
