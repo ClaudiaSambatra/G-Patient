@@ -421,6 +421,33 @@ def test_encaissement_passe_facture_payee_et_confirme_rendezvous(api_client, tes
     assert rdv.statut == RendezVous.Statut.CONFIRME
 
 
+# 9b. L'administrateur a aussi les droits de secrétaire et peut encaisser
+@pytest.mark.django_db
+def test_admin_a_les_droits_secretaire_et_peut_encaisser(api_client, test_data):
+    rdv = RendezVous.objects.create(
+        patient=test_data['patient'],
+        medecin=test_data['medecin1'],
+        date_heure=timezone.now() + timedelta(days=2),
+        type=RendezVous.Type.CONSULTATION,
+        statut=RendezVous.Statut.PLANIFIE
+    )
+    facture = rdv.facture
+    assert facture.statut == Facture.StatutPaiement.IMPAYEE
+
+    api_client.force_authenticate(user=test_data['admin'])
+    url = reverse('facture-encaisser', args=[facture.id])
+    res = api_client.post(url, format='json')
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data['statut'] == Facture.StatutPaiement.PAYEE
+    assert res.data['date_paiement'] is not None
+
+    facture.refresh_from_db()
+    rdv.refresh_from_db()
+    assert facture.statut == Facture.StatutPaiement.PAYEE
+    assert facture.encaisse_par == test_data['admin']
+    assert rdv.statut == RendezVous.Statut.CONFIRME
+
+
 # 10. La consultation reste possible quand la facture est impayée
 @pytest.mark.django_db
 def test_consultation_possible_quand_facture_impayee(api_client, test_data):
