@@ -11,5 +11,8 @@ class Ordonnance(models.Model):
     duree = models.CharField(max_length=100, help_text="Ex: 7 jours, 2x/jour")
     date_creation = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-date_creation']
+
     def __str__(self):
         return f"Ordonnance #{self.pk} — {self.consultation}"

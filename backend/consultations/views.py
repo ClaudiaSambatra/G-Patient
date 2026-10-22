@@ -64,7 +64,7 @@ class ConsultationViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Consultation.objects.all().select_related('patient', 'medecin', 'rendez_vous')
 
-        if user.role == 'MEDECIN':
+        if user.role == 'MEDECIN' and self.action == 'list':
             from appointments.models import RendezVous
             from django.db.models import Q
             consult_origine_ids = RendezVous.objects.filter(

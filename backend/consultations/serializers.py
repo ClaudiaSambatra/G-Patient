@@ -64,9 +64,9 @@ class ConsultationSerializer(serializers.ModelSerializer):
                 if rendez_vous.medecin.utilisateur != request.user:
                     raise serializers.ValidationError({"rendez_vous": "Ce rendez-vous ne vous est pas attribué."})
 
-            # 2. Le rendez-vous ne doit pas être déjà terminé ou annulé (aucun blocage selon le paiement)
-            if rendez_vous.statut in ['ANNULE', 'TERMINE']:
-                raise serializers.ValidationError({"rendez_vous": f"Impossible de consulter un rendez-vous avec le statut {rendez_vous.get_statut_display()}."})
+            # 2. Le rendez-vous doit être au statut CONFIRME (aucun blocage selon le paiement)
+            if rendez_vous.statut != 'CONFIRME':
+                raise serializers.ValidationError({"rendez_vous": "Le rendez-vous doit être au statut CONFIRME pour pouvoir être consulté."})
 
             # 3. Le patient de la consultation doit être celui du rendez-vous (le déduire du rendez-vous, ne pas le prendre du client)
             attrs['patient'] = rendez_vous.patient
