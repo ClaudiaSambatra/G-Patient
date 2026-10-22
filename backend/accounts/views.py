@@ -287,11 +287,15 @@ class DashboardStatsView(APIView):
                 'consultations': consultations_medecin
             })
             
+        from billing.models import Facture
+        factures_impayees = Facture.objects.filter(statut=Facture.StatutPaiement.IMPAYEE).count()
+            
         return Response({
             "total_patients": patients_count,
             "rdv_du_jour": rdv_du_jour,
             "total_consultations": consultations_count,
             "medecins_actifs": medecins_actifs,
+            "factures_impayees": factures_impayees,
             "activite_medecins": activite_medecins
         })
 
