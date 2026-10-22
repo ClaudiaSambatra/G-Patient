@@ -30,7 +30,14 @@ class IsAuteurMedecin(permissions.BasePermission):
             return True
         if request.method in permissions.SAFE_METHODS:
             if request.user.role == 'MEDECIN':
-                return obj.medecin == request.user
+                if obj.medecin == request.user:
+                    return True
+                from appointments.models import RendezVous
+                return RendezVous.objects.filter(
+                    medecin__utilisateur=request.user,
+                    type=RendezVous.Type.CONTROLE,
+                    consultation_origine=obj
+                ).exists()
             return True
         return request.user.role == 'MEDECIN' and obj.medecin == request.user
 
@@ -57,9 +64,15 @@ class ConsultationViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Consultation.objects.all().select_related('patient', 'medecin', 'rendez_vous')
 
-        if user.role == 'MEDECIN' and self.action == 'list':
-            # Le médecin ne voit que ses propres consultations dans la liste
-            queryset = queryset.filter(medecin=user)
+        if user.role == 'MEDECIN':
+            from appointments.models import RendezVous
+            from django.db.models import Q
+            consult_origine_ids = RendezVous.objects.filter(
+                medecin__utilisateur=user,
+                type=RendezVous.Type.CONTROLE,
+                consultation_origine__isnull=False
+            ).values_list('consultation_origine_id', flat=True)
+            queryset = queryset.filter(Q(medecin=user) | Q(id__in=consult_origine_ids)).distinct()
 
         # Filtres via URL params
         rdv_id = self.request.query_params.get('rendez_vous')

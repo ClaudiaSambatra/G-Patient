@@ -22,7 +22,7 @@ class RendezVousViewSet(viewsets.ModelViewSet):
     search_fields = ['motif', 'patient__nom', 'patient__prenom', 'medecin__utilisateur__last_name']
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'controle_eligible']:
             permission_classes = [IsAuthenticated, IsSecretaireOuMedecinOuAdmin]
         elif self.action == 'destroy':
             permission_classes = [IsAuthenticated, IsAdmin]
@@ -32,7 +32,9 @@ class RendezVousViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = RendezVous.objects.all().select_related('patient', 'medecin__utilisateur', 'consultation')
+        queryset = RendezVous.objects.all().select_related(
+            'patient', 'medecin__utilisateur', 'consultation', 'consultation_origine'
+        )
 
         # Si l'utilisateur est un médecin, il ne voit que ses rendez-vous
         if user.role == 'MEDECIN':
@@ -46,6 +48,11 @@ class RendezVousViewSet(viewsets.ModelViewSet):
         statut = self.request.query_params.get('statut')
         if statut:
             queryset = queryset.filter(statut=statut)
+
+        # Filtre type
+        type_rdv = self.request.query_params.get('type')
+        if type_rdv:
+            queryset = queryset.filter(type=type_rdv)
 
         # Filtres par date (jour exact ou intervalle)
         date_str = self.request.query_params.get('date')
@@ -70,6 +77,40 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    @action(detail=False, methods=['get'], url_path='controle-eligible')
+    def controle_eligible(self, request):
+        patient_id = request.query_params.get('patient')
+        date_str = request.query_params.get('date')
+
+        if not patient_id or not date_str:
+            return Response({"eligible": False, "consultation_origine": None})
+
+        from datetime import datetime, timedelta, date as dt_date
+        from django.utils import timezone
+        from consultations.models import Consultation
+
+        try:
+            if 'T' in date_str:
+                target_date = datetime.fromisoformat(date_str).date()
+            else:
+                target_date = dt_date.fromisoformat(date_str)
+        except Exception:
+            return Response({"eligible": False, "consultation_origine": None})
+
+        date_min = target_date - timedelta(days=15)
+
+        eligible_consult = Consultation.objects.filter(
+            patient_id=patient_id,
+            rendez_vous__type=RendezVous.Type.CONSULTATION,
+            rendez_vous__statut=RendezVous.Statut.TERMINE,
+            date_consultation__date__gte=date_min,
+            date_consultation__date__lte=target_date
+        ).order_by('-date_consultation', '-id').first()
+
+        if eligible_consult:
+            return Response({"eligible": True, "consultation_origine": eligible_consult.id})
+        return Response({"eligible": False, "consultation_origine": None})
+
     @action(detail=True, methods=['post'], url_path='annuler')
     def annuler(self, request, pk=None):
         instance = self.get_object()
@@ -79,7 +120,10 @@ class RendezVousViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         instance.statut = RendezVous.Statut.ANNULE
-        instance.save(update_fields=['statut', 'date_modification'])
+        instance.save()
+        if hasattr(instance, 'facture') and instance.facture and instance.facture.statut == 'IMPAYEE':
+            instance.facture.statut = 'ANNULEE'
+            instance.facture.save(update_fields=['statut'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

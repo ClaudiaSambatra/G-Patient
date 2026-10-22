@@ -10,6 +10,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
     patient_contact = serializers.CharField(source='patient.contact', read_only=True)
     medecin_absent_aujourdhui = serializers.BooleanField(source='medecin.absent_aujourdhui', read_only=True)
     consultation_id = serializers.SerializerMethodField()
+    statut_paiement = serializers.CharField(read_only=True)
 
     class Meta:
         model = RendezVous
@@ -74,4 +75,6 @@ class RendezVousSerializer(serializers.ModelSerializer):
                 raise ValidationError(e.message_dict)
             raise ValidationError(str(e))
             
+        if instance.consultation_origine:
+            attrs['consultation_origine'] = instance.consultation_origine
         return attrs

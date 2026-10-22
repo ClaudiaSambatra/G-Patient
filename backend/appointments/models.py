@@ -12,10 +12,22 @@ class RendezVous(models.Model):
         ANNULE = 'ANNULE', 'Annulé'
         TERMINE = 'TERMINE', 'Terminé'
 
+    class Type(models.TextChoices):
+        CONSULTATION = 'CONSULTATION', 'Consultation'
+        CONTROLE = 'CONTROLE', 'Contrôle'
+
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='rendez_vous')
     medecin = models.ForeignKey(Medecin, on_delete=models.CASCADE, related_name='rendez_vous')
     date_heure = models.DateTimeField()
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.PLANIFIE)
+    type = models.CharField(max_length=20, choices=Type.choices, default=Type.CONSULTATION)
+    consultation_origine = models.ForeignKey(
+        'consultations.Consultation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rendez_vous_controles'
+    )
     motif = models.CharField(max_length=255, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
@@ -26,10 +38,44 @@ class RendezVous(models.Model):
     def __str__(self):
         return f"RDV {self.patient} avec {self.medecin} le {self.date_heure:%d/%m/%Y %H:%M}"
 
+    @property
+    def statut_paiement(self):
+        if self.type == self.Type.CONTROLE:
+            return 'GRATUIT'
+        if hasattr(self, 'facture') and self.facture:
+            if self.facture.statut == 'PAYEE':
+                return 'PAYE'
+            return 'IMPAYE'
+        return 'IMPAYE'
+
     def clean(self):
         super().clean()
         from django.core.exceptions import ValidationError
         from django.utils import timezone
+
+        # Règle pour rendez-vous de type CONTROLE
+        if self.type == self.Type.CONTROLE:
+            if self.patient and self.date_heure:
+                from datetime import timedelta
+                from consultations.models import Consultation
+                rdv_date = timezone.localtime(self.date_heure).date() if timezone.is_aware(self.date_heure) else self.date_heure.date()
+                date_min = rdv_date - timedelta(days=15)
+
+                eligible_consult = Consultation.objects.filter(
+                    patient=self.patient,
+                    rendez_vous__type=self.Type.CONSULTATION,
+                    rendez_vous__statut=self.Statut.TERMINE,
+                    date_consultation__date__gte=date_min,
+                    date_consultation__date__lte=rdv_date
+                ).order_by('-date_consultation', '-id').first()
+
+                if not eligible_consult:
+                    raise ValidationError({
+                        'type': "Aucune consultation payante de ce patient dans les 15 derniers jours : le contrôle n'est pas gratuit."
+                    })
+                self.consultation_origine = eligible_consult
+        elif self.type == self.Type.CONSULTATION:
+            self.consultation_origine = None
 
         # Règle 5 : Interdire la création ou le déplacement d'un rendez-vous dans le passé
         if self.date_heure:
@@ -95,5 +141,29 @@ class RendezVous(models.Model):
                 raise ValidationError({
                     'date_heure': "Le patient a déjà un rendez-vous à cette date et cette heure."
                 })
+
+    def save(self, *args, **kwargs):
+        from django.utils import timezone
+        if self.type == self.Type.CONTROLE and not self.consultation_origine and self.patient and self.date_heure:
+            from datetime import timedelta
+            from consultations.models import Consultation
+            rdv_date = timezone.localtime(self.date_heure).date() if timezone.is_aware(self.date_heure) else self.date_heure.date()
+            date_min = rdv_date - timedelta(days=15)
+            self.consultation_origine = Consultation.objects.filter(
+                patient=self.patient,
+                rendez_vous__type=self.Type.CONSULTATION,
+                rendez_vous__statut=self.Statut.TERMINE,
+                date_consultation__date__gte=date_min,
+                date_consultation__date__lte=rdv_date
+            ).order_by('-date_consultation', '-id').first()
+
+        super().save(*args, **kwargs)
+
+        # Si annulé, passer la facture consultation impayée à ANNULEE
+        if self.statut == self.Statut.ANNULE:
+            if hasattr(self, 'facture') and self.facture:
+                if self.facture.statut == 'IMPAYEE':
+                    self.facture.statut = 'ANNULEE'
+                    self.facture.save(update_fields=['statut'])
             
 

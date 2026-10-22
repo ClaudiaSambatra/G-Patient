@@ -7,6 +7,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
     patient_nom = serializers.CharField(source='patient.nom', read_only=True)
     patient_prenom = serializers.CharField(source='patient.prenom', read_only=True)
     medecin_nom = serializers.SerializerMethodField(read_only=True)
+    statut_paiement = serializers.SerializerMethodField(read_only=True)
     
     patient = serializers.PrimaryKeyRelatedField(
         queryset=Patient.objects.all(),
@@ -27,9 +28,15 @@ class ConsultationSerializer(serializers.ModelSerializer):
             'id', 'patient', 'patient_nom', 'patient_prenom',
             'medecin', 'medecin_nom', 'rendez_vous',
             'date_consultation', 'motif', 'observations', 'diagnostic', 'compte_rendu',
+            'statut_paiement',
             'date_creation', 'date_modification'
         ]
         read_only_fields = ['date_consultation', 'date_creation', 'date_modification']
+
+    def get_statut_paiement(self, obj):
+        if obj.rendez_vous:
+            return obj.rendez_vous.statut_paiement
+        return 'GRATUIT'
 
     def get_medecin_nom(self, obj):
         return f"Dr. {obj.medecin.last_name} {obj.medecin.first_name}".strip()
@@ -57,9 +64,9 @@ class ConsultationSerializer(serializers.ModelSerializer):
                 if rendez_vous.medecin.utilisateur != request.user:
                     raise serializers.ValidationError({"rendez_vous": "Ce rendez-vous ne vous est pas attribué."})
 
-            # 2. Le rendez-vous doit être au statut CONFIRME
-            if rendez_vous.statut != 'CONFIRME':
-                raise serializers.ValidationError({"rendez_vous": "Le rendez-vous doit être au statut CONFIRME pour pouvoir être consulté."})
+            # 2. Le rendez-vous ne doit pas être déjà terminé ou annulé (aucun blocage selon le paiement)
+            if rendez_vous.statut in ['ANNULE', 'TERMINE']:
+                raise serializers.ValidationError({"rendez_vous": f"Impossible de consulter un rendez-vous avec le statut {rendez_vous.get_statut_display()}."})
 
             # 3. Le patient de la consultation doit être celui du rendez-vous (le déduire du rendez-vous, ne pas le prendre du client)
             attrs['patient'] = rendez_vous.patient
