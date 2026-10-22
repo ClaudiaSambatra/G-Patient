@@ -209,3 +209,65 @@ def test_medecin_absence_resets_next_day(setup_data):
 
     assert med1_profile.absent_aujourdhui is False
 
+
+# ============================================================================
+# Tests : Transitions de statut contrôlées
+# ============================================================================
+
+@pytest.mark.django_db
+def test_allowed_status_transitions(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    future_date = make_aware(datetime.now() + timedelta(days=2))
+
+    # PLANIFIE -> CONFIRME
+    rdv1 = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date, statut=RendezVous.Statut.PLANIFIE)
+    url1 = reverse('rendezvous-detail', args=[rdv1.id])
+    res1 = api_client.patch(url1, {'statut': 'CONFIRME'}, format='json')
+    assert res1.status_code == status.HTTP_200_OK
+
+    # PLANIFIE -> ANNULE
+    rdv2 = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date + timedelta(hours=1), statut=RendezVous.Statut.PLANIFIE)
+    url2 = reverse('rendezvous-detail', args=[rdv2.id])
+    res2 = api_client.patch(url2, {'statut': 'ANNULE'}, format='json')
+    assert res2.status_code == status.HTTP_200_OK
+
+    # CONFIRME -> ANNULE
+    rdv3 = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date + timedelta(hours=2), statut=RendezVous.Statut.CONFIRME)
+    url3 = reverse('rendezvous-detail', args=[rdv3.id])
+    res3 = api_client.patch(url3, {'statut': 'ANNULE'}, format='json')
+    assert res3.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_forbidden_status_transitions(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    future_date = make_aware(datetime.now() + timedelta(days=2))
+
+    # Manuel vers TERMINE impossible
+    rdv_planifie = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date, statut=RendezVous.Statut.PLANIFIE)
+    url_p = reverse('rendezvous-detail', args=[rdv_planifie.id])
+    res_termine = api_client.patch(url_p, {'statut': 'TERMINE'}, format='json')
+    assert res_termine.status_code == status.HTTP_400_BAD_REQUEST
+    assert "statut Terminé" in str(res_termine.data)
+
+    # CONFIRME -> PLANIFIE interdit
+    rdv_confirme = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date + timedelta(hours=1), statut=RendezVous.Statut.CONFIRME)
+    url_c = reverse('rendezvous-detail', args=[rdv_confirme.id])
+    res_back = api_client.patch(url_c, {'statut': 'PLANIFIE'}, format='json')
+    assert res_back.status_code == status.HTTP_400_BAD_REQUEST
+
+    # ANNULE est définitif
+    rdv_annule = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date + timedelta(hours=2), statut=RendezVous.Statut.ANNULE)
+    url_a = reverse('rendezvous-detail', args=[rdv_annule.id])
+    res_annule = api_client.patch(url_a, {'statut': 'CONFIRME'}, format='json')
+    assert res_annule.status_code == status.HTTP_400_BAD_REQUEST
+    assert "définitif" in str(res_annule.data)
+
+    # TERMINE est définitif
+    rdv_termine = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=future_date + timedelta(hours=3), statut=RendezVous.Statut.TERMINE)
+    url_t = reverse('rendezvous-detail', args=[rdv_termine.id])
+    res_term = api_client.patch(url_t, {'statut': 'ANNULE'}, format='json')
+    assert res_term.status_code == status.HTTP_400_BAD_REQUEST
+    assert "définitif" in str(res_term.data)
+
+
