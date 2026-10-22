@@ -30,7 +30,8 @@ import {
   Check,
   Ban,
   AlertTriangle,
-  FileSignature
+  FileSignature,
+  Printer
 } from "lucide-react"
 
 interface Patient {
@@ -61,6 +62,9 @@ interface RendezVous {
   medecin_absent_aujourdhui?: boolean
   date_heure: string
   statut: "PLANIFIE" | "CONFIRME" | "ANNULE" | "TERMINE"
+  type: "CONSULTATION" | "CONTROLE"
+  consultation_origine?: number | null
+  statut_paiement: "PAYE" | "IMPAYE" | "GRATUIT"
   motif: string
   consultation_id?: number | null
 }
@@ -147,12 +151,36 @@ export default function RendezVousPage() {
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Formulaire RDV (sans durée)
+  // Modale d'encaissement post-création ou depuis tableau
+  const [encaissementModal, setEncaissementModal] = useState<{
+    isOpen: boolean
+    rdvId: number
+    factureId: number
+    montant: number
+    patientNom: string
+    isPaid: boolean
+  } | null>(null)
+
+  // Modale de consultation d'origine pour contrôle
+  const [consultationOrigineModal, setConsultationOrigineModal] = useState<{
+    isOpen: boolean
+    consultation: ConsultationData | null
+    ordonnances: { id: number; medicaments: string; posologie: string; duree: string; date_creation: string }[]
+    loading: boolean
+  }>({
+    isOpen: false,
+    consultation: null,
+    ordonnances: [],
+    loading: false
+  })
+
+  // Formulaire RDV
   const [form, setForm] = useState({
     patient: "",
     medecin: "",
     date: "",
     heure: "",
+    type: "CONSULTATION",
     motif: "",
   })
 
@@ -307,7 +335,87 @@ export default function RendezVousPage() {
     }
   })
 
-  // Mutation création RDV (sans duree_minutes)
+  // Vérification de l'éligibilité au contrôle gratuit sous 15 jours
+  const { data: eligibilityData } = useQuery<{ eligible: boolean; consultation_origine: number | null }>({
+    queryKey: ["controle-eligible", form.patient, form.date],
+    queryFn: async () => {
+      if (!form.patient || !form.date) return { eligible: false, consultation_origine: null }
+      const { data } = await apiClient.get<{ eligible: boolean; consultation_origine: number | null }>(
+        `/rendezvous/controle-eligible/?patient=${form.patient}&date=${form.date}`
+      )
+      return data
+    },
+    enabled: Boolean(form.patient && form.date)
+  })
+
+  const isControleEligible = Boolean(eligibilityData?.eligible)
+
+  // Mutation d'encaissement (depuis modale ou tableau)
+  const encaisserModalMutation = useMutation({
+    mutationFn: async (factureId: number) => {
+      return apiClient.post(`/billing/factures/${factureId}/encaisser/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      queryClient.invalidateQueries({ queryKey: ["factures"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      if (encaissementModal) {
+        setEncaissementModal(prev => prev ? { ...prev, isPaid: true } : null)
+      }
+      showNotification("success", "Paiement encaissé avec succès. Rendez-vous confirmé.")
+    },
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de l'encaissement.")
+      showNotification("error", msg)
+    }
+  })
+
+  async function handleEncaisserRow(rdv: RendezVous) {
+    try {
+      const { data } = await apiClient.get<{ results: any[] }>(`/billing/?patient=${rdv.patient}&type=CONSULTATION&statut=IMPAYEE`)
+      const f = data.results?.find(item => item.rendez_vous === rdv.id) || data.results?.[0]
+      if (f) {
+        setEncaissementModal({
+          isOpen: true,
+          rdvId: rdv.id,
+          factureId: f.id,
+          montant: Number(f.montant) || 20000,
+          patientNom: rdv.patient_nom,
+          isPaid: false
+        })
+      } else {
+        showNotification("error", "Aucune facture impayée trouvée pour ce rendez-vous.")
+      }
+    } catch {
+      showNotification("error", "Erreur lors de la récupération de la facture.")
+    }
+  }
+
+  function handlePrintRecu(factureId: number) {
+    const baseURL = apiClient.defaults.baseURL || "http://localhost:8000/api"
+    window.open(`${baseURL}/billing/factures/${factureId}/recu/`, "_blank")
+  }
+
+  async function handleOpenConsultationOrigine(consultationId: number) {
+    setConsultationOrigineModal({ isOpen: true, consultation: null, ordonnances: [], loading: true })
+    try {
+      const [cRes, oRes] = await Promise.all([
+        apiClient.get<ConsultationData>(`/consultations/${consultationId}/`),
+        apiClient.get<{ results: any[] }>(`/prescriptions/?consultation=${consultationId}`)
+      ])
+      setConsultationOrigineModal({
+        isOpen: true,
+        consultation: cRes.data,
+        ordonnances: oRes.data.results || [],
+        loading: false
+      })
+    } catch {
+      showNotification("error", "Impossible de charger la consultation d'origine.")
+      setConsultationOrigineModal(prev => ({ ...prev, isOpen: false, loading: false }))
+    }
+  }
+
+  // Mutation création RDV
   const createMutation = useMutation({
     mutationFn: async () => {
       setFormError(null)
@@ -315,15 +423,42 @@ export default function RendezVousPage() {
         patient: Number(form.patient),
         medecin: Number(form.medecin),
         date_heure: new Date(`${form.date}T${form.heure}:00`).toISOString(),
+        type: form.type,
         motif: form.motif
       }
-      return apiClient.post("/rendezvous/", payload)
+      const res = await apiClient.post<RendezVous>("/rendezvous/", payload)
+      return res.data
     },
-    onSuccess: () => {
+    onSuccess: async (createdRdv) => {
       setIsCreateOpen(false)
-      setForm({ patient: "", medecin: "", date: "", heure: "", motif: "" })
+      setForm({ patient: "", medecin: "", date: "", heure: "", type: "CONSULTATION", motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
-      showNotification("success", "Rendez-vous planifié avec succès.")
+      queryClient.invalidateQueries({ queryKey: ["factures"] })
+
+      if (createdRdv.type === "CONSULTATION") {
+        try {
+          const { data: facturesData } = await apiClient.get<{ results: any[] }>(
+            `/billing/?patient=${createdRdv.patient}&type=CONSULTATION&statut=IMPAYEE`
+          )
+          const matchingFacture = facturesData.results?.find(f => f.rendez_vous === createdRdv.id) || facturesData.results?.[0]
+          if (matchingFacture) {
+            setEncaissementModal({
+              isOpen: true,
+              rdvId: createdRdv.id,
+              factureId: matchingFacture.id,
+              montant: Number(matchingFacture.montant) || 20000,
+              patientNom: createdRdv.patient_nom,
+              isPaid: false
+            })
+            return
+          }
+        } catch {
+          // fallback
+        }
+        showNotification("success", "Rendez-vous planifié avec succès.")
+      } else {
+        showNotification("success", "Rendez-vous de contrôle gratuit planifié avec succès.")
+      }
     },
     onError: (err) => {
       const msg = extractErrorMessage(err, "Erreur lors de la planification.")
@@ -347,7 +482,7 @@ export default function RendezVousPage() {
     onSuccess: () => {
       setIsEditOpen(false)
       setSelectedRdv(null)
-      setForm({ patient: "", medecin: "", date: "", heure: "", motif: "" })
+      setForm({ patient: "", medecin: "", date: "", heure: "", type: "CONSULTATION", motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Rendez-vous modifié avec succès.")
     },
@@ -507,6 +642,7 @@ export default function RendezVousPage() {
       medecin: medecinId ? medecinId.toString() : (medecinsData[0]?.id.toString() || ""),
       date: dateStr,
       heure: timeStr,
+      type: "CONSULTATION",
       motif: ""
     })
     setFormError(null)
@@ -650,6 +786,7 @@ export default function RendezVousPage() {
                     medecin: medecinsData[0]?.id.toString() || "",
                     date: todayStr,
                     heure: "09:00",
+                    type: "CONSULTATION",
                     motif: ""
                   })
                   setFormError(null)
@@ -810,7 +947,9 @@ export default function RendezVousPage() {
                         <th className="py-3 px-6">Date &amp; Heure</th>
                         <th className="py-3 px-4">Patient</th>
                         <th className="py-3 px-4">Médecin</th>
+                        <th className="py-3 px-4">Type</th>
                         <th className="py-3 px-4">Statut</th>
+                        <th className="py-3 px-4">Paiement</th>
                         <th className="py-3 px-4">Motif</th>
                         <th className="py-3 px-6 text-right">Actions</th>
                       </tr>
@@ -861,6 +1000,32 @@ export default function RendezVousPage() {
                               )}
                             </td>
 
+                            {/* Type de rendez-vous */}
+                            <td className="py-3 px-4">
+                              {rdv.type === "CONTROLE" ? (
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700 ring-1 ring-inset ring-purple-600/20 dark:bg-purple-950/40 dark:text-purple-300">
+                                    Contrôle
+                                  </span>
+                                  {rdv.consultation_origine && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenConsultationOrigine(rdv.consultation_origine!)}
+                                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                                      title="Consulter les détails et ordonnances de la visite d'origine"
+                                    >
+                                      <FileText className="size-3" />
+                                      Origine #{rdv.consultation_origine}
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300">
+                                  Consultation
+                                </span>
+                              )}
+                            </td>
+
                             {/* Statut avec menu de transitions autorisées */}
                             <td className="py-3 px-4">
                               {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (rdv.statut === "PLANIFIE" || rdv.statut === "CONFIRME") ? (
@@ -886,6 +1051,38 @@ export default function RendezVousPage() {
                               ) : (
                                 getStatusBadge(rdv.statut)
                               )}
+                            </td>
+
+                            {/* Statut Paiement & Encaissement */}
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col items-start gap-1">
+                                {rdv.statut_paiement === "PAYE" && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                    <CheckCircle2 className="size-3" /> Payé
+                                  </span>
+                                )}
+                                {rdv.statut_paiement === "IMPAYE" && (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400">
+                                      Impayé
+                                    </span>
+                                    {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && rdv.statut !== "ANNULE" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEncaisserRow(rdv)}
+                                        className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded px-1.5 py-0.5 dark:bg-emerald-950/60 dark:text-emerald-300 transition-colors"
+                                      >
+                                        Encaisser
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                {rdv.statut_paiement === "GRATUIT" && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-600/20 dark:bg-slate-800 dark:text-slate-300">
+                                    Gratuit
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Motif */}
@@ -919,6 +1116,7 @@ export default function RendezVousPage() {
                                         medecin: rdv.medecin.toString(),
                                         date: localDateStr,
                                         heure: dateObj.toTimeString().slice(0, 5),
+                                        type: rdv.type || "CONSULTATION",
                                         motif: rdv.motif || ""
                                       })
                                       setFormError(null)
@@ -1406,6 +1604,69 @@ export default function RendezVousPage() {
                 </div>
               </div>
 
+              {/* Type de visite (Consultation ou Contrôle gratuit) */}
+              <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type de visite *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label
+                    className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors ${
+                      form.type === "CONSULTATION"
+                        ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                        : "border-border bg-card hover:bg-muted/50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rdv_type"
+                      value="CONSULTATION"
+                      checked={form.type === "CONSULTATION"}
+                      onChange={() => setForm({ ...form, type: "CONSULTATION" })}
+                      className="accent-primary"
+                    />
+                    <div>
+                      <div className="font-bold">Consultation (20 000 Ar)</div>
+                      <div className="text-[10px] text-muted-foreground">Visite standard payante</div>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs font-medium transition-colors ${
+                      !isControleEligible
+                        ? "opacity-50 cursor-not-allowed border-dashed bg-muted/30"
+                        : form.type === "CONTROLE"
+                        ? "border-purple-600 bg-purple-50 text-purple-700 font-bold shadow-xs dark:bg-purple-950/40 dark:text-purple-300"
+                        : "border-border bg-card hover:bg-muted/50 cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rdv_type"
+                      value="CONTROLE"
+                      disabled={!isControleEligible}
+                      checked={form.type === "CONTROLE"}
+                      onChange={() => setForm({ ...form, type: "CONTROLE" })}
+                      className="accent-purple-600"
+                    />
+                    <div>
+                      <div className="font-bold">Contrôle (Gratuit)</div>
+                      <div className="text-[10px] text-muted-foreground">&le; 15 jours après consultation</div>
+                    </div>
+                  </label>
+                </div>
+
+                {!isControleEligible && form.patient && form.date && (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    Option Contrôle grisée : aucune consultation payante de ce patient dans les 15 derniers jours.
+                  </p>
+                )}
+                {isControleEligible && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="size-3.5" />
+                    Patient éligible au contrôle gratuit (consultation précédente trouvée).
+                  </p>
+                )}
+              </div>
+
               {/* Motif */}
               <div className="space-y-1">
                 <Label>Motif du rendez-vous</Label>
@@ -1877,6 +2138,246 @@ export default function RendezVousPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL ENCAISSEMENT IMMÉDIAT (PREMIÈRE VISITE) */}
+      {encaissementModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <CheckCircle2 className="size-5 text-emerald-600" />
+                {encaissementModal.isPaid ? "Paiement encaissé" : "Encaissement des frais de consultation"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEncaissementModal(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Patient</span>
+                  <span className="font-semibold text-foreground">{encaissementModal.patientNom}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                  <span>Désignation</span>
+                  <span className="font-medium text-foreground">Frais de consultation</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mt-3 pt-3 border-t border-border/60">
+                  <span className="font-semibold text-foreground">Montant à régler</span>
+                  <span className="text-lg font-bold text-primary">
+                    {encaissementModal.montant.toLocaleString("fr-FR")} Ar
+                  </span>
+                </div>
+              </div>
+
+              {encaissementModal.isPaid ? (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-900/60 dark:text-emerald-300">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                    Paiement enregistré avec succès !
+                  </p>
+                  <p className="mt-1 text-[11px] opacity-90">
+                    Le rendez-vous est maintenant confirmé. Vous pouvez imprimer le reçu officiel pour le patient.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Le patient paie les frais de consultation à l&apos;accueil. L&apos;encaissement confirmera automatiquement le rendez-vous.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-border/60">
+              {encaissementModal.isPaid ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => handlePrintRecu(encaissementModal.factureId)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+                  >
+                    <Printer className="size-4" />
+                    Imprimer le reçu (PDF)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEncaissementModal(null)}
+                  >
+                    Fermer
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEncaissementModal(null)}
+                  >
+                    Plus tard
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={encaisserModalMutation.isPending}
+                    onClick={() => encaisserModalMutation.mutate(encaissementModal.factureId)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    {encaisserModalMutation.isPending ? "Encaissement..." : "Encaisser maintenant"}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONSULTATION D'ORIGINE (LECTURE SEULE POUR VISITE DE CONTRÔLE) */}
+      {consultationOrigineModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <FileText className="size-5 text-primary" />
+                  Consultation d&apos;origine (visite précédente)
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Dossier de référence pour la visite de contrôle gratuite
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsultationOrigineModal({ isOpen: false, consultation: null, ordonnances: [], loading: false })}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            {consultationOrigineModal.loading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                <RefreshCw className="mx-auto size-5 animate-spin mb-2 text-primary" />
+                Chargement de la consultation d&apos;origine…
+              </div>
+            ) : consultationOrigineModal.consultation ? (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-xs bg-muted/20 p-3 rounded-xl border border-border/60">
+                  <div>
+                    <span className="text-muted-foreground">Patient :</span>{" "}
+                    <strong className="text-foreground">
+                      {consultationOrigineModal.consultation.patient_nom} {consultationOrigineModal.consultation.patient_prenom}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Médecin d&apos;origine :</span>{" "}
+                    <strong className="text-foreground">{consultationOrigineModal.consultation.medecin_nom}</strong>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date consultation :</span>{" "}
+                    <span className="font-medium text-foreground">
+                      {new Date(consultationOrigineModal.consultation.date_consultation).toLocaleString("fr-FR")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Statut paiement initial :</span>{" "}
+                    <span className="font-semibold text-emerald-600">Payé</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase font-semibold">Motif</Label>
+                    <p className="mt-1 rounded-lg border border-border/60 bg-muted/10 p-2.5 text-xs text-foreground">
+                      {consultationOrigineModal.consultation.motif || "Non renseigné"}
+                    </p>
+                  </div>
+
+                  {consultationOrigineModal.consultation.observations && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase font-semibold">Observations</Label>
+                      <p className="mt-1 rounded-lg border border-border/60 bg-muted/10 p-2.5 text-xs text-foreground whitespace-pre-wrap">
+                        {consultationOrigineModal.consultation.observations}
+                      </p>
+                    </div>
+                  )}
+
+                  {consultationOrigineModal.consultation.diagnostic && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase font-semibold">Diagnostic</Label>
+                      <p className="mt-1 rounded-lg border border-border/60 bg-muted/10 p-2.5 text-xs text-foreground whitespace-pre-wrap font-medium">
+                        {consultationOrigineModal.consultation.diagnostic}
+                      </p>
+                    </div>
+                  )}
+
+                  {consultationOrigineModal.consultation.compte_rendu && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase font-semibold">Compte-rendu</Label>
+                      <p className="mt-1 rounded-lg border border-border/60 bg-muted/10 p-2.5 text-xs text-foreground whitespace-pre-wrap">
+                        {consultationOrigineModal.consultation.compte_rendu}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Ordonnances liées */}
+                <div className="pt-3 border-t border-border/60">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <FileSignature className="size-4 text-primary" />
+                    Ordonnances délivrées lors de la consultation d&apos;origine
+                  </h4>
+                  {consultationOrigineModal.ordonnances.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Aucune ordonnance rédigée lors de cette consultation.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {consultationOrigineModal.ordonnances.map((ord: any) => (
+                        <div key={ord.id} className="rounded-xl border border-border/70 bg-card p-3 text-xs space-y-1.5">
+                          <div className="flex justify-between items-center font-bold text-foreground">
+                            <span>Ordonnance n°{ord.id}</span>
+                            <span className="text-muted-foreground font-normal">
+                              {new Date(ord.date_creation).toLocaleDateString("fr-FR")}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-muted-foreground">Médicaments :</span>
+                            <div className="font-mono text-foreground mt-0.5 whitespace-pre-wrap">{ord.medicaments}</div>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-muted-foreground">Posologie :</span>{" "}
+                            <span className="text-foreground">{ord.posologie}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-muted-foreground">Durée :</span>{" "}
+                            <span className="text-foreground">{ord.duree}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                Détails de consultation indisponibles.
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4 mt-4 border-t border-border/60">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConsultationOrigineModal({ isOpen: false, consultation: null, ordonnances: [], loading: false })}
+              >
+                Fermer
+              </Button>
+            </div>
           </div>
         </div>
       )}

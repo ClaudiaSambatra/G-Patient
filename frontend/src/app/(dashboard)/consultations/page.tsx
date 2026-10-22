@@ -23,7 +23,8 @@ import {
   FileSignature,
   FilterX,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from "lucide-react"
 
 interface Consultation {
@@ -39,6 +40,7 @@ interface Consultation {
   observations: string
   diagnostic: string
   compte_rendu?: string
+  statut_paiement?: "PAYE" | "IMPAYE" | "GRATUIT"
 }
 
 interface ConsultationListResponse {
@@ -159,6 +161,7 @@ export default function ConsultationsPage() {
       setIsPrescriptionOpen(false)
       setPrescriptionForm({ medicaments: "", posologie: "", duree: "" })
       queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
+      queryClient.invalidateQueries({ queryKey: ["consultation-prescriptions"] })
       showNotification("success", "Ordonnance créée avec succès.")
     },
     onError: (err) => {
@@ -166,6 +169,101 @@ export default function ConsultationsPage() {
       showNotification("error", msg)
     }
   })
+
+  // Prescriptions de la consultation sélectionnée
+  const { data: consultationPrescriptions = [] } = useQuery({
+    queryKey: ["consultation-prescriptions", selectedConsultation?.id],
+    queryFn: async () => {
+      if (!selectedConsultation?.id) return []
+      const { data } = await apiClient.get<{ results: any[] }>(`/prescriptions/?consultation=${selectedConsultation.id}`)
+      return data.results || []
+    },
+    enabled: Boolean(selectedConsultation?.id)
+  })
+
+  // Modal Facturation Médicaments
+  const [factureMedModal, setFactureMedModal] = useState<{
+    isOpen: boolean
+    ordonnanceId: number
+    patientId: number
+    designation: string
+    montant: string
+  } | null>(null)
+
+  const createFactureMedicamentsMutation = useMutation({
+    mutationFn: async () => {
+      if (!factureMedModal) return
+      return apiClient.post("/billing/", {
+        ordonnance: factureMedModal.ordonnanceId,
+        patient: factureMedModal.patientId,
+        type: "MEDICAMENTS",
+        designation: factureMedModal.designation,
+        actes: factureMedModal.designation,
+        montant: Number(factureMedModal.montant)
+      })
+    },
+    onSuccess: () => {
+      setFactureMedModal(null)
+      queryClient.invalidateQueries({ queryKey: ["factures"] })
+      queryClient.invalidateQueries({ queryKey: ["consultation-prescriptions"] })
+      showNotification("success", "Facture des médicaments créée avec succès.")
+    },
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de la création de la facture des médicaments.")
+      showNotification("error", msg)
+    }
+  })
+
+  function handlePrintPrescription(ord: any) {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Ordonnance - ${ord.patient_nom || selectedConsultation?.patient_nom}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 40px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 20px; margin-bottom: 30px; }
+            .brand { color: #0f766e; font-size: 1.4em; font-weight: bold; margin-bottom: 4px; }
+            .doctor-info { font-weight: bold; font-size: 1.1em; margin-top: 10px; }
+            .patient-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 30px; }
+            .content { min-height: 350px; }
+            .medicaments { white-space: pre-wrap; font-size: 1.05em; line-height: 1.8; margin-top: 15px; font-weight: 500; }
+            .posology-item { margin-top: 10px; color: #475569; font-size: 0.95em; }
+            .footer { margin-top: 40px; text-align: right; }
+            .signature { border-top: 1px dashed #64748b; display: inline-block; padding-top: 8px; width: 220px; text-align: center; font-size: 0.9em; color: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="brand">CENTRE MÉDICAL GESTION PATIENTS</div>
+            <div class="doctor-info">${ord.medecin_nom || selectedConsultation?.medecin_nom}</div>
+            <div style="font-size: 0.9em; color: #64748b;">Date de prescription : ${new Date(ord.date_creation).toLocaleDateString("fr-FR")}</div>
+          </div>
+          <div class="patient-box">
+            <strong>Patient :</strong> ${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}
+          </div>
+          <div class="content">
+            <h3 style="color: #0f766e; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">PRESCRIPTION MÉDICALE</h3>
+            <div class="medicaments">${ord.medicaments}</div>
+            <div class="posology-item"><strong>Posologie :</strong> ${ord.posologie}</div>
+            <div class="posology-item"><strong>Durée du traitement :</strong> ${ord.duree}</div>
+          </div>
+          <div class="footer">
+            <div class="signature">
+              Signature et Cachet du Médecin<br/><br/><br/>
+            </div>
+          </div>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
 
   function handleOpenDetail(consultation: Consultation) {
     setSelectedConsultation(consultation)
@@ -327,6 +425,7 @@ export default function ConsultationsPage() {
                       <th className="py-3 px-4">Médecin</th>
                       <th className="py-3 px-4">Motif</th>
                       <th className="py-3 px-4">Diagnostic</th>
+                      <th className="py-3 px-4">Paiement</th>
                       <th className="py-3 px-6 text-right">Action</th>
                     </tr>
                   </thead>
@@ -366,6 +465,23 @@ export default function ConsultationsPage() {
                         </td>
                         <td className="py-3 px-4 text-muted-foreground truncate max-w-[180px]" title={c.diagnostic}>
                           {c.diagnostic || "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          {c.statut_paiement === "PAYE" && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
+                              <CheckCircle2 className="size-3" /> Payé
+                            </span>
+                          )}
+                          {c.statut_paiement === "IMPAYE" && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400">
+                              Impayé
+                            </span>
+                          )}
+                          {(!c.statut_paiement || c.statut_paiement === "GRATUIT") && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-600/20 dark:bg-slate-800 dark:text-slate-300">
+                              Gratuit
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                           <Button
@@ -518,11 +634,31 @@ export default function ConsultationsPage() {
             ) : (
               <>
                 <div className="mt-5 space-y-4 text-sm">
-                  <div className="rounded-xl bg-muted/40 p-3 border border-border/60">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
-                    <span className="font-bold text-foreground">
-                      {selectedConsultation.patient_nom} {selectedConsultation.patient_prenom}
-                    </span>
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
+                      <span className="font-bold text-foreground">
+                        {selectedConsultation.patient_nom} {selectedConsultation.patient_prenom}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Paiement visite</span>
+                      {selectedConsultation.statut_paiement === "PAYE" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
+                          <CheckCircle2 className="size-3" /> Payé
+                        </span>
+                      )}
+                      {selectedConsultation.statut_paiement === "IMPAYE" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400">
+                          Impayé
+                        </span>
+                      )}
+                      {(!selectedConsultation.statut_paiement || selectedConsultation.statut_paiement === "GRATUIT") && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-600/20 dark:bg-slate-800 dark:text-slate-300">
+                          Gratuit
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -551,6 +687,61 @@ export default function ConsultationsPage() {
                     <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground whitespace-pre-wrap">
                       {selectedConsultation.compte_rendu || <span className="italic text-muted-foreground">Aucun compte rendu rédigé</span>}
                     </div>
+                  </div>
+
+                  {/* Ordonnances associées */}
+                  <div className="pt-3 border-t border-border/60">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <FileSignature className="size-4 text-primary" />
+                      Ordonnances délivrées
+                    </h4>
+                    {consultationPrescriptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Aucune ordonnance rédigée pour cette consultation.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {consultationPrescriptions.map((ord: any) => (
+                          <div key={ord.id} className="rounded-xl border border-border/70 bg-card p-3 text-xs space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-foreground">Ordonnance n°{ord.id} ({new Date(ord.date_creation).toLocaleDateString("fr-FR")})</span>
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handlePrintPrescription(ord)}
+                                  className="h-7 text-xs px-2 gap-1"
+                                >
+                                  <Printer className="size-3" /> Imprimer
+                                </Button>
+                                {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setFactureMedModal({
+                                      isOpen: true,
+                                      ordonnanceId: ord.id,
+                                      patientId: selectedConsultation.patient,
+                                      designation: `Médicaments, ordonnance n°${ord.id}`,
+                                      montant: ""
+                                    })}
+                                    className="h-7 text-xs px-2 gap-1 text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+                                  >
+                                    Facturer médicaments
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="font-mono text-foreground whitespace-pre-wrap bg-muted/20 p-2 rounded border border-border/50">
+                              {ord.medicaments}
+                            </div>
+                            <div className="text-muted-foreground">
+                              <strong>Posologie :</strong> {ord.posologie} — <strong>Durée :</strong> {ord.duree}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -679,6 +870,78 @@ export default function ConsultationsPage() {
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {createPrescriptionMutation.isPending ? "Enregistrement..." : "Enregistrer l'ordonnance"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL FACTURATION MÉDICAMENTS (SECRÉTAIRE / ADMIN) */}
+      {factureMedModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <FileSignature className="size-5 text-emerald-600" />
+                Créer la facture des médicaments
+              </h3>
+              <button
+                type="button"
+                onClick={() => setFactureMedModal(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                createFactureMedicamentsMutation.mutate()
+              }}
+              className="mt-4 space-y-4"
+            >
+              <div>
+                <Label htmlFor="facture-med-desig">Désignation *</Label>
+                <Input
+                  id="facture-med-desig"
+                  required
+                  value={factureMedModal.designation}
+                  onChange={(e) => setFactureMedModal(prev => prev ? { ...prev, designation: e.target.value } : null)}
+                  placeholder="Ex: Médicaments, ordonnance n°12"
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="facture-med-montant">Montant total (Ar) *</Label>
+                <Input
+                  id="facture-med-montant"
+                  type="number"
+                  required
+                  min="0"
+                  step="500"
+                  value={factureMedModal.montant}
+                  onChange={(e) => setFactureMedModal(prev => prev ? { ...prev, montant: e.target.value } : null)}
+                  placeholder="Ex: 35000"
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFactureMedModal(null)}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createFactureMedicamentsMutation.isPending || !factureMedModal.montant}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  {createFactureMedicamentsMutation.isPending ? "Création..." : "Enregistrer la facture"}
                 </Button>
               </div>
             </form>
