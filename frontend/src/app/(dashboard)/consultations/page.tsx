@@ -185,7 +185,7 @@ export default function ConsultationsPage() {
     setPage(1)
   }
 
-  const isAuthor = currentUser?.role === "MEDECIN" && selectedConsultation?.medecin === currentUser?.id
+  const isAuthor = currentUser?.role === "ADMIN" || currentUser?.is_superuser || (currentUser?.role === "MEDECIN" && selectedConsultation?.medecin === currentUser?.id)
 
   return (
     <div className="flex-1 flex flex-col">
@@ -556,7 +556,7 @@ export default function ConsultationsPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/60 mt-6">
                   <div>
-                    {currentUser?.role === "MEDECIN" && (
+                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
                       <Button
                         type="button"
                         variant="outline"

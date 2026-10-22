@@ -13,7 +13,7 @@ class IsMedecin(BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user and request.user.is_authenticated
-            and request.user.role == request.user.Role.MEDECIN
+            and (request.user.role in [request.user.Role.MEDECIN, request.user.Role.ADMIN] or request.user.is_superuser)
         )
 
 

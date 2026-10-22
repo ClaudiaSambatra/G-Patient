@@ -246,7 +246,7 @@ def test_locked_fields_cannot_be_modified(api_client, setup_data):
     assert consultation.rendez_vous == setup_data['rdv']
 
 @pytest.mark.django_db
-def test_secretaire_and_admin_read_only(api_client, setup_data):
+def test_secretaire_read_only_and_admin_full_access(api_client, setup_data):
     consultation = Consultation.objects.create(
         patient=setup_data['patient'],
         medecin=setup_data['medecin_user'],
@@ -268,16 +268,18 @@ def test_secretaire_and_admin_read_only(api_client, setup_data):
     res_sec_del = api_client.delete(detail_url)
     assert res_sec_del.status_code == status.HTTP_403_FORBIDDEN
 
-    # Admin : lecture OK, modification/suppression directe interdite (403)
+    # Admin : accès complet (lecture, modification et suppression autorisées)
     api_client.force_authenticate(user=setup_data['admin_user'])
     res_adm_get = api_client.get(detail_url)
     assert res_adm_get.status_code == status.HTTP_200_OK
 
-    res_adm_patch = api_client.patch(detail_url, {'motif': 'Hack admin'}, format='json')
-    assert res_adm_patch.status_code == status.HTTP_403_FORBIDDEN
+    res_adm_patch = api_client.patch(detail_url, {'motif': 'Mise à jour par Admin'}, format='json')
+    assert res_adm_patch.status_code == status.HTTP_200_OK
+    assert res_adm_patch.data['motif'] == 'Mise à jour par Admin'
 
     res_adm_del = api_client.delete(detail_url)
-    assert res_adm_del.status_code == status.HTTP_403_FORBIDDEN
+    assert res_adm_del.status_code == status.HTTP_204_NO_CONTENT
+    assert not Consultation.objects.filter(id=consultation.id).exists()
 
 @pytest.mark.django_db
 def test_consultation_filters_and_pagination(api_client, setup_data):

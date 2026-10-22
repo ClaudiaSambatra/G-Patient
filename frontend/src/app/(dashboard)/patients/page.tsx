@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import axios from "axios"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -44,6 +45,15 @@ interface Patient {
 interface PatientListResponse {
   count: number
   results: Patient[]
+}
+
+interface Consultation {
+  id: number
+  motif: string
+  observations: string
+  diagnostic: string
+  date_consultation: string
+  medecin_nom: string
 }
 
 const GroupesSanguins = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -175,8 +185,8 @@ export default function PatientsPage() {
       queryClient.invalidateQueries({ queryKey: ["patients"] })
       showNotification("success", "Le dossier a été supprimé.")
     },
-    onError: (err: any) => {
-      if (err.response?.status === 403) {
+    onError: (err: unknown) => {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
         showNotification("error", "Vous n'avez pas les droits d'administrateur pour supprimer ce dossier.")
       } else {
         showNotification("error", "Impossible de supprimer ce dossier.")
@@ -227,7 +237,7 @@ export default function PatientsPage() {
   })
 
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.is_superuser
-  const isMedecin = currentUser?.role === "MEDECIN"
+  const isMedecin = currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN" || currentUser?.is_superuser
 
   if (isError) {
     return (
@@ -273,9 +283,9 @@ export default function PatientsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2.5">
-              <Users className="size-7 text-blue-600" />
+              <Users className="size-7 text-primary" />
               Dossiers Patients
-              <span className="rounded-full bg-blue-100 px-3 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                 {data?.count ?? 0}
               </span>
             </h1>
@@ -294,7 +304,7 @@ export default function PatientsPage() {
             </button>
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:scale-[1.01] hover:shadow-blue-500/35 active:scale-[0.99]"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               <UserPlus className="size-4.5" />
               <span>Nouveau patient</span>
@@ -319,7 +329,7 @@ export default function PatientsPage() {
                     setSearch(e.target.value)
                     setPage(1)
                   }}
-                  className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                  className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 />
               </div>
             </div>
@@ -327,7 +337,7 @@ export default function PatientsPage() {
           <CardContent className="p-0">
             {isLoading && (
               <div className="py-12 text-center text-sm text-muted-foreground">
-                <RefreshCw className="mx-auto size-5 animate-spin mb-2 text-blue-600" />
+                <RefreshCw className="mx-auto size-5 animate-spin mb-2 text-primary" />
                 Chargement des patients…
               </div>
             )}
@@ -335,7 +345,7 @@ export default function PatientsPage() {
               <div className="py-16 text-center text-sm text-muted-foreground">
                 <Users className="mx-auto size-10 mb-2 opacity-30" />
                 <p className="font-medium text-foreground">Aucun patient trouvé</p>
-                <p className="text-xs mt-1">Utilisez le bouton "Nouveau patient" pour commencer.</p>
+                <p className="text-xs mt-1">Utilisez le bouton &quot;Nouveau patient&quot; pour commencer.</p>
               </div>
             )}
             {!isLoading && data && data.results.length > 0 && (
@@ -369,7 +379,7 @@ export default function PatientsPage() {
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
                               p.sexe === 'M' 
-                                ? 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/40 dark:text-blue-400' 
+                                ? 'bg-primary/10 text-primary ring-primary/20 dark:bg-primary/20 dark:text-primary-foreground' 
                                 : 'bg-pink-50 text-pink-700 ring-pink-600/20 dark:bg-pink-900/40 dark:text-pink-400'
                             }`}>
                               {p.sexe === 'M' ? 'Masculin' : 'Féminin'}
@@ -398,7 +408,7 @@ export default function PatientsPage() {
                           <td className="py-3 px-6 text-muted-foreground">
                             <span className="flex items-center gap-1.5 text-xs">
                               <Phone className="size-3.5 text-muted-foreground" />
-                              {p.contact}
+                              {p.contact || <span className="italic">Non renseigné</span>}
                             </span>
                           </td>
                           <td className="py-3 pr-6 text-right">
@@ -419,7 +429,7 @@ export default function PatientsPage() {
                                   setIsDocumentsModalOpen(true)
                                 }}
                                 title="Documents médicaux"
-                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30"
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                               >
                                 <FolderOpen className="size-4" />
                               </button>
@@ -490,10 +500,10 @@ export default function PatientsPage() {
       {/* ========================================= */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+          <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[95vh] overflow-y-auto md:overflow-visible">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <UserPlus className="size-5 text-blue-600" /> Nouveau patient
+                <UserPlus className="size-5 text-primary" /> Nouveau patient
               </h3>
               <button
                 onClick={() => setIsCreateOpen(false)}
@@ -508,69 +518,87 @@ export default function PatientsPage() {
                 e.preventDefault()
                 createPatient.mutate()
               }}
-              className="mt-6 flex flex-col gap-6"
+              className="mt-4 flex flex-col gap-4"
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>Nom *</Label>
-                  <Input required value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {/* Colonne gauche : État civil & Coordonnées */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1.5 border-b border-border/40">
+                    État civil & Coordonnées
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nom *</Label>
+                      <Input required value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} placeholder="Nom de famille" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Prénom *</Label>
+                      <Input required value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} placeholder="Prénom(s)" className="h-9 text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Sexe *</Label>
+                      <select 
+                        value={form.sexe} 
+                        onChange={e => setForm({...form, sexe: e.target.value as "M" | "F"})}
+                        className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="M">Masculin</option>
+                        <option value="F">Féminin</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Date de naissance *</Label>
+                      <Input type="date" required value={form.date_naissance} onChange={e => setForm({...form, date_naissance: e.target.value})} className="h-9 text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Contact (Téléphone / Email)</Label>
+                    <Input value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} placeholder="Ex: 034 00 000 00 (optionnel)" className="h-9 text-sm" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Adresse de résidence</Label>
+                    <Input value={form.adresse} onChange={e => setForm({...form, adresse: e.target.value})} placeholder="Adresse complète..." className="h-9 text-sm" />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label>Prénom *</Label>
-                  <Input required value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Sexe *</Label>
-                  <select 
-                    value={form.sexe} 
-                    onChange={e => setForm({...form, sexe: e.target.value as "M" | "F"})}
-                    className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="M">Masculin</option>
-                    <option value="F">Féminin</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Date de naissance *</Label>
-                  <Input type="date" required value={form.date_naissance} onChange={e => setForm({...form, date_naissance: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Contact (Téléphone / Email) *</Label>
-                  <Input required value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} />
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Informations médicales & Adresse</h4>
-                <div className="space-y-1">
-                  <Label>Adresse</Label>
-                  <Textarea value={form.adresse} onChange={e => setForm({...form, adresse: e.target.value})} placeholder="Adresse complète" />
-                </div>
-                <div className="space-y-1">
-                  <Label>Antécédents médicaux</Label>
-                  <Textarea value={form.antecedents} onChange={e => setForm({...form, antecedents: e.target.value})} placeholder="Interventions, maladies chroniques..." />
-                </div>
-                <div className="space-y-1">
-                  <Label>Allergies</Label>
-                  <Textarea value={form.allergies} onChange={e => setForm({...form, allergies: e.target.value})} placeholder="Ex: Pénicilline, Arachides..." />
-                </div>
-                <div className="space-y-1">
-                  <Label>Groupe Sanguin</Label>
-                  <select 
-                    value={form.groupe_sanguin} 
-                    onChange={e => setForm({...form, groupe_sanguin: e.target.value})}
-                    className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="">Sélectionner</option>
-                    {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
-                  </select>
+
+                {/* Colonne droite : Profil médical */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1.5 border-b border-border/40">
+                    Profil médical
+                  </h4>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Groupe Sanguin</Label>
+                    <select 
+                      value={form.groupe_sanguin} 
+                      onChange={e => setForm({...form, groupe_sanguin: e.target.value})}
+                      className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Sélectionner (optionnel)</option>
+                      {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Allergies connues</Label>
+                    <Textarea value={form.allergies} onChange={e => setForm({...form, allergies: e.target.value})} placeholder="Ex: Pénicilline, Arachides..." rows={2} className="text-sm resize-none" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Antécédents médicaux</Label>
+                    <Textarea value={form.antecedents} onChange={e => setForm({...form, antecedents: e.target.value})} placeholder="Interventions, maladies chroniques..." rows={3} className="text-sm resize-none" />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={createPatient.isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  {createPatient.isPending ? "Création..." : "Enregistrer"}
+              <div className="flex justify-end gap-3 pt-3 border-t border-border/60">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
+                <Button type="submit" size="sm" disabled={createPatient.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  {createPatient.isPending ? "Création..." : "Enregistrer le patient"}
                 </Button>
               </div>
             </form>
@@ -583,10 +611,10 @@ export default function PatientsPage() {
       {/* ========================================= */}
       {editingPatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+          <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[95vh] overflow-y-auto md:overflow-visible">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <Edit3 className="size-5 text-indigo-600" /> Modifier le patient
+                <Edit3 className="size-5 text-primary" /> Modifier le patient
               </h3>
               <button
                 onClick={() => setEditingPatient(null)}
@@ -601,68 +629,86 @@ export default function PatientsPage() {
                 e.preventDefault()
                 updatePatient.mutate()
               }}
-              className="mt-6 flex flex-col gap-6"
+              className="mt-4 flex flex-col gap-4"
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>Nom *</Label>
-                  <Input required value={editForm.nom} onChange={e => setEditForm({...editForm, nom: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {/* Colonne gauche : État civil & Coordonnées */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1.5 border-b border-border/40">
+                    État civil & Coordonnées
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nom *</Label>
+                      <Input required value={editForm.nom} onChange={e => setEditForm({...editForm, nom: e.target.value})} placeholder="Nom de famille" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Prénom *</Label>
+                      <Input required value={editForm.prenom} onChange={e => setEditForm({...editForm, prenom: e.target.value})} placeholder="Prénom(s)" className="h-9 text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Sexe *</Label>
+                      <select 
+                        value={editForm.sexe} 
+                        onChange={e => setEditForm({...editForm, sexe: e.target.value as "M" | "F"})}
+                        className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="M">Masculin</option>
+                        <option value="F">Féminin</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Date de naissance *</Label>
+                      <Input type="date" required value={editForm.date_naissance} onChange={e => setEditForm({...editForm, date_naissance: e.target.value})} className="h-9 text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Contact (Téléphone / Email)</Label>
+                    <Input value={editForm.contact} onChange={e => setEditForm({...editForm, contact: e.target.value})} placeholder="Ex: 034 00 000 00 (optionnel)" className="h-9 text-sm" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Adresse de résidence</Label>
+                    <Input value={editForm.adresse} onChange={e => setEditForm({...editForm, adresse: e.target.value})} placeholder="Adresse complète..." className="h-9 text-sm" />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label>Prénom *</Label>
-                  <Input required value={editForm.prenom} onChange={e => setEditForm({...editForm, prenom: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Sexe *</Label>
-                  <select 
-                    value={editForm.sexe} 
-                    onChange={e => setEditForm({...editForm, sexe: e.target.value as "M" | "F"})}
-                    className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="M">Masculin</option>
-                    <option value="F">Féminin</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Date de naissance *</Label>
-                  <Input type="date" required value={editForm.date_naissance} onChange={e => setEditForm({...editForm, date_naissance: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Contact (Téléphone / Email) *</Label>
-                  <Input required value={editForm.contact} onChange={e => setEditForm({...editForm, contact: e.target.value})} />
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Informations médicales & Adresse</h4>
-                <div className="space-y-1">
-                  <Label>Adresse</Label>
-                  <Textarea value={editForm.adresse} onChange={e => setEditForm({...editForm, adresse: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Antécédents médicaux</Label>
-                  <Textarea value={editForm.antecedents} onChange={e => setEditForm({...editForm, antecedents: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Allergies</Label>
-                  <Textarea value={editForm.allergies} onChange={e => setEditForm({...editForm, allergies: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Groupe Sanguin</Label>
-                  <select 
-                    value={editForm.groupe_sanguin} 
-                    onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}
-                    className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="">Sélectionner</option>
-                    {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
-                  </select>
+
+                {/* Colonne droite : Profil médical */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1.5 border-b border-border/40">
+                    Profil médical
+                  </h4>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Groupe Sanguin</Label>
+                    <select 
+                      value={editForm.groupe_sanguin} 
+                      onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}
+                      className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Sélectionner (optionnel)</option>
+                      {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Allergies connues</Label>
+                    <Textarea value={editForm.allergies} onChange={e => setEditForm({...editForm, allergies: e.target.value})} placeholder="Ex: Pénicilline, Arachides..." rows={2} className="text-sm resize-none" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Antécédents médicaux</Label>
+                    <Textarea value={editForm.antecedents} onChange={e => setEditForm({...editForm, antecedents: e.target.value})} placeholder="Interventions, maladies chroniques..." rows={3} className="text-sm resize-none" />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={() => setEditingPatient(null)}>Annuler</Button>
-                <Button type="submit" disabled={updatePatient.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <div className="flex justify-end gap-3 pt-3 border-t border-border/60">
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditingPatient(null)}>Annuler</Button>
+                <Button type="submit" size="sm" disabled={updatePatient.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   {updatePatient.isPending ? "Mise à jour..." : "Enregistrer les modifications"}
                 </Button>
               </div>
@@ -676,11 +722,21 @@ export default function PatientsPage() {
       {/* ========================================= */}
       {viewingPatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-5xl rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-6">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Eye className="size-5 text-slate-500" /> Dossier médical
-              </h3>
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Eye className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    Dossier médical — {viewingPatient.nom} {viewingPatient.prenom}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Fiche patient détaillée et historique des consultations
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setViewingPatient(null)}
                 className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -690,23 +746,20 @@ export default function PatientsPage() {
             </div>
             
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 border-b border-border/40 pb-6">
+              {/* Synthèse État Civil & Données Vitales */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
                 <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground">Nom & Prénom</span>
-                  <span className="font-semibold text-lg">{viewingPatient.nom} {viewingPatient.prenom}</span>
+                  <span className="block text-[11px] font-semibold uppercase text-muted-foreground">Sexe</span>
+                  <span className="font-semibold text-sm text-foreground">{viewingPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}</span>
                 </div>
                 <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground">Sexe</span>
-                  <span className="font-medium text-foreground">{viewingPatient.sexe === 'M' ? 'Masculin' : 'Féminin'}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground">Date de naissance & Âge</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium">{new Date(viewingPatient.date_naissance).toLocaleDateString('fr-FR')}</span>
+                  <span className="block text-[11px] font-semibold uppercase text-muted-foreground">Naissance & Âge</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-semibold text-sm">{new Date(viewingPatient.date_naissance).toLocaleDateString('fr-FR')}</span>
                     {(() => {
                       const ageVal = viewingPatient.age ?? computeAgeFallback(viewingPatient.date_naissance)
                       return ageVal !== null ? (
-                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
                           {ageVal} ans
                         </span>
                       ) : null
@@ -714,57 +767,63 @@ export default function PatientsPage() {
                   </div>
                 </div>
                 <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground">Contact</span>
-                  <span>{viewingPatient.contact}</span>
+                  <span className="block text-[11px] font-semibold uppercase text-muted-foreground">Contact</span>
+                  <span className="font-semibold text-sm text-foreground truncate block">{viewingPatient.contact || "Non renseigné"}</span>
                 </div>
                 <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground">Groupe sanguin</span>
-                  <span className="font-semibold text-red-600 dark:text-red-400">{viewingPatient.groupe_sanguin || "Non renseigné"}</span>
+                  <span className="block text-[11px] font-semibold uppercase text-muted-foreground">Groupe sanguin</span>
+                  <span className="font-bold text-sm text-red-600 dark:text-red-400">{viewingPatient.groupe_sanguin || "Non renseigné"}</span>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground mb-1">Adresse</span>
-                  <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50">{viewingPatient.adresse || "Non renseignée"}</p>
+              {/* Disposition 2 colonnes : Informations cliniques à gauche, Historique consultations à droite */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Colonne gauche (5 cols) : Adresse, Antécédents, Allergies */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div>
+                    <span className="block text-xs font-semibold uppercase text-muted-foreground mb-1">Adresse de résidence</span>
+                    <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50">{viewingPatient.adresse || "Non renseignée"}</p>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase text-muted-foreground mb-1">Antécédents médicaux</span>
+                    <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50 whitespace-pre-wrap">{viewingPatient.antecedents || "Aucun antécédent particulier"}</p>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase text-muted-foreground mb-1">Allergies signalées</span>
+                    <p className="text-sm bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 p-3 rounded-lg border border-red-200 dark:border-red-900/40 whitespace-pre-wrap font-medium">{viewingPatient.allergies || "Aucune allergie connue"}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground mb-1">Antécédents médicaux</span>
-                  <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50 whitespace-pre-wrap">{viewingPatient.antecedents || "Aucun antécédent particulier"}</p>
-                </div>
-                <div>
-                  <span className="block text-xs font-medium uppercase text-muted-foreground mb-1">Allergies</span>
-                  <p className="text-sm bg-muted/40 p-3 rounded-lg border border-border/50 whitespace-pre-wrap font-medium text-red-600/80 dark:text-red-400/80">{viewingPatient.allergies || "Aucune allergie connue"}</p>
-                </div>
-                
-                {/* Historique Clinique */}
-                <div className="pt-4 border-t border-border/40">
+
+                {/* Colonne droite (7 cols) : Historique des Consultations */}
+                <div className="lg:col-span-7 flex flex-col">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="block text-sm font-bold uppercase text-indigo-600 flex items-center gap-2">
+                    <span className="text-sm font-bold uppercase text-primary flex items-center gap-2">
                       <FileText className="size-4" /> Historique des Consultations
                     </span>
                     {isMedecin && (
                       <Button 
                         size="sm" 
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white h-8"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-8"
                         onClick={() => setIsConsultationModalOpen(true)}
                       >
-                        <Plus className="size-4 mr-1" /> Nouvelle
+                        <Plus className="size-4 mr-1" /> Nouvelle consultation
                       </Button>
                     )}
                   </div>
                   
                   {isLoadingConsultations ? (
-                    <div className="text-sm text-muted-foreground flex items-center gap-2"><RefreshCw className="size-3.5 animate-spin"/> Chargement...</div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 p-6"><RefreshCw className="size-3.5 animate-spin"/> Chargement des consultations...</div>
                   ) : !consultationsData || consultationsData.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">Aucune consultation enregistrée.</p>
+                    <div className="p-8 rounded-xl border border-dashed border-border/80 text-center bg-muted/20">
+                      <p className="text-sm text-muted-foreground italic">Aucune consultation enregistrée pour ce patient.</p>
+                    </div>
                   ) : (
-                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                      {consultationsData.map((consult: any) => (
-                        <div key={consult.id} className="bg-muted/30 border border-border/60 rounded-xl p-4">
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                      {consultationsData.map((consult: Consultation) => (
+                        <div key={consult.id} className="bg-muted/30 border border-border/60 rounded-xl p-4 transition-colors hover:bg-muted/50">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-semibold text-sm">{consult.motif || "Consultation de suivi"}</h4>
-                            <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded-md border border-border/40">
+                            <span className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border/40 shrink-0">
                               {new Date(consult.date_consultation).toLocaleDateString('fr-FR')}
                             </span>
                           </div>
@@ -775,14 +834,14 @@ export default function PatientsPage() {
                           {consult.observations && (
                             <div className="mb-2">
                               <span className="text-[10px] font-semibold uppercase text-muted-foreground">Observations / Constantes</span>
-                              <p className="text-sm mt-0.5 whitespace-pre-wrap">{consult.observations}</p>
+                              <p className="text-xs mt-0.5 whitespace-pre-wrap">{consult.observations}</p>
                             </div>
                           )}
                           
                           {consult.diagnostic && (
-                            <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+                            <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
                               <span className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-500">Diagnostic</span>
-                              <p className="text-sm mt-0.5 whitespace-pre-wrap text-foreground">{consult.diagnostic}</p>
+                              <p className="text-xs mt-0.5 whitespace-pre-wrap text-foreground font-medium">{consult.diagnostic}</p>
                             </div>
                           )}
                         </div>
@@ -837,10 +896,10 @@ export default function PatientsPage() {
       {/* ========================================= */}
       {isConsultationModalOpen && viewingPatient && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <Stethoscope className="size-5 text-indigo-600" /> Nouvelle consultation
+                <Stethoscope className="size-5 text-primary" /> Nouvelle consultation
               </h3>
               <button
                 onClick={() => setIsConsultationModalOpen(false)}
@@ -894,7 +953,7 @@ export default function PatientsPage() {
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
                 <Button type="button" variant="outline" onClick={() => setIsConsultationModalOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={createConsultation.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                <Button type="submit" disabled={createConsultation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   {createConsultation.isPending ? "Enregistrement..." : "Enregistrer"}
                 </Button>
               </div>
@@ -908,9 +967,9 @@ export default function PatientsPage() {
       {/* ========================================= */}
       {isDocumentsModalOpen && documentPatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] flex flex-col">
+          <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-4 shrink-0">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-emerald-600">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-primary">
                 <FolderOpen className="size-5" /> Documents - {documentPatient.nom} {documentPatient.prenom}
               </h3>
               <button
@@ -971,7 +1030,7 @@ export default function PatientsPage() {
                   <Button 
                     type="submit" 
                     disabled={uploadDocument.isPending || !docForm.file} 
-                    className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+                    className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground w-full"
                   >
                     {uploadDocument.isPending ? "Upload..." : "Enregistrer"}
                   </Button>
@@ -988,7 +1047,7 @@ export default function PatientsPage() {
                     {documentPatient.documents.map((doc) => (
                       <div key={doc.id} className="flex items-start justify-between p-3 rounded-lg border border-border/60 bg-card hover:bg-muted/20 transition-colors">
                         <div className="flex items-start gap-3 overflow-hidden">
-                          <FileText className="size-8 text-emerald-500/70 shrink-0 mt-0.5" />
+                          <FileText className="size-8 text-primary/70 shrink-0 mt-0.5" />
                           <div className="flex flex-col overflow-hidden">
                             <span className="font-semibold text-sm truncate" title={doc.nom}>{doc.nom}</span>
                             <span className="text-xs text-muted-foreground">{doc.type_document || "Non spécifié"}</span>
@@ -999,7 +1058,7 @@ export default function PatientsPage() {
                           href={doc.fichier} 
                           target="_blank" 
                           rel="noreferrer"
-                          className="shrink-0 p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md transition-colors"
+                          className="shrink-0 p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors"
                           title="Télécharger / Voir"
                         >
                           <Download className="size-4" />

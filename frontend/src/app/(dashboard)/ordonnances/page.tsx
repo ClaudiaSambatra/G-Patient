@@ -136,7 +136,7 @@ export default function OrdonnancesPage() {
     printWindow.document.close()
   }
 
-  const isMedecin = currentUser?.role === "MEDECIN"
+  const isMedecin = currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN" || currentUser?.is_superuser
 
   return (
     <div className="flex-1 flex flex-col">
@@ -144,7 +144,7 @@ export default function OrdonnancesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2.5">
-              <FileSignature className="size-7 text-indigo-600" />
+              <FileSignature className="size-7 text-primary" />
               Prescriptions & Ordonnances
             </h1>
           </div>
@@ -154,7 +154,7 @@ export default function OrdonnancesPage() {
               <RefreshCw className="size-4" />
             </button>
             {isMedecin && (
-              <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/35 active:scale-[0.99]">
+              <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]">
                 <Plus className="size-4.5" />
                 <span>Nouvelle Ordonnance</span>
               </button>
@@ -169,7 +169,7 @@ export default function OrdonnancesPage() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
-                <RefreshCw className="mx-auto size-5 animate-spin mb-2 text-indigo-600" />
+                <RefreshCw className="mx-auto size-5 animate-spin mb-2 text-primary" />
                 Chargement...
               </div>
             ) : data?.length === 0 ? (
@@ -194,7 +194,7 @@ export default function OrdonnancesPage() {
                       <tr key={o.id} className="transition-colors hover:bg-muted/30">
                         <td className="py-3 px-6 whitespace-nowrap">
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="size-4 text-indigo-500" />
+                            <Calendar className="size-4 text-primary" />
                             <span className="font-medium text-foreground">
                               {new Date(o.date_creation).toLocaleDateString('fr-FR')}
                             </span>
@@ -212,7 +212,7 @@ export default function OrdonnancesPage() {
                         <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => handlePrint(o)}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                           >
                             <Printer className="size-3.5" />
                             Imprimer
@@ -234,7 +234,7 @@ export default function OrdonnancesPage() {
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <FileSignature className="size-5 text-indigo-600" /> Nouvelle Ordonnance
+                <FileSignature className="size-5 text-primary" /> Nouvelle Ordonnance
               </h3>
               <button onClick={() => setIsCreateOpen(false)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                 <XCircle className="size-5" />
@@ -293,7 +293,7 @@ export default function OrdonnancesPage() {
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={createMutation.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                <Button type="submit" disabled={createMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   {createMutation.isPending ? "Création..." : "Créer et Imprimer"}
                 </Button>
               </div>

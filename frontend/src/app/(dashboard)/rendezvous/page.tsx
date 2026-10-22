@@ -896,8 +896,8 @@ export default function RendezVousPage() {
                             {/* Actions */}
                             <td className="py-3 px-6 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                {/* Médecin : bouton Consulter */}
-                                {currentUser?.role === "MEDECIN" && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE") && (
+                                {/* Médecin & Admin : bouton Consulter */}
+                                {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE") && (
                                   <button
                                     onClick={() => handleOpenConsultation(rdv)}
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-foreground"
@@ -1165,7 +1165,7 @@ export default function RendezVousPage() {
                                       key={rdv.id}
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        if (currentUser?.role === "MEDECIN" && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE")) {
+                                        if ((currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE")) {
                                           handleOpenConsultation(rdv)
                                         }
                                       }}
@@ -1268,7 +1268,7 @@ export default function RendezVousPage() {
                                     key={rdv.id}
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      if (currentUser?.role === "MEDECIN" && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE")) {
+                                      if ((currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (rdv.statut === "CONFIRME" || rdv.statut === "TERMINE")) {
                                         handleOpenConsultation(rdv)
                                       }
                                     }}
@@ -1751,7 +1751,7 @@ export default function RendezVousPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/60 mt-6">
                   <div>
-                    {currentUser?.role === "MEDECIN" && (
+                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
                       <Button
                         type="button"
                         variant="outline"
@@ -1764,7 +1764,7 @@ export default function RendezVousPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {currentUser?.role === "MEDECIN" && existingConsultation.medecin === currentUser?.id && (
+                    {(currentUser?.role === "ADMIN" || (currentUser?.role === "MEDECIN" && existingConsultation.medecin === currentUser?.id)) && (
                       <Button
                         type="button"
                         variant="outline"

@@ -15,14 +15,19 @@ class IsAuteurMedecin(permissions.BasePermission):
     Permission accordée :
     - En lecture (GET/HEAD/OPTIONS) : aux utilisateurs autorisés (Secrétaire, Médecin, Admin).
       Cependant, un médecin ne peut consulter les détails que de ses propres consultations.
-    - En écriture (PUT/PATCH/DELETE) : exclusivement au médecin auteur de la consultation.
+    - En écriture (PUT/PATCH/DELETE) : au médecin auteur de la consultation, ou à l'administrateur.
     """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(request.user and request.user.is_authenticated and request.user.role == 'MEDECIN')
+        return bool(
+            request.user and request.user.is_authenticated
+            and (request.user.role in ['MEDECIN', 'ADMIN'] or request.user.is_superuser)
+        )
 
     def has_object_permission(self, request, view, obj):
+        if request.user.role == 'ADMIN' or request.user.is_superuser:
+            return True
         if request.method in permissions.SAFE_METHODS:
             if request.user.role == 'MEDECIN':
                 return obj.medecin == request.user
@@ -75,8 +80,14 @@ class ConsultationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            # Assigner automatiquement le médecin connecté
-            consultation = serializer.save(medecin=self.request.user)
+            # Assigner le médecin : si admin, utiliser le médecin du rendez-vous
+            rendez_vous = serializer.validated_data.get('rendez_vous')
+            if (self.request.user.role == 'ADMIN' or self.request.user.is_superuser) and rendez_vous and rendez_vous.medecin:
+                medecin_user = rendez_vous.medecin.utilisateur
+            else:
+                medecin_user = self.request.user
+
+            consultation = serializer.save(medecin=medecin_user)
             
             # Mettre à jour le statut du rendez-vous lié si existant
             if consultation.rendez_vous:
