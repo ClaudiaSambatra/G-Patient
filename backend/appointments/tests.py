@@ -271,3 +271,208 @@ def test_forbidden_status_transitions(api_client, setup_data):
     assert "définitif" in str(res_term.data)
 
 
+# ============================================================================
+# Tests : Chevauchements (médecin, patient, auto-conflit)
+# ============================================================================
+
+@pytest.mark.django_db
+def test_update_rendezvous_no_false_conflict_with_itself(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    rdv_date = make_aware(datetime.now() + timedelta(days=5))
+
+    rdv = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=rdv_date,
+        duree_minutes=30,
+        motif="Contrôle initial"
+    )
+    url = reverse('rendezvous-detail', args=[rdv.id])
+
+    # Modifier le motif sans modifier la date : ne doit pas lever de conflit
+    res = api_client.patch(url, {'motif': "Contrôle modifié"}, format='json')
+    assert res.status_code == status.HTTP_200_OK
+    rdv.refresh_from_db()
+    assert rdv.motif == "Contrôle modifié"
+
+
+@pytest.mark.django_db
+def test_patient_overlap_conflict(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    rdv_date = make_aware(datetime.now() + timedelta(days=5, hours=2))
+
+    # Patient a un RDV avec medecin 1
+    RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=rdv_date,
+        duree_minutes=30
+    )
+
+    # Même patient essaie d'avoir un RDV sur la même tranche horaire avec medecin 2 -> refusé
+    url = reverse('rendezvous-list')
+    data = {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin2_profile'].id,
+        'date_heure': (rdv_date + timedelta(minutes=10)).isoformat(),
+        'duree_minutes': 30,
+        'motif': 'Autre consultation'
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Le patient a déjà un rendez-vous planifié sur cette plage horaire." in str(res.data)
+
+
+# ============================================================================
+# Tests : Date passée
+# ============================================================================
+
+@pytest.mark.django_db
+def test_past_date_refused(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-list')
+    past_date = make_aware(datetime.now() - timedelta(days=1))
+
+    data = {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'date_heure': past_date.isoformat(),
+        'motif': 'Passé'
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "passé" in str(res.data)
+
+
+# ============================================================================
+# Tests : Annulation libère le créneau
+# ============================================================================
+
+@pytest.mark.django_db
+def test_cancellation_frees_slot(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    rdv_date = make_aware(datetime.now() + timedelta(days=6))
+
+    rdv = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=rdv_date,
+        duree_minutes=30,
+        statut=RendezVous.Statut.PLANIFIE
+    )
+
+    # Annulation via action dédiée
+    url_annuler = reverse('rendezvous-annuler', args=[rdv.id])
+    res_annuler = api_client.post(url_annuler)
+    assert res_annuler.status_code == status.HTTP_200_OK
+    rdv.refresh_from_db()
+    assert rdv.statut == RendezVous.Statut.ANNULE
+
+    # Nouveau rendez-vous créé exactement sur le même créneau pour le même médecin -> accepté !
+    patient2 = Patient.objects.create(nom='Martin', prenom='Alice', date_naissance='1995-02-02', contact='987654')
+    url_list = reverse('rendezvous-list')
+    data = {
+        'patient': patient2.id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'date_heure': rdv_date.isoformat(),
+        'motif': 'Nouveau créneau libéré'
+    }
+    res_new = api_client.post(url_list, data, format='json')
+    assert res_new.status_code == status.HTTP_201_CREATED
+
+
+# ============================================================================
+# Tests : Suppression réservée à l'ADMIN et bloquée si TERMINE ou Consultation
+# ============================================================================
+
+@pytest.mark.django_db
+def test_destroy_rendezvous_admin_only_and_checks(api_client, setup_data):
+    from consultations.models import Consultation
+    future_date = make_aware(datetime.now() + timedelta(days=7))
+
+    rdv_planifie = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=future_date,
+        statut=RendezVous.Statut.PLANIFIE
+    )
+
+    url = reverse('rendezvous-detail', args=[rdv_planifie.id])
+
+    # Secrétaire tente de supprimer -> 403 Forbidden
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    res_sec = api_client.delete(url)
+    assert res_sec.status_code == status.HTTP_403_FORBIDDEN
+
+    # Admin supprime un rdv PLANIFIE -> 204 No Content
+    api_client.force_authenticate(user=setup_data['admin'])
+    res_adm = api_client.delete(url)
+    assert res_adm.status_code == status.HTTP_204_NO_CONTENT
+
+    # Tentative de suppression sur RDV TERMINE
+    rdv_termine = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=future_date + timedelta(hours=1),
+        statut=RendezVous.Statut.TERMINE
+    )
+    url_term = reverse('rendezvous-detail', args=[rdv_termine.id])
+    res_del_term = api_client.delete(url_term)
+    assert res_del_term.status_code == status.HTTP_400_BAD_REQUEST
+    assert "terminé ou lié à une consultation" in str(res_del_term.data)
+
+    # Tentative de suppression sur RDV lié à une consultation
+    rdv_avec_consult = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=future_date + timedelta(hours=2),
+        statut=RendezVous.Statut.PLANIFIE
+    )
+    Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv_avec_consult,
+        motif='Consultation test'
+    )
+    url_consult = reverse('rendezvous-detail', args=[rdv_avec_consult.id])
+    res_del_consult = api_client.delete(url_consult)
+    assert res_del_consult.status_code == status.HTTP_400_BAD_REQUEST
+    assert "terminé ou lié à une consultation" in str(res_del_consult.data)
+
+
+# ============================================================================
+# Tests : Filtres et pagination
+# ============================================================================
+
+@pytest.mark.django_db
+def test_filters_and_pagination(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    base_date = make_aware(datetime.now() + timedelta(days=10))
+
+    # Créer plusieurs rendez-vous à différentes dates / statuts / médecins
+    RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=base_date, statut=RendezVous.Statut.PLANIFIE)
+    RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=base_date + timedelta(days=1), statut=RendezVous.Statut.CONFIRME)
+    RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin2_profile'], date_heure=base_date + timedelta(days=2), statut=RendezVous.Statut.ANNULE)
+
+    url = reverse('rendezvous-list')
+
+    # Filtre par statut
+    res_statut = api_client.get(url, {'statut': 'PLANIFIE'})
+    assert res_statut.status_code == status.HTTP_200_OK
+    assert all(r['statut'] == 'PLANIFIE' for r in res_statut.data['results'])
+
+    # Filtre par médecin
+    res_med = api_client.get(url, {'medecin': setup_data['medecin2_profile'].id})
+    assert res_med.status_code == status.HTTP_200_OK
+    assert all(r['medecin'] == setup_data['medecin2_profile'].id for r in res_med.data['results'])
+
+    # Filtre par intervalle de dates
+    res_range = api_client.get(url, {
+        'date_debut': base_date.date().isoformat(),
+        'date_fin': (base_date + timedelta(days=1)).date().isoformat()
+    })
+    assert res_range.status_code == status.HTTP_200_OK
+    assert res_range.data['count'] == 2
+
+
+
