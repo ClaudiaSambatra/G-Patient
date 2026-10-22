@@ -8,6 +8,10 @@ class ConsultationSerializer(serializers.ModelSerializer):
     patient_prenom = serializers.CharField(source='patient.prenom', read_only=True)
     medecin_nom = serializers.SerializerMethodField(read_only=True)
     
+    patient = serializers.PrimaryKeyRelatedField(
+        queryset=Patient.objects.all(),
+        required=False
+    )
     # Rendre le médecin en read_only car il sera défini via request.user
     medecin = serializers.PrimaryKeyRelatedField(read_only=True)
     rendez_vous = serializers.PrimaryKeyRelatedField(
@@ -40,9 +44,39 @@ class ConsultationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        rendez_vous = attrs.get('rendez_vous')
-        patient = attrs.get('patient')
+        request = self.context.get('request')
 
-        if rendez_vous and patient and rendez_vous.patient != patient:
-            raise serializers.ValidationError({"patient": "Le patient sélectionné ne correspond pas au patient du rendez-vous."})
+        if not self.instance:
+            # Contrôles à la création
+            rendez_vous = attrs.get('rendez_vous')
+            if not rendez_vous:
+                raise serializers.ValidationError({"rendez_vous": "Le rendez-vous est obligatoire pour créer une consultation."})
+
+            # 1. Le rendez-vous doit appartenir au médecin connecté
+            if request and hasattr(request, 'user') and getattr(request.user, 'role', None) == 'MEDECIN':
+                if rendez_vous.medecin.utilisateur != request.user:
+                    raise serializers.ValidationError({"rendez_vous": "Ce rendez-vous ne vous est pas attribué."})
+
+            # 2. Le rendez-vous doit être au statut CONFIRME
+            if rendez_vous.statut != 'CONFIRME':
+                raise serializers.ValidationError({"rendez_vous": "Le rendez-vous doit être au statut CONFIRME pour pouvoir être consulté."})
+
+            # 3. Le patient de la consultation doit être celui du rendez-vous (le déduire du rendez-vous, ne pas le prendre du client)
+            attrs['patient'] = rendez_vous.patient
+
+        else:
+            # Modification : les champs rendez-vous, patient et médecin ne sont pas modifiables
+            if 'rendez_vous' in attrs and attrs['rendez_vous'] != self.instance.rendez_vous:
+                raise serializers.ValidationError({"rendez_vous": "Le rendez-vous d'une consultation ne peut pas être modifié."})
+            if 'patient' in attrs and attrs['patient'] != self.instance.patient:
+                raise serializers.ValidationError({"patient": "Le patient d'une consultation ne peut pas être modifié."})
+
         return attrs
+
+    def update(self, instance, validated_data):
+        # Sécurité supplémentaire : verrouiller rendez-vous, patient et médecin
+        validated_data.pop('rendez_vous', None)
+        validated_data.pop('patient', None)
+        validated_data.pop('medecin', None)
+        return super().update(instance, validated_data)
+
