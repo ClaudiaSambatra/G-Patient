@@ -272,7 +272,7 @@ def test_forbidden_status_transitions(api_client, setup_data):
 
 
 # ============================================================================
-# Tests : Chevauchements (médecin, patient, auto-conflit)
+# Tests : Conflits de date et heure (médecin, patient, auto-conflit)
 # ============================================================================
 
 @pytest.mark.django_db
@@ -284,7 +284,6 @@ def test_update_rendezvous_no_false_conflict_with_itself(api_client, setup_data)
         patient=setup_data['patient'],
         medecin=setup_data['medecin1_profile'],
         date_heure=rdv_date,
-        duree_minutes=30,
         motif="Contrôle initial"
     )
     url = reverse('rendezvous-detail', args=[rdv.id])
@@ -297,7 +296,33 @@ def test_update_rendezvous_no_false_conflict_with_itself(api_client, setup_data)
 
 
 @pytest.mark.django_db
-def test_patient_overlap_conflict(api_client, setup_data):
+def test_medecin_same_datetime_conflict(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    rdv_date = make_aware(datetime.now() + timedelta(days=5, hours=1))
+
+    # Premier rendez-vous pour médecin 1
+    RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=rdv_date
+    )
+
+    # Autre patient tente de prendre RDV avec le même médecin à la même date et heure -> refusé
+    patient2 = Patient.objects.create(nom='Martin', prenom='Alice', date_naissance='1995-02-02', contact='987654')
+    url = reverse('rendezvous-list')
+    data = {
+        'patient': patient2.id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'date_heure': rdv_date.isoformat(),
+        'motif': 'Deuxième RDV même heure médecin'
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Le médecin a déjà un rendez-vous à cette date et cette heure." in str(res.data)
+
+
+@pytest.mark.django_db
+def test_patient_same_datetime_conflict(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['secretaire'])
     rdv_date = make_aware(datetime.now() + timedelta(days=5, hours=2))
 
@@ -305,22 +330,46 @@ def test_patient_overlap_conflict(api_client, setup_data):
     RendezVous.objects.create(
         patient=setup_data['patient'],
         medecin=setup_data['medecin1_profile'],
-        date_heure=rdv_date,
-        duree_minutes=30
+        date_heure=rdv_date
     )
 
-    # Même patient essaie d'avoir un RDV sur la même tranche horaire avec medecin 2 -> refusé
+    # Même patient essaie d'avoir un RDV exactement à la même date et heure avec medecin 2 -> refusé
     url = reverse('rendezvous-list')
     data = {
         'patient': setup_data['patient'].id,
         'medecin': setup_data['medecin2_profile'].id,
-        'date_heure': (rdv_date + timedelta(minutes=10)).isoformat(),
-        'duree_minutes': 30,
-        'motif': 'Autre consultation'
+        'date_heure': rdv_date.isoformat(),
+        'motif': 'Autre consultation même heure'
     }
     res = api_client.post(url, data, format='json')
     assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Le patient a déjà un rendez-vous planifié sur cette plage horaire." in str(res.data)
+    assert "Le patient a déjà un rendez-vous à cette date et cette heure." in str(res.data)
+
+
+@pytest.mark.django_db
+def test_cancelled_or_finished_rdv_frees_slot(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    rdv_date = make_aware(datetime.now() + timedelta(days=6))
+
+    # RDV annulé
+    RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=rdv_date,
+        statut=RendezVous.Statut.ANNULE
+    )
+
+    # Un nouveau RDV à la même heure exacte doit être accepté
+    patient2 = Patient.objects.create(nom='Martin', prenom='Alice', date_naissance='1995-02-02', contact='987654')
+    url = reverse('rendezvous-list')
+    data = {
+        'patient': patient2.id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'date_heure': rdv_date.isoformat(),
+        'motif': 'RDV sur créneau annulé'
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_201_CREATED
 
 
 # ============================================================================
@@ -351,13 +400,12 @@ def test_past_date_refused(api_client, setup_data):
 @pytest.mark.django_db
 def test_cancellation_frees_slot(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['secretaire'])
-    rdv_date = make_aware(datetime.now() + timedelta(days=6))
+    rdv_date = make_aware(datetime.now() + timedelta(days=6, hours=4))
 
     rdv = RendezVous.objects.create(
         patient=setup_data['patient'],
         medecin=setup_data['medecin1_profile'],
         date_heure=rdv_date,
-        duree_minutes=30,
         statut=RendezVous.Statut.PLANIFIE
     )
 

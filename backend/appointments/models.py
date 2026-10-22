@@ -15,7 +15,6 @@ class RendezVous(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='rendez_vous')
     medecin = models.ForeignKey(Medecin, on_delete=models.CASCADE, related_name='rendez_vous')
     date_heure = models.DateTimeField()
-    duree_minutes = models.IntegerField(default=30)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.PLANIFIE)
     motif = models.CharField(max_length=255, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)
@@ -31,7 +30,6 @@ class RendezVous(models.Model):
         super().clean()
         from django.core.exceptions import ValidationError
         from django.utils import timezone
-        import datetime
 
         # Règle 5 : Interdire la création ou le déplacement d'un rendez-vous dans le passé
         if self.date_heure:
@@ -69,47 +67,33 @@ class RendezVous(models.Model):
                         'date_heure': "Ce médecin est absent aujourd'hui."
                     })
 
-            # Calculer la fin du rdv
-            start_time = self.date_heure
-            end_time = start_time + datetime.timedelta(minutes=self.duree_minutes)
-            
-            # Règle 4 : Chercher des rdv du même médecin qui chevauchent
-            qs = RendezVous.objects.filter(
+            # Règle 2 : Conflit d'horaire pour le médecin (même date et heure exacte)
+            qs_medecin = RendezVous.objects.filter(
                 medecin=self.medecin,
+                date_heure=self.date_heure,
                 statut__in=[self.Statut.PLANIFIE, self.Statut.CONFIRME]
             )
             if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            
-            for rdv in qs:
-                rdv_start = rdv.date_heure
-                rdv_end = rdv_start + datetime.timedelta(minutes=rdv.duree_minutes)
-                
-                # Condition de chevauchement temporel
-                if start_time < rdv_end and end_time > rdv_start:
-                    raise ValidationError({
-                        'date_heure': "Le médecin a déjà un rendez-vous planifié sur cette plage horaire."
-                    })
+                qs_medecin = qs_medecin.exclude(pk=self.pk)
 
-        # Règle 4 : Chercher des rdv du même patient qui chevauchent
+            if qs_medecin.exists():
+                raise ValidationError({
+                    'date_heure': "Le médecin a déjà un rendez-vous à cette date et cette heure."
+                })
+
+        # Règle 3 : Conflit d'horaire pour le patient (même date et heure exacte)
         if self.date_heure and self.patient:
-            start_time = self.date_heure
-            end_time = start_time + datetime.timedelta(minutes=self.duree_minutes)
-
             qs_patient = RendezVous.objects.filter(
                 patient=self.patient,
+                date_heure=self.date_heure,
                 statut__in=[self.Statut.PLANIFIE, self.Statut.CONFIRME]
             )
             if self.pk:
                 qs_patient = qs_patient.exclude(pk=self.pk)
 
-            for rdv in qs_patient:
-                rdv_start = rdv.date_heure
-                rdv_end = rdv_start + datetime.timedelta(minutes=rdv.duree_minutes)
-
-                if start_time < rdv_end and end_time > rdv_start:
-                    raise ValidationError({
-                        'date_heure': "Le patient a déjà un rendez-vous planifié sur cette plage horaire."
-                    })
+            if qs_patient.exists():
+                raise ValidationError({
+                    'date_heure': "Le patient a déjà un rendez-vous à cette date et cette heure."
+                })
             
 

@@ -59,7 +59,6 @@ interface RendezVous {
   medecin_nom: string
   medecin_absent_aujourdhui?: boolean
   date_heure: string
-  duree_minutes: number
   statut: "PLANIFIE" | "CONFIRME" | "ANNULE" | "TERMINE"
   motif: string
   consultation_id?: number | null
@@ -91,6 +90,18 @@ interface PatientListResponse {
   results: Patient[]
 }
 
+const TIME_SLOTS_30MIN = [
+  "08:00", "08:30",
+  "09:00", "09:30",
+  "10:00", "10:30",
+  "11:00", "11:30",
+  "12:00", "12:30",
+  "14:00", "14:30",
+  "15:00", "15:30",
+  "16:00", "16:30",
+  "17:00", "17:30"
+]
+
 export default function RendezVousPage() {
   const queryClient = useQueryClient()
 
@@ -121,13 +132,12 @@ export default function RendezVousPage() {
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Formulaire RDV
+  // Formulaire RDV (sans durée)
   const [form, setForm] = useState({
     patient: "",
     medecin: "",
     date: "",
     heure: "",
-    duree_minutes: 30,
     motif: "",
   })
 
@@ -282,7 +292,7 @@ export default function RendezVousPage() {
     }
   })
 
-  // Mutation création RDV
+  // Mutation création RDV (sans duree_minutes)
   const createMutation = useMutation({
     mutationFn: async () => {
       setFormError(null)
@@ -290,14 +300,13 @@ export default function RendezVousPage() {
         patient: Number(form.patient),
         medecin: Number(form.medecin),
         date_heure: new Date(`${form.date}T${form.heure}:00`).toISOString(),
-        duree_minutes: form.duree_minutes,
         motif: form.motif
       }
       return apiClient.post("/rendezvous/", payload)
     },
     onSuccess: () => {
       setIsCreateOpen(false)
-      setForm({ patient: "", medecin: "", date: "", heure: "", duree_minutes: 30, motif: "" })
+      setForm({ patient: "", medecin: "", date: "", heure: "", motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Rendez-vous planifié avec succès.")
     },
@@ -308,7 +317,7 @@ export default function RendezVousPage() {
     },
   })
 
-  // Mutation mise à jour RDV
+  // Mutation mise à jour RDV (sans duree_minutes)
   const updateFullMutation = useMutation({
     mutationFn: async () => {
       setFormError(null)
@@ -316,7 +325,6 @@ export default function RendezVousPage() {
         patient: Number(form.patient),
         medecin: Number(form.medecin),
         date_heure: new Date(`${form.date}T${form.heure}:00`).toISOString(),
-        duree_minutes: form.duree_minutes,
         motif: form.motif
       }
       return apiClient.patch(`/rendezvous/${selectedRdv?.id}/`, payload)
@@ -324,7 +332,7 @@ export default function RendezVousPage() {
     onSuccess: () => {
       setIsEditOpen(false)
       setSelectedRdv(null)
-      setForm({ patient: "", medecin: "", date: "", heure: "", duree_minutes: 30, motif: "" })
+      setForm({ patient: "", medecin: "", date: "", heure: "", motif: "" })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       showNotification("success", "Rendez-vous modifié avec succès.")
     },
@@ -423,15 +431,18 @@ export default function RendezVousPage() {
     }
   }
 
-  // Ouvrir formulaire de création pré-rempli depuis le calendrier
-  function handleSlotClick(dateStr: string, timeStr: string, medecinId?: number) {
+  // Ouvrir formulaire de création pré-rempli depuis le calendrier (créneau fixe 30 min)
+  function handleSlotClick(dateStr: string, timeStr: string, medecinId?: number, isSlotBusy?: boolean) {
     if (currentUser?.role !== "ADMIN" && currentUser?.role !== "SECRETAIRE") return
+    if (isSlotBusy) {
+      showNotification("error", "Ce créneau a déjà un rendez-vous à cette heure exacte. Impossible de planifier deux rendez-vous à la même heure.")
+      return
+    }
     setForm({
       patient: "",
       medecin: medecinId ? medecinId.toString() : (medecinsData[0]?.id.toString() || ""),
       date: dateStr,
       heure: timeStr,
-      duree_minutes: 30,
       motif: ""
     })
     setFormError(null)
@@ -575,7 +586,6 @@ export default function RendezVousPage() {
                     medecin: medecinsData[0]?.id.toString() || "",
                     date: todayStr,
                     heure: "09:00",
-                    duree_minutes: 30,
                     motif: ""
                   })
                   setFormError(null)
@@ -789,7 +799,6 @@ export default function RendezVousPage() {
 
                             {/* Statut avec menu de transitions autorisées */}
                             <td className="py-3 px-4">
-                              {/* Si l'utilisateur est admin ou secrétaire et que le statut n'est pas définitif */}
                               {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (rdv.statut === "PLANIFIE" || rdv.statut === "CONFIRME") ? (
                                 <select
                                   value={rdv.statut}
@@ -846,7 +855,6 @@ export default function RendezVousPage() {
                                         medecin: rdv.medecin.toString(),
                                         date: localDateStr,
                                         heure: dateObj.toTimeString().slice(0, 5),
-                                        duree_minutes: rdv.duree_minutes,
                                         motif: rdv.motif || ""
                                       })
                                       setFormError(null)
@@ -876,7 +884,7 @@ export default function RendezVousPage() {
                                   </button>
                                 )}
 
-                                {/* Admin : Bouton Supprimer définitivement (uniquement si non terminé et non lié à une consultation) */}
+                                {/* Admin : Bouton Supprimer définitivement */}
                                 {currentUser?.role === "ADMIN" && rdv.statut !== "TERMINE" && !rdv.consultation_id && (
                                   <button
                                     onClick={() => {
@@ -932,7 +940,7 @@ export default function RendezVousPage() {
             </CardContent>
           </Card>
         ) : (
-          /* VUE CALENDRIER */
+          /* VUE CALENDRIER - CRÉNEAUX FIXES VISUELS DE 30 MINUTES */
           <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden p-6 bg-card">
             {/* Contrôles du calendrier */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-border/60">
@@ -1003,14 +1011,14 @@ export default function RendezVousPage() {
               </div>
             </div>
 
-            {/* Légende des statuts */}
+            {/* Légende des statuts et signalement */}
             <div className="flex flex-wrap items-center gap-4 py-3 text-xs text-muted-foreground border-b border-border/40">
-              <span className="font-medium">Légende :</span>
+              <span className="font-medium">Créneau d&apos;affichage fixe 30 min :</span>
               <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-blue-500" /> Planifié</span>
               <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-emerald-500" /> Confirmé</span>
               <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-rose-500" /> Annulé</span>
               <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-slate-400" /> Terminé</span>
-              <span className="text-[11px] italic ml-auto">(Cliquez sur un créneau libre pour planifier un rendez-vous)</span>
+              <span className="flex items-center gap-1.5 text-rose-600 font-bold"><AlertTriangle className="size-3.5" /> 2 RDV même heure = Impossible</span>
             </div>
 
             {/* Grille du calendrier */}
@@ -1019,7 +1027,7 @@ export default function RendezVousPage() {
                 /* VUE JOUR PAR MÉDECIN */
                 <div className="min-w-[700px]">
                   <div className="grid grid-cols-[80px_repeat(auto-fit,minmax(180px,1fr))] border-b border-border/60 pb-2">
-                    <div className="text-xs font-bold text-muted-foreground text-center">Heure</div>
+                    <div className="text-xs font-bold text-muted-foreground text-center">Créneau</div>
                     {medecinsData
                       .filter(m => currentUser?.role !== "MEDECIN" || m.id === currentUser.medecin_id)
                       .map(m => (
@@ -1036,35 +1044,52 @@ export default function RendezVousPage() {
                   </div>
 
                   <div className="divide-y divide-border/40">
-                    {["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"].map(hourStr => (
-                      <div key={hourStr} className="grid grid-cols-[80px_repeat(auto-fit,minmax(180px,1fr))] min-h-[64px] items-stretch">
-                        <div className="py-2 text-xs font-semibold text-muted-foreground text-center border-r border-border/40">
-                          {hourStr}
+                    {TIME_SLOTS_30MIN.map(slot => (
+                      <div key={slot} className="grid grid-cols-[80px_repeat(auto-fit,minmax(180px,1fr))] min-h-[52px] items-stretch">
+                        <div className="py-2 text-xs font-semibold text-muted-foreground text-center border-r border-border/40 flex items-center justify-center">
+                          {slot}
                         </div>
                         {medecinsData
                           .filter(m => currentUser?.role !== "MEDECIN" || m.id === currentUser.medecin_id)
                           .map(m => {
-                            // RDV pour ce médecin et cette heure
                             const dateSelectedStr = calendarDate.toISOString().slice(0, 10)
                             const rdvsForSlot = (rdvData?.results || []).filter(rdv => {
                               const dt = new Date(rdv.date_heure)
                               const rdvDate = dt.toISOString().slice(0, 10)
-                              const rdvHour = String(dt.getHours()).padStart(2, "0") + ":00"
-                              return rdv.medecin === m.id && rdvDate === dateSelectedStr && rdvHour === hourStr
+                              const hours = String(dt.getHours()).padStart(2, "0")
+                              const mins = String(dt.getMinutes()).padStart(2, "0")
+                              return rdv.medecin === m.id && rdvDate === dateSelectedStr && `${hours}:${mins}` === slot
                             })
+
+                            const activeRdvs = rdvsForSlot.filter(r => r.statut === "PLANIFIE" || r.statut === "CONFIRME")
+                            const hasConflict = activeRdvs.length > 1
+                            const isSlotBusy = activeRdvs.length >= 1
 
                             return (
                               <div
                                 key={m.id}
                                 onClick={() => {
-                                  if (rdvsForSlot.length === 0) {
-                                    handleSlotClick(dateSelectedStr, hourStr, m.id)
+                                  if (!isSlotBusy) {
+                                    handleSlotClick(dateSelectedStr, slot, m.id, false)
+                                  } else {
+                                    handleSlotClick(dateSelectedStr, slot, m.id, true)
                                   }
                                 }}
-                                className={`p-1.5 border-r border-border/30 transition-colors ${
-                                  rdvsForSlot.length === 0 ? "hover:bg-muted/30 cursor-pointer" : ""
+                                className={`p-1 border-r border-border/30 transition-colors ${
+                                  hasConflict 
+                                    ? "bg-rose-100/70 border-rose-400 dark:bg-rose-950/40" 
+                                    : isSlotBusy 
+                                    ? "bg-muted/20" 
+                                    : "hover:bg-muted/30 cursor-pointer"
                                 }`}
                               >
+                                {hasConflict && (
+                                  <div className="mb-1 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow-xs animate-pulse">
+                                    <AlertTriangle className="size-3 shrink-0" />
+                                    Conflit : 2 RDV à la même heure impossible !
+                                  </div>
+                                )}
+
                                 {rdvsForSlot.map(rdv => {
                                   let bgBadge = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
                                   if (rdv.statut === "CONFIRME") bgBadge = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -1080,11 +1105,11 @@ export default function RendezVousPage() {
                                           handleOpenConsultation(rdv)
                                         }
                                       }}
-                                      className={`rounded-lg border p-1.5 text-xs shadow-2xs mb-1 cursor-pointer transition-transform hover:scale-[1.01] ${bgBadge}`}
+                                      className={`rounded-md border p-1.5 text-xs shadow-2xs mb-1 cursor-pointer transition-transform hover:scale-[1.01] ${bgBadge}`}
                                     >
                                       <div className="font-bold flex items-center justify-between">
                                         <span>{new Date(rdv.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                                        <span className="text-[10px] uppercase font-bold">{rdv.statut}</span>
+                                        <span className="text-[9px] uppercase font-bold">{rdv.statut}</span>
                                       </div>
                                       <div className="font-semibold truncate">{rdv.patient_nom}</div>
                                       {rdv.motif && <div className="text-[10px] truncate opacity-80">{rdv.motif}</div>}
@@ -1102,7 +1127,7 @@ export default function RendezVousPage() {
                 /* VUE SEMAINE (Lundi au Dimanche) */
                 <div className="min-w-[800px]">
                   <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border/60 pb-2">
-                    <div className="text-xs font-bold text-muted-foreground text-center">Heure</div>
+                    <div className="text-xs font-bold text-muted-foreground text-center">Créneau</div>
                     {[0, 1, 2, 3, 4, 5, 6].map(dayOffset => {
                       const curr = new Date(calendarDate)
                       const first = curr.getDate() - (curr.getDay() === 0 ? 6 : curr.getDay() - 1)
@@ -1120,10 +1145,10 @@ export default function RendezVousPage() {
                   </div>
 
                   <div className="divide-y divide-border/40">
-                    {["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"].map(hourStr => (
-                      <div key={hourStr} className="grid grid-cols-[80px_repeat(7,1fr)] min-h-[56px] items-stretch">
-                        <div className="py-2 text-xs font-semibold text-muted-foreground text-center border-r border-border/40">
-                          {hourStr}
+                    {TIME_SLOTS_30MIN.map(slot => (
+                      <div key={slot} className="grid grid-cols-[80px_repeat(7,1fr)] min-h-[48px] items-stretch">
+                        <div className="py-1 text-xs font-semibold text-muted-foreground text-center border-r border-border/40 flex items-center justify-center">
+                          {slot}
                         </div>
                         {[0, 1, 2, 3, 4, 5, 6].map(dayOffset => {
                           const curr = new Date(calendarDate)
@@ -1134,22 +1159,40 @@ export default function RendezVousPage() {
                           const rdvsForSlot = (rdvData?.results || []).filter(rdv => {
                             const dt = new Date(rdv.date_heure)
                             const rdvDate = dt.toISOString().slice(0, 10)
-                            const rdvHour = String(dt.getHours()).padStart(2, "0") + ":00"
-                            return rdvDate === dayDateStr && rdvHour === hourStr
+                            const hours = String(dt.getHours()).padStart(2, "0")
+                            const mins = String(dt.getMinutes()).padStart(2, "0")
+                            return rdvDate === dayDateStr && `${hours}:${mins}` === slot
                           })
+
+                          const activeRdvs = rdvsForSlot.filter(r => r.statut === "PLANIFIE" || r.statut === "CONFIRME")
+                          const hasConflict = activeRdvs.length > 1
+                          const isSlotBusy = activeRdvs.length >= 1
 
                           return (
                             <div
                               key={dayOffset}
                               onClick={() => {
-                                if (rdvsForSlot.length === 0) {
-                                  handleSlotClick(dayDateStr, hourStr)
+                                if (!isSlotBusy) {
+                                  handleSlotClick(dayDateStr, slot, undefined, false)
+                                } else {
+                                  handleSlotClick(dayDateStr, slot, undefined, true)
                                 }
                               }}
                               className={`p-1 border-r border-border/30 transition-colors ${
-                                rdvsForSlot.length === 0 ? "hover:bg-muted/30 cursor-pointer" : ""
+                                hasConflict 
+                                  ? "bg-rose-100/70 border-rose-400 dark:bg-rose-950/40" 
+                                  : isSlotBusy 
+                                  ? "bg-muted/20" 
+                                  : "hover:bg-muted/30 cursor-pointer"
                               }`}
                             >
+                              {hasConflict && (
+                                <div className="mb-1 rounded bg-rose-600 px-1 py-0.5 text-[9px] font-bold text-white flex items-center gap-1 shadow-xs animate-pulse">
+                                  <AlertTriangle className="size-2.5 shrink-0" />
+                                  Conflit heure !
+                                </div>
+                              )}
+
                               {rdvsForSlot.map(rdv => {
                                 let bgBadge = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
                                 if (rdv.statut === "CONFIRME") bgBadge = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -1188,7 +1231,7 @@ export default function RendezVousPage() {
         )}
       </main>
 
-      {/* MODAL CRÉATION NOUVEAU RDV */}
+      {/* MODAL CRÉATION NOUVEAU RDV (SANS CHAMP DURÉE) */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -1240,7 +1283,6 @@ export default function RendezVousPage() {
                       }`}>
                         {selectedMedecinInForm.absent_aujourdhui ? "Absent aujourd'hui" : "Présent"}
                       </span>
-                      {/* Action rapide secrétaire / admin pour modifier la présence */}
                       {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
                         <button
                           type="button"
@@ -1270,7 +1312,6 @@ export default function RendezVousPage() {
                   ))}
                 </select>
 
-                {/* Avertissement médecin absent aujourd'hui */}
                 {isSelectedDoctorAbsentToday && (
                   <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
                     <AlertTriangle className="size-4 shrink-0" />
@@ -1301,24 +1342,9 @@ export default function RendezVousPage() {
                 </div>
               </div>
 
-              {/* Durée */}
-              <div className="space-y-1">
-                <Label>Durée estimée (minutes)</Label>
-                <select
-                  value={form.duree_minutes}
-                  onChange={e => setForm({...form, duree_minutes: Number(e.target.value)})}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes (Standard)</option>
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>60 minutes</option>
-                </select>
-              </div>
-
               {/* Motif */}
               <div className="space-y-1">
-                <Label>Motif de la consultation</Label>
+                <Label>Motif du rendez-vous</Label>
                 <Input 
                   value={form.motif} 
                   onChange={e => setForm({...form, motif: e.target.value})} 
@@ -1341,7 +1367,7 @@ export default function RendezVousPage() {
         </div>
       )}
 
-      {/* MODAL ÉDITION RDV */}
+      {/* MODAL ÉDITION RDV (SANS CHAMP DURÉE) */}
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -1424,7 +1450,7 @@ export default function RendezVousPage() {
               </div>
 
               <div className="space-y-1">
-                <Label>Motif</Label>
+                <Label>Motif du rendez-vous</Label>
                 <Input 
                   value={form.motif} 
                   onChange={e => setForm({...form, motif: e.target.value})} 
@@ -1500,7 +1526,6 @@ export default function RendezVousPage() {
                 />
               </div>
 
-              {/* Champ Compte Rendu demandé */}
               <div className="space-y-1">
                 <Label>Compte rendu médical</Label>
                 <textarea 
