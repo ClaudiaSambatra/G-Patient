@@ -42,10 +42,31 @@ class RendezVous(models.Model):
     def statut_paiement(self):
         if self.type == self.Type.CONTROLE:
             return 'GRATUIT'
-        if hasattr(self, 'facture') and self.facture:
-            if self.facture.statut == 'PAYEE':
-                return 'PAYE'
-            return 'IMPAYE'
+        try:
+            if hasattr(self, 'facture') and self.facture:
+                return 'PAYE' if self.facture.statut == 'PAYEE' else 'IMPAYE'
+        except Exception:
+            pass
+
+        # Sécurité pour données existantes ou factures orphelines du patient
+        from billing.models import Facture
+        facture = Facture.objects.filter(
+            patient=self.patient,
+            type=Facture.Type.CONSULTATION,
+            rendez_vous=self
+        ).first()
+        if not facture:
+            facture = Facture.objects.filter(
+                patient=self.patient,
+                type=Facture.Type.CONSULTATION,
+                rendez_vous__isnull=True
+            ).order_by('-date_creation').first()
+            if facture and facture.rendez_vous is None:
+                facture.rendez_vous = self
+                facture.save(update_fields=['rendez_vous'])
+
+        if facture and facture.statut == Facture.StatutPaiement.PAYEE:
+            return 'PAYE'
         return 'IMPAYE'
 
     def clean(self):

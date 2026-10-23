@@ -103,11 +103,22 @@ class FactureViewSet(viewsets.ModelViewSet):
             instance.save(update_fields=['statut', 'date_paiement', 'encaisse_par'])
 
             # Si facture de CONSULTATION, confirmer automatiquement le rendez-vous
-            if instance.type == Facture.Type.CONSULTATION and instance.rendez_vous:
-                rdv = instance.rendez_vous
-                if rdv.statut == RendezVous.Statut.PLANIFIE:
-                    rdv.statut = RendezVous.Statut.CONFIRME
-                    rdv.save(update_fields=['statut', 'date_modification'])
+            if instance.type == Facture.Type.CONSULTATION:
+                if not instance.rendez_vous:
+                    unlinked_rdv = RendezVous.objects.filter(
+                        patient=instance.patient,
+                        type=RendezVous.Type.CONSULTATION,
+                        facture__isnull=True
+                    ).order_by('-date_heure').first()
+                    if unlinked_rdv:
+                        instance.rendez_vous = unlinked_rdv
+                        instance.save(update_fields=['rendez_vous'])
+
+                if instance.rendez_vous:
+                    rdv = instance.rendez_vous
+                    if rdv.statut == RendezVous.Statut.PLANIFIE:
+                        rdv.statut = RendezVous.Statut.CONFIRME
+                        rdv.save(update_fields=['statut', 'date_modification'])
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
