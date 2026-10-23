@@ -67,6 +67,7 @@ interface RendezVous {
   statut_paiement: "PAYE" | "IMPAYE" | "GRATUIT"
   motif: string
   consultation_id?: number | null
+  facture_id?: number | null
 }
 
 interface ConsultationData {
@@ -353,7 +354,11 @@ export default function RendezVousPage() {
   // Mutation d'encaissement (depuis modale ou tableau)
   const encaisserModalMutation = useMutation({
     mutationFn: async (factureId: number) => {
-      return apiClient.post(`/billing/factures/${factureId}/encaisser/`)
+      try {
+        return await apiClient.post(`/billing/factures/${factureId}/encaisser/`)
+      } catch {
+        return await apiClient.post(`/billing/${factureId}/encaisser/`)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
@@ -371,9 +376,25 @@ export default function RendezVousPage() {
   })
 
   async function handleEncaisserRow(rdv: RendezVous) {
+    if (rdv.facture_id) {
+      setEncaissementModal({
+        isOpen: true,
+        rdvId: rdv.id,
+        factureId: rdv.facture_id,
+        montant: 20000,
+        patientNom: rdv.patient_nom,
+        isPaid: false
+      })
+      return
+    }
+
     try {
-      const { data } = await apiClient.get<{ results: any[] }>(`/billing/?patient=${rdv.patient}&type=CONSULTATION&statut=IMPAYEE`)
-      const f = data.results?.find(item => item.rendez_vous === rdv.id) || data.results?.[0]
+      const { data } = await apiClient.get<{ results: any[] }>(`/billing/?rendez_vous=${rdv.id}`)
+      let f = data.results?.[0]
+      if (!f) {
+        const { data: patientData } = await apiClient.get<{ results: any[] }>(`/billing/?patient=${rdv.patient}&type=CONSULTATION&statut=IMPAYEE`)
+        f = patientData.results?.find(item => item.rendez_vous === rdv.id) || patientData.results?.[0]
+      }
       if (f) {
         setEncaissementModal({
           isOpen: true,

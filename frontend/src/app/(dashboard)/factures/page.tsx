@@ -69,6 +69,21 @@ export default function FacturesPage() {
     }, 5000)
   }
 
+  function extractErrorMessage(err: unknown, fallback: string): string {
+    if (typeof err === "object" && err !== null && "response" in err) {
+      const resp = (err as { response?: { data?: Record<string, unknown> } }).response
+      if (resp?.data) {
+        if (resp.data.detail) return String(resp.data.detail)
+        const firstKey = Object.keys(resp.data)[0]
+        if (firstKey) {
+          const val = resp.data[firstKey]
+          return `${firstKey}: ${Array.isArray(val) ? val.join(" ") : String(val)}`
+        }
+      }
+    }
+    return fallback
+  }
+
   const { data: currentUser } = useQuery<CurrentUser>({
     queryKey: ["me"],
     queryFn: async () => {
@@ -120,7 +135,11 @@ export default function FacturesPage() {
 
   const encaisserMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiClient.post(`/billing/factures/${id}/encaisser/`)
+      try {
+        return await apiClient.post(`/billing/factures/${id}/encaisser/`)
+      } catch {
+        return await apiClient.post(`/billing/${id}/encaisser/`)
+      }
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["factures"] })
@@ -129,8 +148,9 @@ export default function FacturesPage() {
       showNotification("success", "Facture encaissée avec succès. Le rendez-vous associé est confirmé.")
       handlePrintRecu(id)
     },
-    onError: () => {
-      showNotification("error", "Impossible d'encaisser cette facture.")
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Impossible d'encaisser cette facture.")
+      showNotification("error", msg)
     }
   })
 
