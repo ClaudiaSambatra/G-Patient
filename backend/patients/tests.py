@@ -28,6 +28,16 @@ class TestPatientAPI:
         assert response.status_code == status.HTTP_201_CREATED
         assert Patient.objects.count() == 1
 
+    def test_creer_patient_sans_contact(self):
+        payload = {
+            "nom": "Rasoa",
+            "prenom": "Jeanne",
+            "date_naissance": "1995-02-10",
+        }
+        response = self.client.post("/api/patients/", payload)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["contact"] == ""
+
     def test_lister_patients(self):
         Patient.objects.create(
             nom="Rasoa", prenom="Marie", date_naissance=date(1985, 1, 1), contact="034 11 111 11"

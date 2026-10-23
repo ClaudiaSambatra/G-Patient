@@ -204,3 +204,351 @@ class TestPermissionsGestionUtilisateurs:
         response = self.client.get("/api/accounts/utilisateurs/")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+
+@pytest.mark.django_db
+class TestRecuperationMotDePasse:
+    def setup_method(self):
+        from .models import PasswordResetToken
+        from django.core import mail
+        self.client = APIClient()
+        self.user = Utilisateur.objects.create_user(
+            username="docteur_test",
+            password="AncienPassword123!",
+            email="docteur.test@hopital.local",
+            role=Utilisateur.Role.MEDECIN,
+            first_name="Jean",
+            last_name="Martin"
+        )
+        self.mail = mail
+
+    def test_demande_otp_email_valide(self):
+        from .models import PasswordResetToken
+        response = self.client.post("/api/auth/request-otp/", {
+            "email": "docteur.test@hopital.local"
+        })
+        assert response.status_code == status.HTTP_200_OK
+        assert "docteur.test@hopital.local" in response.data["message"]
+        
+        # Vérifier que le jeton est créé en base
+        token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
+        assert token_obj is not None
+        assert len(token_obj.code) == 6
+        assert token_obj.is_valid()
+
+        # Vérifier que l'email a été envoyé
+        assert len(self.mail.outbox) >= 1
+        sent_email = self.mail.outbox[-1]
+        assert "docteur.test@hopital.local" in sent_email.to
+        assert "[Gestion Patients] Réinitialisation de votre mot de passe" in sent_email.subject
+        assert token_obj.code in sent_email.body
+
+    def test_demande_otp_insensible_a_la_casse(self):
+        from .models import PasswordResetToken
+        response = self.client.post("/api/auth/request-otp/", {
+            "email": "DOCTEUR.TEST@HOPITAL.LOCAL"
+        })
+        assert response.status_code == status.HTTP_200_OK
+        assert PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).exists()
+
+    def test_demande_otp_email_inexistant(self):
+        response = self.client.post("/api/auth/request-otp/", {
+            "email": "inconnu@hopital.local"
+        })
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_demande_otp_sans_email(self):
+        response = self.client.post("/api/auth/request-otp/", {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reinitialisation_succes_avec_code(self):
+        from .models import PasswordResetToken
+        # 1. Demande OTP
+        self.client.post("/api/auth/request-otp/", {"email": self.user.email})
+        token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
+        
+        # 2. Reset
+        reset_res = self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": token_obj.code,
+            "new_password": "NouveauSuperPassword2026!"
+        })
+        assert reset_res.status_code == status.HTTP_200_OK
+        token_obj.refresh_from_db()
+        assert token_obj.is_used is True
+
+        # 3. Vérification de la connexion avec le nouveau mot de passe
+        login_res = self.client.post("/api/auth/token/", {
+            "username": self.user.username,
+            "password": "NouveauSuperPassword2026!"
+        })
+        assert login_res.status_code == status.HTTP_200_OK
+
+    def test_reinitialisation_echec_code_invalide(self):
+        self.client.post("/api/auth/request-otp/", {"email": self.user.email})
+        reset_res = self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": "000000",
+            "new_password": "NouveauSuperPassword2026!"
+        })
+        assert reset_res.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reinitialisation_echec_code_expire(self):
+        from .models import PasswordResetToken
+        from django.utils import timezone
+        from datetime import timedelta
+        self.client.post("/api/auth/request-otp/", {"email": self.user.email})
+        token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
+        token_obj.expires_at = timezone.now() - timedelta(minutes=1)
+        token_obj.save()
+
+        reset_res = self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": token_obj.code,
+            "new_password": "NouveauSuperPassword2026!"
+        })
+        assert reset_res.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reinitialisation_echec_reutilisation_code(self):
+        from .models import PasswordResetToken
+        self.client.post("/api/auth/request-otp/", {"email": self.user.email})
+        token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
+        
+        # Première utilisation
+        self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": token_obj.code,
+            "new_password": "NouveauPassword1!"
+        })
+        
+        # Deuxième utilisation
+        second_res = self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": token_obj.code,
+            "new_password": "AutreNouveauPassword2!"
+        })
+        assert second_res.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reinitialisation_mot_de_passe_faible(self):
+        from .models import PasswordResetToken
+        self.client.post("/api/auth/request-otp/", {"email": self.user.email})
+        token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
+
+        reset_res = self.client.post("/api/auth/reset-password/", {
+            "email": self.user.email,
+            "otp": token_obj.code,
+            "new_password": "123"
+        })
+        assert reset_res.status_code == status.HTTP_400_BAD_REQUEST
+        assert "trop court" in reset_res.data["error"]
+
+
+import io
+import os
+from PIL import Image
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
+def get_test_image(format='JPEG', size=(50, 50), color=(0, 128, 255)):
+    buf = io.BytesIO()
+    img = Image.new('RGB', size, color=color)
+    img.save(buf, format=format)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@pytest.mark.django_db
+class TestMonProfil:
+    def setup_method(self):
+        self.client = APIClient()
+        self.user = Utilisateur.objects.create_user(
+            username="docteur_test",
+            password="AncienMotDePasse123!",
+            role=Utilisateur.Role.MEDECIN,
+            first_name="Marc",
+            last_name="Lavoisier",
+            email="docteur@hopital.local",
+            telephone="0341122334"
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def teardown_method(self):
+        if self.user.photo:
+            try:
+                self.user.photo.delete(save=False)
+            except Exception:
+                pass
+
+    def test_lecture_profil(self):
+        # 1. Lecture du profil sans photo
+        response = self.client.get("/api/accounts/me/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == "docteur_test"
+        assert response.data["first_name"] == "Marc"
+        assert response.data["last_name"] == "Lavoisier"
+        assert response.data["role"] == Utilisateur.Role.MEDECIN
+        assert response.data["photo"] is None
+
+    def test_modification_autorisee(self):
+        # 2. Modification autorisée (nom, prénom, téléphone)
+        response = self.client.patch("/api/accounts/me/", {
+            "first_name": "Marcus",
+            "last_name": "Lavoisier-Modif",
+            "telephone": "0329988776"
+        }, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["first_name"] == "Marcus"
+        assert response.data["last_name"] == "Lavoisier-Modif"
+        assert response.data["telephone"] == "0329988776"
+
+        self.user.refresh_from_db()
+        assert self.user.first_name == "Marcus"
+        assert self.user.last_name == "Lavoisier-Modif"
+        assert self.user.telephone == "0329988776"
+
+    def test_modification_champs_proteges_refusee(self):
+        # 3. Tentative de modifier rôle, is_active ou email refusée
+        res_role = self.client.patch("/api/accounts/me/", {"role": Utilisateur.Role.ADMIN}, format="json")
+        assert res_role.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in res_role.data
+
+        res_active = self.client.patch("/api/accounts/me/", {"is_active": False}, format="json")
+        assert res_active.status_code == status.HTTP_400_BAD_REQUEST
+        assert "is_active" in res_active.data
+
+        res_email = self.client.patch("/api/accounts/me/", {"email": "pirate@test.local"}, format="json")
+        assert res_email.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in res_email.data
+
+        res_username = self.client.patch("/api/accounts/me/", {"username": "nouveau_pseudo"}, format="json")
+        assert res_username.status_code == status.HTTP_400_BAD_REQUEST
+        assert "username" in res_username.data
+
+    def test_upload_photo_valide_et_formats(self):
+        # 4. Upload photo valide (JPEG, PNG, WEBP)
+        for fmt, ext, ctype in [("JPEG", "jpg", "image/jpeg"), ("PNG", "png", "image/png"), ("WEBP", "webp", "image/webp")]:
+            img_bytes = get_test_image(format=fmt)
+            upload_file = SimpleUploadedFile(f"avatar.{ext}", img_bytes, content_type=ctype)
+            response = self.client.patch("/api/accounts/me/", {"photo": upload_file}, format="multipart")
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data["photo"] is not None
+            assert response.data["photo"].startswith("http")
+
+            self.user.refresh_from_db()
+            assert bool(self.user.photo)
+            assert os.path.exists(self.user.photo.path)
+            # Nettoyer
+            self.user.photo.delete(save=False)
+
+    def test_refus_fichier_non_image(self):
+        # 5.a Refus d'un fichier texte renommé en image
+        fake_file = SimpleUploadedFile("fake.jpg", b"ceci n'est pas une image", content_type="image/jpeg")
+        response = self.client.patch("/api/accounts/me/", {"photo": fake_file}, format="multipart")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "photo" in response.data
+
+    def test_refus_format_interdit(self):
+        # 5.b Refus d'un format interdit (ex: GIF, BMP)
+        gif_bytes = get_test_image(format="GIF")
+        gif_file = SimpleUploadedFile("avatar.gif", gif_bytes, content_type="image/gif")
+        response = self.client.patch("/api/accounts/me/", {"photo": gif_file}, format="multipart")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "photo" in response.data
+
+    def test_refus_fichier_plus_de_2mo(self):
+        # 5.c Refus d'un fichier > 2 Mo
+        large_img = Image.frombytes('RGB', (1024, 1024), os.urandom(1024 * 1024 * 3))
+        buf = io.BytesIO()
+        large_img.save(buf, format='PNG')
+        large_bytes = buf.getvalue()
+        assert len(large_bytes) > 2 * 1024 * 1024
+
+        large_file = SimpleUploadedFile("heavy.png", large_bytes, content_type="image/png")
+        response = self.client.patch("/api/accounts/me/", {"photo": large_file}, format="multipart")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "photo" in response.data
+
+    def test_remplacement_photo_supprime_ancien_fichier(self):
+        # 6. Remplacement de photo (ancien fichier supprimé)
+        img1 = SimpleUploadedFile("photo1.jpg", get_test_image(format="JPEG", color=(255, 0, 0)), content_type="image/jpeg")
+        res1 = self.client.patch("/api/accounts/me/", {"photo": img1}, format="multipart")
+        assert res1.status_code == status.HTTP_200_OK
+
+        self.user.refresh_from_db()
+        old_path = self.user.photo.path
+        assert os.path.exists(old_path)
+
+        # Deuxième photo
+        img2 = SimpleUploadedFile("photo2.png", get_test_image(format="PNG", color=(0, 255, 0)), content_type="image/png")
+        res2 = self.client.patch("/api/accounts/me/", {"photo": img2}, format="multipart")
+        assert res2.status_code == status.HTTP_200_OK
+
+        self.user.refresh_from_db()
+        new_path = self.user.photo.path
+        assert new_path != old_path
+        assert not os.path.exists(old_path), "L'ancien fichier de photo doit être supprimé du disque"
+        assert os.path.exists(new_path), "Le nouveau fichier de photo doit exister sur le disque"
+
+        # Nettoyage
+        self.user.photo.delete(save=False)
+
+    def test_suppression_photo(self):
+        # 7. Suppression de photo
+        img = SimpleUploadedFile("avatar.jpg", get_test_image(format="JPEG"), content_type="image/jpeg")
+        self.client.patch("/api/accounts/me/", {"photo": img}, format="multipart")
+        self.user.refresh_from_db()
+        photo_path = self.user.photo.path
+        assert os.path.exists(photo_path)
+
+        res_delete = self.client.delete("/api/accounts/me/photo/")
+        assert res_delete.status_code == status.HTTP_200_OK
+
+        self.user.refresh_from_db()
+        assert not self.user.photo
+        assert not os.path.exists(photo_path)
+
+    def test_changement_mot_de_passe_succes(self):
+        # 8. Changement de mot de passe réussi
+        res = self.client.post("/api/accounts/me/change-password/", {
+            "ancien_mot_de_passe": "AncienMotDePasse123!",
+            "nouveau_mot_de_passe": "NouveauSuperMotDePasse2026!",
+            "confirmation": "NouveauSuperMotDePasse2026!"
+        })
+        assert res.status_code == status.HTTP_200_OK
+
+        self.user.refresh_from_db()
+        assert self.user.check_password("NouveauSuperMotDePasse2026!")
+
+        # Vérifier connexion avec le nouveau mot de passe
+        login_res = self.client.post("/api/auth/token/", {
+            "username": "docteur_test",
+            "password": "NouveauSuperMotDePasse2026!"
+        })
+        assert login_res.status_code == status.HTTP_200_OK
+
+    def test_changement_mot_de_passe_ancien_incorrect(self):
+        # 9. Ancien mot de passe incorrect et non concordance confirmation
+        res_wrong_old = self.client.post("/api/accounts/me/change-password/", {
+            "ancien_mot_de_passe": "FauxMotDePasse123",
+            "nouveau_mot_de_passe": "NouveauMotDePasse2026!",
+            "confirmation": "NouveauMotDePasse2026!"
+        })
+        assert res_wrong_old.status_code == status.HTTP_400_BAD_REQUEST
+        assert "ancien_mot_de_passe" in res_wrong_old.data
+
+        res_mismatch = self.client.post("/api/accounts/me/change-password/", {
+            "ancien_mot_de_passe": "AncienMotDePasse123!",
+            "nouveau_mot_de_passe": "NouveauMotDePasse2026!",
+            "confirmation": "AutreChoseDifferente!"
+        })
+        assert res_mismatch.status_code == status.HTTP_400_BAD_REQUEST
+        assert "confirmation" in res_mismatch.data
+
+    def test_acces_non_authentifie_refuse(self):
+        # 10. Accès sans authentification refusé
+        anon_client = APIClient()
+
+        assert anon_client.get("/api/accounts/me/").status_code == status.HTTP_401_UNAUTHORIZED
+        assert anon_client.patch("/api/accounts/me/", {"first_name": "Test"}).status_code == status.HTTP_401_UNAUTHORIZED
+        assert anon_client.delete("/api/accounts/me/photo/").status_code == status.HTTP_401_UNAUTHORIZED
+        assert anon_client.post("/api/accounts/me/change-password/", {}).status_code == status.HTTP_401_UNAUTHORIZED
+

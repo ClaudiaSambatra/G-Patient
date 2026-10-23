@@ -1,0 +1,6 @@
+[flake8]
+exclude = migrations,venv,.venv,__pycache__,staticfiles,media
+extend-ignore = E501
+per-file-ignores =
+    tests.py:F841
+    apps.py:F401

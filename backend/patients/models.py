@@ -24,7 +24,7 @@ class Patient(models.Model):
     )
     date_naissance = models.DateField()
     contact = models.CharField(
-        max_length=100, help_text="Téléphone et/ou courriel"
+        max_length=100, blank=True, help_text="Téléphone et/ou courriel"
     )
     adresse = models.TextField(blank=True)
     antecedents = models.TextField(blank=True, help_text="Antécédents médicaux")
