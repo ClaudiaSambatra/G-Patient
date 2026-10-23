@@ -11,6 +11,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
     medecin_absent_aujourdhui = serializers.BooleanField(source='medecin.absent_aujourdhui', read_only=True)
     consultation_id = serializers.SerializerMethodField()
     statut_paiement = serializers.CharField(read_only=True)
+    facture_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = RendezVous
@@ -24,6 +25,9 @@ class RendezVousSerializer(serializers.ModelSerializer):
 
     def get_consultation_id(self, obj):
         return obj.consultation.id if hasattr(obj, 'consultation') and obj.consultation else None
+
+    def get_facture_id(self, obj):
+        return obj.facture.id if hasattr(obj, 'facture') and obj.facture else None
 
     def validate(self, attrs):
         # 1. Transitions de statut contrôlées
