@@ -145,6 +145,7 @@ export default function FacturesPage() {
       queryClient.invalidateQueries({ queryKey: ["factures"] })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      refetch()
       showNotification("success", "Facture encaissée avec succès. Le rendez-vous associé est confirmé.")
       handlePrintRecu(id)
     },

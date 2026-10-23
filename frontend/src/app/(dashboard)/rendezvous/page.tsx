@@ -364,6 +364,7 @@ export default function RendezVousPage() {
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       queryClient.invalidateQueries({ queryKey: ["factures"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      refetch()
       if (encaissementModal) {
         setEncaissementModal(prev => prev ? { ...prev, isPaid: true } : null)
       }
@@ -2229,7 +2230,10 @@ export default function RendezVousPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setEncaissementModal(null)}
+                    onClick={() => {
+                      setEncaissementModal(null)
+                      refetch()
+                    }}
                   >
                     Fermer
                   </Button>

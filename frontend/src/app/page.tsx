@@ -33,7 +33,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/login">
-              <Button className="bg-accent hover:bg-accent/90 text-white gap-2">
+              <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-sm shadow-primary/20">
                 Se connecter <ArrowRight className="size-4" />
               </Button>
             </Link>
@@ -45,8 +45,8 @@ export default function Home() {
       <main className="flex-1">
         <section className="relative overflow-hidden pt-24 pb-32">
           {/* Background decorations */}
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-          <div className="absolute -top-40 -right-40 -z-10 size-[500px] rounded-full bg-primary/100/10 blur-[100px]"></div>
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(26,95,255,0.12),rgba(255,255,255,0))]"></div>
+          <div className="absolute -top-40 -right-40 -z-10 size-[500px] rounded-full bg-primary/10 blur-[100px]"></div>
           <div className="absolute -bottom-40 -left-40 -z-10 size-[500px] rounded-full bg-primary/10 blur-[100px]"></div>
 
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
@@ -57,7 +57,7 @@ export default function Home() {
             
             <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl xl:text-7xl">
               Simplifiez la gestion de vos <br className="hidden sm:block" />
-              <span className="bg-gradient-to-r bg-primary bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 dossiers médicaux
               </span>
             </h1>
@@ -70,7 +70,7 @@ export default function Home() {
             
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/login">
-                <Button size="lg" className="h-14 px-8 text-base bg-accent hover:bg-accent/90 text-white w-full sm:w-auto shadow-lg shadow-primary/25 transition-all hover:scale-105">
+                <Button size="lg" className="h-14 px-8 text-base bg-primary hover:bg-primary/90 text-white w-full sm:w-auto shadow-lg shadow-primary/25 transition-all hover:scale-105">
                   Accéder à l'application
                 </Button>
               </Link>
@@ -89,7 +89,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Feature 1 */}
               <div className="rounded-2xl border border-border/80 bg-slate-50 dark:bg-muted/20 p-8 transition-all hover:shadow-md">
-                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
                   <Users className="size-6" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Dossiers centralisés</h3>
@@ -100,7 +100,7 @@ export default function Home() {
 
               {/* Feature 2 */}
               <div className="rounded-2xl border border-border/80 bg-slate-50 dark:bg-muted/20 p-8 transition-all hover:shadow-md">
-                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
                   <Stethoscope className="size-6" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Suivi des consultations</h3>
@@ -111,7 +111,7 @@ export default function Home() {
 
               {/* Feature 3 */}
               <div className="rounded-2xl border border-border/80 bg-slate-50 dark:bg-muted/20 p-8 transition-all hover:shadow-md">
-                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                <div className="mb-4 inline-flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground">
                   <ShieldCheck className="size-6" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">Sécurité & Confidentialité</h3>

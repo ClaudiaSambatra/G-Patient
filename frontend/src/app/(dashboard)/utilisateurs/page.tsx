@@ -38,6 +38,7 @@ interface Utilisateur {
   last_name: string
   role: "ADMIN" | "MEDECIN" | "SECRETAIRE" | "PATIENT"
   telephone: string
+  photo: string | null
   is_active: boolean
   is_staff: boolean
   is_superuser: boolean
@@ -71,7 +72,6 @@ export default function UtilisateursPage() {
   // États des modales
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<Utilisateur | null>(null)
-  const [resettingUser, setResettingUser] = useState<Utilisateur | null>(null)
   const [deletingUser, setDeletingUser] = useState<Utilisateur | null>(null)
 
   // Formulaire de création
@@ -99,12 +99,6 @@ export default function UtilisateursPage() {
   })
   const [editError, setEditError] = useState<string | null>(null)
 
-  // Formulaire de réinitialisation de mot de passe
-  const [resetPasswordForm, setResetPasswordForm] = useState({
-    new_password: "",
-    confirm_password: "",
-  })
-  const [resetError, setResetError] = useState<string | null>(null)
   const [copiedPassword, setCopiedPassword] = useState(false)
 
   // Notification flash
@@ -232,31 +226,6 @@ export default function UtilisateursPage() {
     },
   })
 
-  // Mutation: Réinitialiser mot de passe
-  const resetPasswordMutation = useMutation({
-    mutationFn: async () => {
-      if (!resettingUser) return
-      const { data } = await apiClient.post(
-        `/accounts/utilisateurs/${resettingUser.id}/reset-password/`,
-        resetPasswordForm
-      )
-      return data
-    },
-    onSuccess: () => {
-      setResettingUser(null)
-      setResetPasswordForm({ new_password: "", confirm_password: "" })
-      setResetError(null)
-      showNotification("success", "Le mot de passe a été réinitialisé.")
-    },
-    onError: (err: any) => {
-      const msg = err.response?.data?.confirm_password?.[0] ||
-        err.response?.data?.new_password?.[0] ||
-        err.response?.data?.detail ||
-        "Erreur lors de la réinitialisation du mot de passe."
-      setResetError(msg)
-    },
-  })
-
   // Mutation: Supprimer utilisateur
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -286,14 +255,6 @@ export default function UtilisateursPage() {
   function handleGeneratePasswordForCreate() {
     const pwd = generateStrongPassword()
     setCreateForm((f) => ({ ...f, password: pwd }))
-    navigator.clipboard?.writeText(pwd)
-    setCopiedPassword(true)
-    setTimeout(() => setCopiedPassword(false), 2000)
-  }
-
-  function handleGeneratePasswordForReset() {
-    const pwd = generateStrongPassword()
-    setResetPasswordForm({ new_password: pwd, confirm_password: pwd })
     navigator.clipboard?.writeText(pwd)
     setCopiedPassword(true)
     setTimeout(() => setCopiedPassword(false), 2000)
@@ -362,7 +323,7 @@ export default function UtilisateursPage() {
         {/* En-tête de la page */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary dark:text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary dark:text-accent">
               <Shield className="size-3.5" />
               <span>Administration & Sécurité</span>
             </div>
@@ -392,7 +353,7 @@ export default function UtilisateursPage() {
                 setCreateError(null)
               }}
               id="btn-open-create-user"
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-all hover:scale-[1.01] hover:shadow-primary/35 active:scale-[0.99]"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               <UserPlus className="size-4.5" />
               <span>Nouvel utilisateur</span>
@@ -403,7 +364,7 @@ export default function UtilisateursPage() {
         {/* Cartes KPI Statistiques */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {/* Total */}
-          <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-indigo-200">
+          <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-primary/40">
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="text-xs font-medium uppercase tracking-wider">Total</span>
               <div className="rounded-lg bg-primary/100/10 p-2 text-primary">
@@ -445,7 +406,7 @@ export default function UtilisateursPage() {
           </div>
 
           {/* Administrateurs */}
-          <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-purple-200">
+          <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-accent/40">
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="text-xs font-medium uppercase tracking-wider">Admins</span>
               <div className="rounded-lg bg-accent/10 p-2 text-accent">
@@ -599,9 +560,18 @@ export default function UtilisateursPage() {
                         {/* Identité */}
                         <td className="py-4 pl-6 pr-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-blue-500/20 text-primary dark:text-primary-foreground font-bold text-xs border border-indigo-200 dark:border-indigo-900">
-                              {initials}
-                            </div>
+                            {u.photo ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={u.photo}
+                                alt={u.first_name || u.username}
+                                className="size-10 shrink-0 rounded-full object-cover border border-primary/20 shadow-xs"
+                              />
+                            ) : (
+                              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-primary-foreground font-bold text-xs border border-primary/20">
+                                {initials}
+                              </div>
+                            )}
                             <div>
                               <div className="font-semibold text-foreground flex items-center gap-2">
                                 {u.first_name || u.last_name ? (
@@ -625,8 +595,8 @@ export default function UtilisateursPage() {
                         {/* Rôle */}
                         <td className="py-4 px-4">
                           {u.role === "ADMIN" && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:border-indigo-900/50 dark:bg-primary/20/50 dark:text-primary-foreground">
-                              <Shield className="size-3 text-indigo-500" />
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary dark:border-primary/30 dark:bg-primary/20 dark:text-primary-foreground">
+                              <Shield className="size-3 text-primary" />
                               Administrateur
                             </span>
                           )}
@@ -700,20 +670,6 @@ export default function UtilisateursPage() {
                               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >
                               <Edit3 className="size-4" />
-                            </button>
-
-                            {/* Réinitialiser mot de passe */}
-                            <button
-                              onClick={() => {
-                                setResettingUser(u)
-                                setResetPasswordForm({ new_password: "", confirm_password: "" })
-                                setResetError(null)
-                              }}
-                              title="Réinitialiser le mot de passe"
-                              id={`btn-reset-password-${u.id}`}
-                              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20/50"
-                            >
-                              <KeyRound className="size-4" />
                             </button>
 
                             {/* Activer / Désactiver */}
@@ -940,7 +896,7 @@ export default function UtilisateursPage() {
                   <button
                     type="button"
                     onClick={handleGeneratePasswordForCreate}
-                    className="text-[11px] font-semibold text-primary hover:text-primary dark:text-indigo-400 flex items-center gap-1"
+                    className="text-[11px] font-semibold text-primary hover:text-primary dark:text-accent flex items-center gap-1"
                   >
                     <KeyRound className="size-3" />
                     {copiedPassword ? "Copié !" : "Générer un mot de passe fort"}
@@ -1018,9 +974,18 @@ export default function UtilisateursPage() {
           <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
-                  <Edit3 className="size-5" />
-                </div>
+                {editingUser.photo ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={editingUser.photo}
+                    alt={editingUser.username}
+                    className="size-10 shrink-0 rounded-xl object-cover border border-border shadow-xs"
+                  />
+                ) : (
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
+                    <Edit3 className="size-5" />
+                  </div>
+                )}
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
                     Modifier l&apos;utilisateur @{editingUser.username}
@@ -1213,110 +1178,7 @@ export default function UtilisateursPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL 3 : RÉINITIALISATION DU MOT DE PASSE                                */}
-      {/* ========================================================================= */}
-      {resettingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-accent text-white shadow-md shadow-accent/20">
-                  <KeyRound className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Réinitialiser mot de passe</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Compte : <span className="font-semibold text-foreground">@{resettingUser.username}</span>
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setResettingUser(null)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
 
-            {resetError && (
-              <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                {resetError}
-              </div>
-            )}
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                resetPasswordMutation.mutate()
-              }}
-              className="mt-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Besoin d&apos;un mot de passe sécurisé ?</span>
-                <button
-                  type="button"
-                  onClick={handleGeneratePasswordForReset}
-                  className="text-xs font-semibold text-accent hover:text-accent dark:text-accent flex items-center gap-1"
-                >
-                  <KeyRound className="size-3" />
-                  Générer automatiquement
-                </button>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-foreground block mb-1">
-                  Nouveau mot de passe * (min. 6 car.)
-                </label>
-                <input
-                  type="text"
-                  required
-                  id="reset-user-new-password"
-                  value={resetPasswordForm.new_password}
-                  onChange={(e) =>
-                    setResetPasswordForm({ ...resetPasswordForm, new_password: e.target.value })
-                  }
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-accent focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-foreground block mb-1">
-                  Confirmer le mot de passe *
-                </label>
-                <input
-                  type="text"
-                  required
-                  id="reset-user-confirm-password"
-                  value={resetPasswordForm.confirm_password}
-                  onChange={(e) =>
-                    setResetPasswordForm({ ...resetPasswordForm, confirm_password: e.target.value })
-                  }
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm font-mono focus:border-accent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setResettingUser(null)}
-                  className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetPasswordMutation.isPending}
-                  id="btn-submit-reset-password"
-                  className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2 text-sm font-semibold text-white shadow-md shadow-accent/20 hover:bg-accent/90 disabled:opacity-50"
-                >
-                  {resetPasswordMutation.isPending ? "Mise à jour…" : "Appliquer le mot de passe"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* MODAL 4 : CONFIRMATION DE SUPPRESSION                                     */}
