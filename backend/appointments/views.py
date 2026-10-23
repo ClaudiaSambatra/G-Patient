@@ -33,7 +33,7 @@ class RendezVousViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = RendezVous.objects.all().select_related(
-            'patient', 'medecin__utilisateur', 'consultation', 'consultation_origine'
+            'patient', 'medecin__utilisateur', 'consultation', 'consultation_origine', 'facture'
         )
 
         # Si l'utilisateur est un médecin, il ne voit que ses rendez-vous
