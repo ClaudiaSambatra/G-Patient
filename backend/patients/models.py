@@ -60,25 +60,25 @@ class Patient(models.Model):
 
 class DocumentMedical(models.Model):
     """Module 6 — Documents médicaux (pièces jointes)."""
-    
+
     patient = models.ForeignKey(
-        Patient, 
-        on_delete=models.CASCADE, 
+        Patient,
+        on_delete=models.CASCADE,
         related_name="documents"
     )
     nom = models.CharField(max_length=255, help_text="Nom du document (ex: Analyse sang)")
     fichier = models.FileField(upload_to="documents_patients/%Y/%m/")
     type_document = models.CharField(
-        max_length=100, 
-        blank=True, 
+        max_length=100,
+        blank=True,
         help_text="Ex: Imagerie, Analyse de laboratoire, Ordonnance scannée"
     )
     date_depot = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         ordering = ['-date_depot']
         verbose_name = "Document Médical"
         verbose_name_plural = "Documents Médicaux"
-        
+
     def __str__(self):
         return f"{self.nom} - {self.patient}"

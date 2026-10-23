@@ -38,11 +38,12 @@ les conteneurs, pas besoin de les installer sur ta machine.
    (utilise `docker-compose up --build` si tu as l'ancienne version en
    binaire séparé)
 
-   Cela démarre 4 conteneurs :
+   Cela démarre 5 conteneurs :
    | Service    | URL / Port                          |
    |------------|--------------------------------------|
    | frontend   | http://localhost:3000                |
    | backend    | http://localhost:8000/api/           |
+   | mailpit    | http://localhost:8025                |
    | db         | localhost:5432 (PostgreSQL)          |
    | pgadmin    | http://localhost:5050                |
 
@@ -56,6 +57,7 @@ les conteneurs, pas besoin de les installer sur ta machine.
 
 5. Ouvre ensuite :
    - **http://localhost:3000** → le frontend Next.js
+   - **http://localhost:8025** → Mailpit (visualiser les emails de récupération / OTP en direct)
    - **http://localhost:8000/admin/** → l'admin Django (connecte-toi avec le
      superuser créé à l'étape 4)
    - **http://localhost:8000/api/patients/** → l'API REST (nécessite un token
@@ -166,3 +168,13 @@ gestion-patients/
 - Étape 5 : pipeline CI (GitHub Actions — lint + tests à chaque push)
 - Étape 6 : conteneurisation de prod et CD (Docker Hub / GHCR)
 - Étape 7 : supervision (Prometheus/Grafana), sécurité (Trivy, OWASP ZAP)
+
+## Récupération de mot de passe par Email
+
+Le système intègre la récupération sécurisée de mot de passe par email :
+1. Sur la page de connexion, cliquez sur **"Mot de passe oublié ?"**.
+2. Renseignez votre adresse email.
+3. Un email contenant un code de vérification à 6 chiffres ainsi qu'un lien direct est envoyé.
+4. **En développement local**, ouvrez [http://localhost:8025](http://localhost:8025) (Mailpit) pour voir les emails reçus instantanément.
+5. Saisissez le code et choisissez votre nouveau mot de passe (min. 8 caractères) pour vous reconnecter immédiatement.
+

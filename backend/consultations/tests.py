@@ -10,9 +10,11 @@ from consultations.models import Consultation
 from datetime import datetime, timedelta
 from django.utils.timezone import make_aware
 
+
 @pytest.fixture
 def api_client():
     return APIClient()
+
 
 @pytest.fixture
 def setup_data():
@@ -28,21 +30,21 @@ def setup_data():
 
     secretaire = Utilisateur.objects.create_user(username='secr', password='password', role='SECRETAIRE')
     admin_user = Utilisateur.objects.create_user(username='adm', password='password', role='ADMIN')
-    
+
     patient = Patient.objects.create(
         nom='Dupont', prenom='Jean', date_naissance='1990-01-01', contact='0123456789'
     )
     patient2 = Patient.objects.create(
         nom='Durand', prenom='Sophie', date_naissance='1985-05-12', contact='0987654321'
     )
-    
+
     rdv = RendezVous.objects.create(
-        patient=patient, 
-        medecin=medecin, 
+        patient=patient,
+        medecin=medecin,
         date_heure=make_aware(datetime.now() + timedelta(days=1)),
         statut='CONFIRME'
     )
-    
+
     return {
         'medecin_user': medecin_user,
         'medecin': medecin,
@@ -55,11 +57,12 @@ def setup_data():
         'rdv': rdv,
     }
 
+
 @pytest.mark.django_db
 def test_medecin_can_create_consultation(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['medecin_user'])
     url = reverse('consultation-list')
-    
+
     data = {
         'rendez_vous': setup_data['rdv'].id,
         'motif': 'Douleurs abdominales',
@@ -67,15 +70,16 @@ def test_medecin_can_create_consultation(api_client, setup_data):
         'diagnostic': 'Gastro-entérite',
         'compte_rendu': 'Examen complet réalisé.'
     }
-    
+
     response = api_client.post(url, data, format='json')
     assert response.status_code == status.HTTP_201_CREATED
     assert Consultation.objects.count() == 1
     assert response.data['patient'] == setup_data['patient'].id
-    
+
     # Vérifier que le statut du RDV est passé à TERMINE
     setup_data['rdv'].refresh_from_db()
     assert setup_data['rdv'].statut == 'TERMINE'
+
 
 @pytest.mark.django_db
 def test_creation_refused_for_other_medecin_rdv(api_client, setup_data):
@@ -93,6 +97,7 @@ def test_creation_refused_for_other_medecin_rdv(api_client, setup_data):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Ce rendez-vous ne vous est pas attribué." in str(response.data)
     assert Consultation.objects.count() == 0
+
 
 @pytest.mark.django_db
 def test_creation_refused_if_rdv_not_confirme(api_client, setup_data):
@@ -114,6 +119,7 @@ def test_creation_refused_if_rdv_not_confirme(api_client, setup_data):
     assert "CONFIRME" in str(response.data)
     assert Consultation.objects.count() == 0
 
+
 @pytest.mark.django_db
 def test_patient_forced_from_rdv(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['medecin_user'])
@@ -134,6 +140,7 @@ def test_patient_forced_from_rdv(api_client, setup_data):
     assert consultation.patient == setup_data['patient']
     assert response.data['patient'] == setup_data['patient'].id
 
+
 @pytest.mark.django_db
 def test_atomic_transaction_on_failure(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['medecin_user'])
@@ -148,6 +155,7 @@ def test_atomic_transaction_on_failure(api_client, setup_data):
 
     # Simuler une panne lors de la sauvegarde du rendez-vous
     original_save = RendezVous.save
+
     def failing_save(self, *args, **kwargs):
         if 'update_fields' in kwargs and 'statut' in kwargs.get('update_fields', []):
             raise RuntimeError("Erreur base de données simulée lors de la mise à jour du rendez-vous")
@@ -161,6 +169,7 @@ def test_atomic_transaction_on_failure(api_client, setup_data):
     assert Consultation.objects.count() == 0
     setup_data['rdv'].refresh_from_db()
     assert setup_data['rdv'].statut == 'CONFIRME'
+
 
 @pytest.mark.django_db
 def test_author_medecin_can_update_consultation(api_client, setup_data):
@@ -190,6 +199,7 @@ def test_author_medecin_can_update_consultation(api_client, setup_data):
     assert consultation.diagnostic == 'Diagnostic affiné'
     assert consultation.compte_rendu == 'Compte-rendu finalisé'
 
+
 @pytest.mark.django_db
 def test_other_medecin_cannot_update_consultation(api_client, setup_data):
     consultation = Consultation.objects.create(
@@ -209,6 +219,7 @@ def test_other_medecin_cannot_update_consultation(api_client, setup_data):
     assert response.status_code == status.HTTP_403_FORBIDDEN
     consultation.refresh_from_db()
     assert consultation.motif == 'Motif auteur'
+
 
 @pytest.mark.django_db
 def test_locked_fields_cannot_be_modified(api_client, setup_data):
@@ -245,6 +256,7 @@ def test_locked_fields_cannot_be_modified(api_client, setup_data):
     assert consultation.patient == setup_data['patient']
     assert consultation.rendez_vous == setup_data['rdv']
 
+
 @pytest.mark.django_db
 def test_secretaire_read_only_and_admin_full_access(api_client, setup_data):
     consultation = Consultation.objects.create(
@@ -280,6 +292,7 @@ def test_secretaire_read_only_and_admin_full_access(api_client, setup_data):
     res_adm_del = api_client.delete(detail_url)
     assert res_adm_del.status_code == status.HTTP_204_NO_CONTENT
     assert not Consultation.objects.filter(id=consultation.id).exists()
+
 
 @pytest.mark.django_db
 def test_consultation_filters_and_pagination(api_client, setup_data):
@@ -336,6 +349,7 @@ def test_consultation_filters_and_pagination(api_client, setup_data):
     assert res_page.data['count'] == 3
     assert res_page.data['next'] is not None
 
+
 @pytest.mark.django_db
 def test_duplicate_consultation_for_same_rdv_refused(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['medecin_user'])
@@ -363,5 +377,3 @@ def test_duplicate_consultation_for_same_rdv_refused(api_client, setup_data):
     res2 = api_client.post(url, data2, format='json')
     assert res2.status_code == status.HTTP_400_BAD_REQUEST
     assert "Ce rendez-vous possède déjà une consultation." in str(res2.data)
-
-

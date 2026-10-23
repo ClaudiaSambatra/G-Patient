@@ -3,12 +3,13 @@ from .models import Consultation
 from patients.models import Patient
 from appointments.models import RendezVous
 
+
 class ConsultationSerializer(serializers.ModelSerializer):
     patient_nom = serializers.CharField(source='patient.nom', read_only=True)
     patient_prenom = serializers.CharField(source='patient.prenom', read_only=True)
     medecin_nom = serializers.SerializerMethodField(read_only=True)
     statut_paiement = serializers.SerializerMethodField(read_only=True)
-    
+
     patient = serializers.PrimaryKeyRelatedField(
         queryset=Patient.objects.all(),
         required=False
@@ -86,4 +87,3 @@ class ConsultationSerializer(serializers.ModelSerializer):
         validated_data.pop('patient', None)
         validated_data.pop('medecin', None)
         return super().update(instance, validated_data)
-

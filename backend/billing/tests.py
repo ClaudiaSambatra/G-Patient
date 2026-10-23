@@ -1,9 +1,8 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.timezone import make_aware
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -61,7 +60,7 @@ def test_creation_rdv_consultation_cree_facture_impayee(api_client, test_data):
     response = api_client.post(url, data, format='json')
     assert response.status_code == status.HTTP_201_CREATED
     rdv_id = response.data['id']
-    
+
     rdv = RendezVous.objects.get(id=rdv_id)
     assert hasattr(rdv, 'facture')
     facture = rdv.facture

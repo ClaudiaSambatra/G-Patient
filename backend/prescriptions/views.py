@@ -4,6 +4,7 @@ from accounts.permissions import IsMedecin, IsSecretaireOuMedecinOuAdmin
 from .models import Ordonnance
 from .serializers import OrdonnanceSerializer
 
+
 class OrdonnanceViewSet(viewsets.ModelViewSet):
     """
     CRUD pour les Ordonnances.
@@ -27,7 +28,7 @@ class OrdonnanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(consultation_id=consultation_id)
         if patient_id:
             queryset = queryset.filter(consultation__patient_id=patient_id)
-            
+
         user = self.request.user
         if user.role == 'MEDECIN':
             from appointments.models import RendezVous

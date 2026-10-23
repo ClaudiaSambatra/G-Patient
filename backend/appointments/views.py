@@ -10,6 +10,7 @@ from accounts.permissions import (
     IsAdmin,
 )
 
+
 class RendezVousViewSet(viewsets.ModelViewSet):
     """
     CRUD complet pour les rendez-vous.
@@ -86,7 +87,6 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             return Response({"eligible": False, "consultation_origine": None})
 
         from datetime import datetime, timedelta, date as dt_date
-        from django.utils import timezone
         from consultations.models import Consultation
 
         try:
@@ -126,4 +126,3 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             instance.facture.save(update_fields=['statut'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
-

@@ -8,9 +8,11 @@ from appointments.models import RendezVous
 from datetime import datetime, timedelta
 from django.utils.timezone import make_aware
 
+
 @pytest.fixture
 def api_client():
     return APIClient()
+
 
 @pytest.fixture
 def setup_data():
@@ -19,7 +21,7 @@ def setup_data():
     medecin1_user = Utilisateur.objects.create_user(username='med1', password='password', role='MEDECIN')
     medecin2_user = Utilisateur.objects.create_user(username='med2', password='password', role='MEDECIN')
     secretaire = Utilisateur.objects.create_user(username='secr', password='password', role='SECRETAIRE')
-    
+
     # Médecins
     medecin1, _ = Medecin.objects.get_or_create(utilisateur=medecin1_user, defaults={'specialite': 'Généraliste'})
     medecin1.specialite = 'Généraliste'
@@ -27,12 +29,12 @@ def setup_data():
     medecin2, _ = Medecin.objects.get_or_create(utilisateur=medecin2_user, defaults={'specialite': 'Cardiologue'})
     medecin2.specialite = 'Cardiologue'
     medecin2.save()
-    
+
     # Patient
     patient = Patient.objects.create(
         nom='Dupont', prenom='Jean', date_naissance='1990-01-01', contact='0123456789'
     )
-    
+
     return {
         'admin': admin,
         'medecin1': medecin1_user,
@@ -43,22 +45,24 @@ def setup_data():
         'patient': patient,
     }
 
+
 @pytest.mark.django_db
 def test_secretaire_can_create_rendezvous(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['secretaire'])
     url = reverse('rendezvous-list')
     date_rdv = make_aware(datetime.now() + timedelta(days=1))
-    
+
     data = {
         'patient': setup_data['patient'].id,
         'medecin': setup_data['medecin1_profile'].id,
         'date_heure': date_rdv.isoformat(),
         'motif': 'Consultation de suivi'
     }
-    
+
     response = api_client.post(url, data, format='json')
     assert response.status_code == status.HTTP_201_CREATED
     assert RendezVous.objects.count() == 1
+
 
 @pytest.mark.django_db
 def test_medecin_sees_only_own_rendezvous(api_client, setup_data):
@@ -68,33 +72,34 @@ def test_medecin_sees_only_own_rendezvous(api_client, setup_data):
     RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=date_rdv)
     # Créer 1 RDV pour medecin 2
     RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin2_profile'], date_heure=date_rdv)
-    
+
     url = reverse('rendezvous-list')
-    
+
     # Connecté en tant que médecin 1
     api_client.force_authenticate(user=setup_data['medecin1'])
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert response.data['count'] == 2  # Il ne voit que ses 2 RDV
-    
+
     # Connecté en tant que secrétaire
     api_client.force_authenticate(user=setup_data['secretaire'])
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert response.data['count'] == 3  # Elle voit tout
 
+
 @pytest.mark.django_db
 def test_patch_rendezvous_status(api_client, setup_data):
     date_rdv = make_aware(datetime.now() + timedelta(days=1))
     rdv = RendezVous.objects.create(patient=setup_data['patient'], medecin=setup_data['medecin1_profile'], date_heure=date_rdv)
-    
+
     api_client.force_authenticate(user=setup_data['secretaire'])
     url = reverse('rendezvous-detail', args=[rdv.id])
-    
+
     data = {'statut': 'CONFIRME'}
     response = api_client.patch(url, data, format='json')
     assert response.status_code == status.HTTP_200_OK
-    
+
     rdv.refresh_from_db()
     assert rdv.statut == 'CONFIRME'
 
@@ -521,6 +526,3 @@ def test_filters_and_pagination(api_client, setup_data):
     })
     assert res_range.status_code == status.HTTP_200_OK
     assert res_range.data['count'] == 2
-
-
-

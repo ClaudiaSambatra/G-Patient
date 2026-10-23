@@ -5,10 +5,12 @@ from .models import Consultation
 from .serializers import ConsultationSerializer
 from accounts.permissions import IsSecretaireOuMedecinOuAdmin, IsMedecin
 
+
 class ConsultationPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
+
 
 class IsAuteurMedecin(permissions.BasePermission):
     """
@@ -40,6 +42,7 @@ class IsAuteurMedecin(permissions.BasePermission):
                 ).exists()
             return True
         return request.user.role == 'MEDECIN' and obj.medecin == request.user
+
 
 class ConsultationViewSet(viewsets.ModelViewSet):
     """
@@ -101,10 +104,9 @@ class ConsultationViewSet(viewsets.ModelViewSet):
                 medecin_user = self.request.user
 
             consultation = serializer.save(medecin=medecin_user)
-            
+
             # Mettre à jour le statut du rendez-vous lié si existant
             if consultation.rendez_vous:
                 rdv = consultation.rendez_vous
                 rdv.statut = 'TERMINE'
                 rdv.save(update_fields=['statut', 'date_modification'])
-

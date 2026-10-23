@@ -52,7 +52,7 @@ class FactureViewSet(viewsets.ModelViewSet):
         rendez_vous_id = self.request.query_params.get('rendez_vous')
         if rendez_vous_id:
             queryset = queryset.filter(rendez_vous_id=rendez_vous_id)
-            
+
         return queryset
 
     def update(self, request, *args, **kwargs):

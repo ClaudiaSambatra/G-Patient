@@ -208,7 +208,6 @@ class TestPermissionsGestionUtilisateurs:
 @pytest.mark.django_db
 class TestRecuperationMotDePasse:
     def setup_method(self):
-        from .models import PasswordResetToken
         from django.core import mail
         self.client = APIClient()
         self.user = Utilisateur.objects.create_user(
@@ -228,7 +227,7 @@ class TestRecuperationMotDePasse:
         })
         assert response.status_code == status.HTTP_200_OK
         assert "docteur.test@hopital.local" in response.data["message"]
-        
+
         # Vérifier que le jeton est créé en base
         token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
         assert token_obj is not None
@@ -265,7 +264,7 @@ class TestRecuperationMotDePasse:
         # 1. Demande OTP
         self.client.post("/api/auth/request-otp/", {"email": self.user.email})
         token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
-        
+
         # 2. Reset
         reset_res = self.client.post("/api/auth/reset-password/", {
             "email": self.user.email,
@@ -312,14 +311,14 @@ class TestRecuperationMotDePasse:
         from .models import PasswordResetToken
         self.client.post("/api/auth/request-otp/", {"email": self.user.email})
         token_obj = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first()
-        
+
         # Première utilisation
         self.client.post("/api/auth/reset-password/", {
             "email": self.user.email,
             "otp": token_obj.code,
             "new_password": "NouveauPassword1!"
         })
-        
+
         # Deuxième utilisation
         second_res = self.client.post("/api/auth/reset-password/", {
             "email": self.user.email,
@@ -551,4 +550,3 @@ class TestMonProfil:
         assert anon_client.patch("/api/accounts/me/", {"first_name": "Test"}).status_code == status.HTTP_401_UNAUTHORIZED
         assert anon_client.delete("/api/accounts/me/photo/").status_code == status.HTTP_401_UNAUTHORIZED
         assert anon_client.post("/api/accounts/me/change-password/", {}).status_code == status.HTTP_401_UNAUTHORIZED
-

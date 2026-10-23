@@ -3,7 +3,6 @@ Django settings for the "Gestion de Patients" project.
 Backend: Django + Django REST Framework + PostgreSQL + JWT
 """
 
-import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv

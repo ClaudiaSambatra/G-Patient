@@ -281,5 +281,3 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(new_password)
         user.save(update_fields=['password'])
         return user
-
-

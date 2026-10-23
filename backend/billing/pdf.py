@@ -4,7 +4,8 @@ from reportlab.lib.pagesizes import A5
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
+
 
 def generate_recu_pdf(facture):
     buffer = io.BytesIO()
@@ -18,7 +19,7 @@ def generate_recu_pdf(facture):
     )
 
     styles = getSampleStyleSheet()
-    
+
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
@@ -28,7 +29,7 @@ def generate_recu_pdf(facture):
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    
+
     sub_header_style = ParagraphStyle(
         'SubHeaderStyle',
         parent=styles['Normal'],
@@ -37,7 +38,7 @@ def generate_recu_pdf(facture):
         textColor=colors.HexColor('#475569'),
         alignment=TA_CENTER
     )
-    
+
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Heading2'],
@@ -47,7 +48,7 @@ def generate_recu_pdf(facture):
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    
+
     paid_badge_style = ParagraphStyle(
         'PaidBadgeStyle',
         parent=styles['Normal'],
@@ -91,7 +92,7 @@ def generate_recu_pdf(facture):
         if facture.date_paiement
         else timezone.localtime(facture.date_creation).strftime("%d/%m/%Y %H:%M")
     )
-    
+
     patient_nom = f"{facture.patient.nom} {facture.patient.prenom}"
     encaisse_par_nom = (
         facture.encaisse_par.get_full_name() or facture.encaisse_par.username

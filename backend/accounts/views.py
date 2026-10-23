@@ -232,18 +232,18 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
     def presence(self, request, pk=None):
         medecin = self.get_object()
         user = request.user
-        
+
         # Vérification des permissions :
         # Médecin uniquement pour lui-même, Secrétaire ou Admin pour tous
         is_own_profile = hasattr(user, 'medecin_profile') and user.medecin_profile.id == medecin.id
         is_staff_or_secretaire = user.role in [Utilisateur.Role.ADMIN, Utilisateur.Role.SECRETAIRE] or user.is_superuser
-        
+
         if not (is_own_profile or is_staff_or_secretaire):
             return Response(
                 {"detail": "Vous ne pouvez modifier que votre propre présence."},
                 status=status.HTTP_403_FORBIDDEN
             )
-            
+
         absent_raw = request.data.get('absent')
         if absent_raw is None:
             return Response(
@@ -256,28 +256,28 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             medecin.date_absence = None
         medecin.save(update_fields=['date_absence'])
-        
+
         return Response(MedecinSerializer(medecin, context={'request': request}).data, status=status.HTTP_200_OK)
 
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from django.utils import timezone
 from patients.models import Patient
 from appointments.models import RendezVous
 from consultations.models import Consultation
+
 
 class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         today = timezone.now().date()
-        
+
         patients_count = Patient.objects.count()
         rdv_du_jour = RendezVous.objects.filter(date_heure__date=today).count()
         consultations_count = Consultation.objects.count()
         medecins_actifs = Medecin.objects.filter(utilisateur__is_active=True).count()
-        
+
         # Activité par médecin
         activite_medecins = []
         for m in Medecin.objects.filter(utilisateur__is_active=True):
@@ -286,10 +286,10 @@ class DashboardStatsView(APIView):
                 'medecin': f"Dr. {m.utilisateur.last_name}",
                 'consultations': consultations_medecin
             })
-            
+
         from billing.models import Facture
         factures_impayees = Facture.objects.filter(statut=Facture.StatutPaiement.IMPAYEE).count()
-            
+
         return Response({
             "total_patients": patients_count,
             "rdv_du_jour": rdv_du_jour,
@@ -298,4 +298,3 @@ class DashboardStatsView(APIView):
             "factures_impayees": factures_impayees,
             "activite_medecins": activite_medecins
         })
-

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Ordonnance
 
+
 class OrdonnanceSerializer(serializers.ModelSerializer):
     patient_id = serializers.IntegerField(source='consultation.patient.id', read_only=True)
     patient_nom = serializers.CharField(source='consultation.patient.nom', read_only=True)

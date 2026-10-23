@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import RendezVous
-from patients.models import Patient
-from accounts.models import Medecin
 
 
 class RendezVousSerializer(serializers.ModelSerializer):
@@ -70,7 +68,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
             for attr, value in attrs.items():
                 setattr(instance, attr, value)
             instance.pk = self.instance.pk
-            
+
         try:
             instance.clean()
         except Exception as e:
@@ -78,7 +76,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
             if hasattr(e, 'message_dict'):
                 raise ValidationError(e.message_dict)
             raise ValidationError(str(e))
-            
+
         if instance.consultation_origine:
             attrs['consultation_origine'] = instance.consultation_origine
         return attrs

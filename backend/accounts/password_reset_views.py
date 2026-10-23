@@ -29,17 +29,17 @@ class RequestOTPView(APIView):
         email = request.data.get('email', '').strip()
         if not email:
             return Response(
-                {'error': 'Veuillez saisir votre adresse email.'}, 
+                {'error': 'Veuillez saisir votre adresse email.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         user = Utilisateur.objects.filter(email__iexact=email).first()
         if not user:
             return Response(
-                {'error': 'Aucun compte trouvé avec cette adresse email.'}, 
+                {'error': 'Aucun compte trouvé avec cette adresse email.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         # Invalider les anciens jetons non utilisés de cet utilisateur
         PasswordResetToken.objects.filter(utilisateur=user, is_used=False).update(is_used=True)
 
@@ -190,13 +190,13 @@ class RequestOTPView(APIView):
             )
             msg.attach_alternative(html_content, "text/html")
             msg.send(fail_silently=False)
-            
+
             print(f"OTP envoyé par email à {user.email}: {otp_code}", flush=True)
             return Response(
                 {
                     'message': f'Un code de vérification a été envoyé à {user.email}.',
                     'email': user.email
-                }, 
+                },
                 status=status.HTTP_200_OK
             )
         except Exception as e:
@@ -212,7 +212,7 @@ class RequestOTPView(APIView):
                     'message': f'Un code de réinitialisation a été généré pour {user.email}.',
                     'email': user.email,
                     'simulation': True
-                }, 
+                },
                 status=status.HTTP_200_OK
             )
 
@@ -227,17 +227,17 @@ class ResetPasswordView(APIView):
         email = request.data.get('email', '').strip()
         otp = str(request.data.get('otp', '')).strip()
         new_password = request.data.get('new_password', '')
-        
+
         if not all([email, otp, new_password]):
             return Response(
-                {'error': 'Tous les champs sont requis (email, code, nouveau mot de passe).'}, 
+                {'error': 'Tous les champs sont requis (email, code, nouveau mot de passe).'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         user = Utilisateur.objects.filter(email__iexact=email).first()
         if not user:
             return Response(
-                {'error': 'Aucun utilisateur trouvé avec cette adresse email.'}, 
+                {'error': 'Aucun utilisateur trouvé avec cette adresse email.'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -255,7 +255,7 @@ class ResetPasswordView(APIView):
             # S'il existe un enregistrement pour ce code mais non valide (expiré ou déjà utilisé)
             if existing_tokens.exists():
                 return Response(
-                    {'error': 'Le code de vérification a expiré ou a déjà été utilisé.'}, 
+                    {'error': 'Le code de vérification a expiré ou a déjà été utilisé.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -263,7 +263,7 @@ class ResetPasswordView(APIView):
             cached_otp = cache.get(f"otp_reset_{user.email.lower()}")
             if not (cached_otp and str(cached_otp) == str(otp)):
                 return Response(
-                    {'error': 'Le code de vérification est invalide ou a expiré.'}, 
+                    {'error': 'Le code de vérification est invalide ou a expiré.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -272,7 +272,7 @@ class ResetPasswordView(APIView):
             validate_password(new_password, user=user)
         except ValidationError as e:
             return Response(
-                {'error': ' '.join(e.messages)}, 
+                {'error': ' '.join(e.messages)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -284,10 +284,10 @@ class ResetPasswordView(APIView):
         if valid_token:
             valid_token.is_used = True
             valid_token.save(update_fields=['is_used'])
-            
+
         cache.delete(f"otp_reset_{user.email.lower()}")
 
         return Response(
-            {'message': 'Votre mot de passe a été réinitialisé avec succès ! Vous pouvez maintenant vous connecter.'}, 
+            {'message': 'Votre mot de passe a été réinitialisé avec succès ! Vous pouvez maintenant vous connecter.'},
             status=status.HTTP_200_OK
         )

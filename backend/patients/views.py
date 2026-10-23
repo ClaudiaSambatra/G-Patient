@@ -25,6 +25,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .models import DocumentMedical
 from .serializers import DocumentMedicalSerializer
 
+
 class DocumentMedicalViewSet(viewsets.ModelViewSet):
     queryset = DocumentMedical.objects.all()
     serializer_class = DocumentMedicalSerializer
@@ -32,7 +33,7 @@ class DocumentMedicalViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         patient_id = self.request.query_params.get('patient')

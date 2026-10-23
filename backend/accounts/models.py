@@ -28,8 +28,8 @@ class Medecin(models.Model):
     Profil étendu pour les utilisateurs ayant le rôle MEDECIN.
     """
     utilisateur = models.OneToOneField(
-        Utilisateur, 
-        on_delete=models.CASCADE, 
+        Utilisateur,
+        on_delete=models.CASCADE,
         related_name='medecin_profile',
         limit_choices_to={'role': 'MEDECIN'}
     )
@@ -51,8 +51,8 @@ class PasswordResetToken(models.Model):
     Jeton et code OTP pour la réinitialisation sécurisée de mot de passe par email.
     """
     utilisateur = models.ForeignKey(
-        Utilisateur, 
-        on_delete=models.CASCADE, 
+        Utilisateur,
+        on_delete=models.CASCADE,
         related_name='password_reset_tokens'
     )
     code = models.CharField(max_length=6, db_index=True)
@@ -72,4 +72,3 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"OTP({self.code}) pour {self.utilisateur.username}"
-

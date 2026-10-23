@@ -8,17 +8,25 @@ from accounts.password_reset_views import RequestOTPView, ResetPasswordView
 medecin_router = DefaultRouter()
 medecin_router.register(r'', MedecinViewSet, basename='medecin')
 
+from django.http import JsonResponse
+
+
+def health(request):
+    return JsonResponse({'status': 'ok'})
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', health, name='health'),
 
     # Authentification JWT
     path('api/auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+
     # Mot de passe oublié
     path('api/auth/request-otp/', RequestOTPView.as_view(), name='request_otp'),
     path('api/auth/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
-    
+
     # Comptes
     path('api/accounts/', include('accounts.urls')),
 

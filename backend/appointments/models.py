@@ -186,5 +186,3 @@ class RendezVous(models.Model):
                 if self.facture.statut == 'IMPAYEE':
                     self.facture.statut = 'ANNULEE'
                     self.facture.save(update_fields=['statut'])
-            
-

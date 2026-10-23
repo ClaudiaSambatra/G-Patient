@@ -5,6 +5,7 @@ from django.dispatch import receiver
 from appointments.models import RendezVous
 from .models import Facture
 
+
 @receiver(post_save, sender=RendezVous)
 def on_rendezvous_saved(sender, instance, created, **kwargs):
     if created and instance.type == RendezVous.Type.CONSULTATION:

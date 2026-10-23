@@ -4,6 +4,7 @@ from django.utils import timezone
 from patients.models import Patient
 from appointments.models import RendezVous
 
+
 class Consultation(models.Model):
     """Module 4 — Gestion des consultations médicales."""
 
@@ -25,13 +26,13 @@ class Consultation(models.Model):
         blank=True,
         related_name="consultation"
     )
-    
+
     date_consultation = models.DateTimeField(default=timezone.now)
     motif = models.TextField()
     observations = models.TextField(help_text="Constantes vitales : tension, température, poids, examen clinique")
     diagnostic = models.TextField()
     compte_rendu = models.TextField(blank=True, default='', help_text="Compte rendu médical de la consultation")
-    
+
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 

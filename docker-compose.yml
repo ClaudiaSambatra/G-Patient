@@ -29,6 +29,14 @@ services:
     depends_on:
       - db
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: gestion_patients_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
   backend:
     build:
       context: ./backend
@@ -38,6 +46,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app:Z
+      - media_volume:/app/media:Z
     ports:
       - "8000:8000"
     env_file:
@@ -67,3 +76,4 @@ services:
 
 volumes:
   postgres_data:
+  media_volume:
