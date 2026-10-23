@@ -113,7 +113,7 @@ jobs:
       # Rapport de vulnérabilités (n'échoue pas le pipeline au début).
       # Passer exit-code à "1" plus tard pour bloquer sur CRITICAL/HIGH.
       - name: Scan Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
           severity: CRITICAL,HIGH
