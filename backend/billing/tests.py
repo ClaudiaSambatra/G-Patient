@@ -75,12 +75,14 @@ def test_creation_rdv_consultation_cree_facture_impayee(api_client, test_data):
 def test_controle_accepte_a_15_jours_et_refuse_a_16_jours(api_client, test_data):
     api_client.force_authenticate(user=test_data['secretaire'])
     now = timezone.now()
+    rdv_future = (now + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+    consultation_date_15j = rdv_future - timedelta(days=15)
 
     # Consultation d'origine terminée
     rdv_origine = RendezVous.objects.create(
         patient=test_data['patient'],
         medecin=test_data['medecin1'],
-        date_heure=now - timedelta(days=15),
+        date_heure=consultation_date_15j,
         type=RendezVous.Type.CONSULTATION,
         statut=RendezVous.Statut.TERMINE
     )
@@ -88,7 +90,7 @@ def test_controle_accepte_a_15_jours_et_refuse_a_16_jours(api_client, test_data)
         patient=test_data['patient'],
         medecin=test_data['medecin1_user'],
         rendez_vous=rdv_origine,
-        date_consultation=now - timedelta(days=15),
+        date_consultation=consultation_date_15j,
         motif='Origine',
         observations='Obs',
         diagnostic='Diag'
@@ -99,7 +101,7 @@ def test_controle_accepte_a_15_jours_et_refuse_a_16_jours(api_client, test_data)
     data_15j = {
         'patient': test_data['patient'].id,
         'medecin': test_data['medecin1'].id,
-        'date_heure': (now + timedelta(hours=1)).isoformat(),
+        'date_heure': rdv_future.isoformat(),
         'type': 'CONTROLE',
         'motif': 'Contrôle à 15j'
     }
@@ -109,14 +111,14 @@ def test_controle_accepte_a_15_jours_et_refuse_a_16_jours(api_client, test_data)
     assert res_15j.data['statut_paiement'] == 'GRATUIT'
 
     # Ancienneté de la consultation passée à 16 jours -> Refusé
-    consultation.date_consultation = now - timedelta(days=16)
+    consultation.date_consultation = rdv_future - timedelta(days=16)
     consultation.save(update_fields=['date_consultation'])
 
     # Nouveau contrôle -> Refusé
     data_16j = {
         'patient': test_data['patient'].id,
         'medecin': test_data['medecin1'].id,
-        'date_heure': (now + timedelta(hours=2)).isoformat(),
+        'date_heure': (rdv_future + timedelta(hours=1)).isoformat(),
         'type': 'CONTROLE',
         'motif': 'Contrôle à 16j'
     }
