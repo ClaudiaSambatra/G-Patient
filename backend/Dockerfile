@@ -22,7 +22,7 @@ ENV PATH=/home/django/.local/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN chown -R django:django /app
+RUN mkdir -p /app/staticfiles /app/media && chown -R django:django /app
 USER django
 
 EXPOSE 8000
