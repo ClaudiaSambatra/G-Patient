@@ -162,6 +162,7 @@ def test_secretaire_and_admin_can_modify_any_medecin_presence(api_client, setup_
 @pytest.mark.django_db
 def test_rendezvous_today_refused_for_absent_medecin(api_client, setup_data):
     from django.utils import timezone
+    from unittest.mock import patch
     med1_profile = setup_data['medecin1_profile']
     med1_profile.date_absence = timezone.localdate()
     med1_profile.save()
@@ -169,17 +170,19 @@ def test_rendezvous_today_refused_for_absent_medecin(api_client, setup_data):
     api_client.force_authenticate(user=setup_data['secretaire'])
     url = reverse('rendezvous-list')
 
-    # RDV fixé à aujourd'hui
-    today_dt = timezone.now().replace(hour=14, minute=0, second=0, microsecond=0)
-    data = {
-        'patient': setup_data['patient'].id,
-        'medecin': med1_profile.id,
-        'date_heure': today_dt.isoformat(),
-        'motif': 'Urgence'
-    }
-    response = api_client.post(url, data, format='json')
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Ce médecin est absent aujourd'hui." in str(response.data)
+    # RDV fixé à aujourd'hui (simulé le matin pour garantir que l'heure du RDV est dans le futur)
+    morning = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+    today_dt = morning.replace(hour=14, minute=0, second=0, microsecond=0)
+    with patch('django.utils.timezone.now', return_value=morning):
+        data = {
+            'patient': setup_data['patient'].id,
+            'medecin': med1_profile.id,
+            'date_heure': today_dt.isoformat(),
+            'motif': 'Urgence'
+        }
+        response = api_client.post(url, data, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Ce médecin est absent aujourd'hui." in str(response.data)
 
 
 @pytest.mark.django_db

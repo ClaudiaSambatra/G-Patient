@@ -141,3 +141,10 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # Tarif de consultation (par défaut 20 000 Ar)
 TARIF_CONSULTATION = config('TARIF_CONSULTATION', default=20000, cast=int)
+
+# Accélération des tests unitaires (hasher rapide pour éviter la lenteur PBKDF2 en CI/tests)
+import sys
+if 'pytest' in sys.modules or any('pytest' in arg for arg in sys.argv) or 'test' in sys.argv:
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
