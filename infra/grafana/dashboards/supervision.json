@@ -236,7 +236,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "count(container_last_seen{name=~\"gestion-patients.*\"})",
+          "expr": "count(container_last_seen{id=~\"/system.slice/docker-.+\"})",
           "refId": "A"
         }
       ],
@@ -333,7 +333,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name=~\"gestion-patients.*\"}[1m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{id=~\"/system.slice/docker-.+\"}[1m]) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -419,7 +419,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "container_memory_usage_bytes{name=~\"gestion-patients.*\"}",
+          "expr": "container_memory_usage_bytes{id=~\"/system.slice/docker-.+\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

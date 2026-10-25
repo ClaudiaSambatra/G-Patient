@@ -101,11 +101,15 @@ services:
     privileged: true
     devices:
       - /dev/kmsg
+    command:
+      - '--containerd=/run/containerd/containerd.sock'
+      - '--containerd-namespace=moby'
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
       - /dev/disk/:/dev/disk:ro
 
   grafana:
