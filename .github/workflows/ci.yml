@@ -120,3 +120,45 @@ jobs:
           ignore-unfixed: true
           exit-code: "0"
           format: table
+
+  # ------------------------------------------------------------- DEPLOY EC2
+  deploy:
+    name: Déploiement continu sur AWS EC2
+    needs: [images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déploiement via SSH sur AWS EC2
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash << 'EOF'
+            set -e
+            echo "🚀 Démarrage du déploiement..."
+            cd /home/ubuntu/gestion-patients
+
+            echo "📥 Récupération des dernières modifications de code et configs..."
+            git pull origin main
+
+            echo "🐳 Téléchargement des nouvelles images Docker..."
+            docker compose -f docker-compose.prod.yml pull
+
+            echo "🔄 Redémarrage des services..."
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "🩺 Vérification de l'état de l'application..."
+            sleep 5
+            docker compose -f docker-compose.prod.yml ps
+            curl -f -s http://127.0.0.1/api/health/ > /dev/null && echo "✅ API opérationnelle !"
+
+            echo "🧹 Nettoyage des anciennes images inutilisées..."
+            docker image prune -f
+            echo "🎉 Déploiement terminé avec succès !"
+          EOF
