@@ -8,16 +8,25 @@ from accounts.password_reset_views import RequestOTPView, ResetPasswordView
 medecin_router = DefaultRouter()
 medecin_router.register(r'', MedecinViewSet, basename='medecin')
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+import prometheus_client
 
 
 def health(request):
     return JsonResponse({'status': 'ok'})
 
 
+def metrics(request):
+    return HttpResponse(
+        prometheus_client.generate_latest(),
+        content_type=prometheus_client.CONTENT_TYPE_LATEST
+    )
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/health/', health, name='health'),
+    path('api/metrics/', metrics, name='metrics'),
 
     # Authentification JWT
     path('api/auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
