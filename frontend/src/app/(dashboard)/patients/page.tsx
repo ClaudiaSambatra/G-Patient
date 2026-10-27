@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   Users, UserPlus, Calendar, Phone, Search, RefreshCw, 
   CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle,
-  FileText, Stethoscope, Plus, FolderOpen, Download, Upload
+  FileText, Stethoscope, Plus, FolderOpen, Download
 } from "lucide-react"
 
 interface DocumentMedical {
@@ -109,7 +109,6 @@ export default function PatientsPage() {
   
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false)
   const [documentPatient, setDocumentPatient] = useState<Patient | null>(null)
-  const [docForm, setDocForm] = useState({ nom: "", type_document: "", file: null as File | null })
 
   // Queries
   const { data: currentUser } = useQuery<CurrentUser>({
@@ -211,28 +210,6 @@ export default function PatientsPage() {
     },
     onError: () => {
       showNotification("error", "Erreur lors de l'enregistrement de la consultation.")
-    }
-  })
-
-  const uploadDocument = useMutation({
-    mutationFn: async () => {
-      if (!documentPatient || !docForm.file) return
-      const formData = new FormData()
-      formData.append("patient", documentPatient.id.toString())
-      formData.append("nom", docForm.nom)
-      formData.append("type_document", docForm.type_document)
-      formData.append("fichier", docForm.file)
-      return apiClient.post("/patients/documents/", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      })
-    },
-    onSuccess: () => {
-      setDocForm({ nom: "", type_document: "", file: null })
-      queryClient.invalidateQueries({ queryKey: ["patients"] })
-      showNotification("success", "Document ajouté avec succès.")
-    },
-    onError: () => {
-      showNotification("error", "Erreur lors de l'ajout du document.")
     }
   })
 
@@ -981,62 +958,6 @@ export default function PatientsPage() {
             </div>
             
             <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-              
-              {/* Formulaire d'upload */}
-              <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Upload className="size-4 text-muted-foreground" /> Ajouter un nouveau document
-                </h4>
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    uploadDocument.mutate()
-                  }}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
-                >
-                  <div className="space-y-1">
-                    <Label className="text-xs">Nom du document *</Label>
-                    <Input 
-                      required 
-                      placeholder="Ex: Analyse de sang" 
-                      value={docForm.nom} 
-                      onChange={e => setDocForm({...docForm, nom: e.target.value})} 
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Type de document</Label>
-                    <select 
-                      value={docForm.type_document}
-                      onChange={e => setDocForm({...docForm, type_document: e.target.value})}
-                      className="flex h-8 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Sélectionner</option>
-                      <option value="Laboratoire">Laboratoire</option>
-                      <option value="Imagerie">Imagerie</option>
-                      <option value="Ordonnance Externe">Ordonnance Externe</option>
-                      <option value="Autre">Autre</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <Label className="text-xs">Fichier (PDF, Image...) *</Label>
-                    <Input 
-                      type="file" 
-                      required 
-                      onChange={e => setDocForm({...docForm, file: e.target.files ? e.target.files[0] : null})} 
-                      className="h-8 text-sm cursor-pointer file:h-full file:bg-transparent file:text-sm file:font-medium file:text-foreground"
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    disabled={uploadDocument.isPending || !docForm.file} 
-                    className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                  >
-                    {uploadDocument.isPending ? "Upload..." : "Enregistrer"}
-                  </Button>
-                </form>
-              </div>
-
               {/* Liste des documents existants */}
               <div>
                 <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Fichiers enregistrés</h4>
