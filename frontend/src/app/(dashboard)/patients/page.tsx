@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   Users, UserPlus, Calendar, Phone, Search, RefreshCw, 
   CheckCircle2, AlertCircle, Eye, Edit3, Trash2, XCircle,
-  FileText, Stethoscope, Plus, FolderOpen, Download
+  FileText, Stethoscope, Plus
 } from "lucide-react"
 
 interface DocumentMedical {
@@ -106,9 +106,6 @@ export default function PatientsPage() {
   const [consultationForm, setConsultationForm] = useState({
     motif: "", observations: "", diagnostic: ""
   })
-  
-  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false)
-  const [documentPatient, setDocumentPatient] = useState<Patient | null>(null)
 
   // Queries
   const { data: currentUser } = useQuery<CurrentUser>({
@@ -397,18 +394,6 @@ export default function PatientsPage() {
                                 className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               >
                                 <Eye className="size-4" />
-                              </button>
-
-                              {/* Documents */}
-                              <button
-                                onClick={() => {
-                                  setDocumentPatient(p)
-                                  setIsDocumentsModalOpen(true)
-                                }}
-                                title="Documents médicaux"
-                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                              >
-                                <FolderOpen className="size-4" />
                               </button>
 
                               {/* Modifier */}
@@ -935,65 +920,6 @@ export default function PatientsPage() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================= */}
-      {/* MODAL 6 : DOCUMENTS MEDICAUX              */}
-      {/* ========================================= */}
-      {isDocumentsModalOpen && documentPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-4xl rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-2xl max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-4 shrink-0">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-primary">
-                <FolderOpen className="size-5" /> Documents - {documentPatient.nom} {documentPatient.prenom}
-              </h3>
-              <button
-                onClick={() => setIsDocumentsModalOpen(false)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-              {/* Liste des documents existants */}
-              <div>
-                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Fichiers enregistrés</h4>
-                {!documentPatient.documents || documentPatient.documents.length === 0 ? (
-                  <p className="text-sm italic text-muted-foreground bg-muted/20 p-4 rounded-lg text-center">Aucun document pour ce patient.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {documentPatient.documents.map((doc) => (
-                      <div key={doc.id} className="flex items-start justify-between p-3 rounded-lg border border-border/60 bg-card hover:bg-muted/20 transition-colors">
-                        <div className="flex items-start gap-3 overflow-hidden">
-                          <FileText className="size-8 text-primary/70 shrink-0 mt-0.5" />
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-semibold text-sm truncate" title={doc.nom}>{doc.nom}</span>
-                            <span className="text-xs text-muted-foreground">{doc.type_document || "Non spécifié"}</span>
-                            <span className="text-[10px] text-muted-foreground mt-1">{new Date(doc.date_depot).toLocaleDateString('fr-FR')}</span>
-                          </div>
-                        </div>
-                        <a 
-                          href={doc.fichier} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="shrink-0 p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors"
-                          title="Télécharger / Voir"
-                        >
-                          <Download className="size-4" />
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-border/60 mt-4 shrink-0">
-              <Button variant="outline" onClick={() => setIsDocumentsModalOpen(false)}>Fermer</Button>
-            </div>
           </div>
         </div>
       )}
