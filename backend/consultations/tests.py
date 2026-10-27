@@ -6,7 +6,8 @@ from rest_framework.test import APIClient
 from accounts.models import Utilisateur, Medecin
 from patients.models import Patient
 from appointments.models import RendezVous
-from consultations.models import Consultation
+from consultations.models import Consultation, ConstantesVitales, ConsultationHistorique, RetourSansRendezVous
+from billing.models import Facture
 from datetime import datetime, timedelta
 from django.utils.timezone import make_aware
 
@@ -190,7 +191,8 @@ def test_author_medecin_can_update_consultation(api_client, setup_data):
         'motif': 'Motif mis à jour',
         'observations': 'Constantes mises à jour : TA 12/8',
         'diagnostic': 'Diagnostic affiné',
-        'compte_rendu': 'Compte-rendu finalisé'
+        'compte_rendu': 'Compte-rendu finalisé',
+        'motif_correction': 'Mise à jour médicale suite aux examens complémentaires'
     }
     response = api_client.patch(url, update_data, format='json')
     assert response.status_code == status.HTTP_200_OK
@@ -285,7 +287,11 @@ def test_secretaire_read_only_and_admin_full_access(api_client, setup_data):
     res_adm_get = api_client.get(detail_url)
     assert res_adm_get.status_code == status.HTTP_200_OK
 
-    res_adm_patch = api_client.patch(detail_url, {'motif': 'Mise à jour par Admin'}, format='json')
+    res_adm_patch = api_client.patch(
+        detail_url,
+        {'motif': 'Mise à jour par Admin', 'motif_correction': 'Correction administrative'},
+        format='json'
+    )
     assert res_adm_patch.status_code == status.HTTP_200_OK
     assert res_adm_patch.data['motif'] == 'Mise à jour par Admin'
 
@@ -377,3 +383,445 @@ def test_duplicate_consultation_for_same_rdv_refused(api_client, setup_data):
     res2 = api_client.post(url, data2, format='json')
     assert res2.status_code == status.HTTP_400_BAD_REQUEST
     assert "Ce rendez-vous possède déjà une consultation." in str(res2.data)
+
+
+@pytest.mark.django_db
+def test_creation_consultation_avec_constantes_vitales_valides(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+
+    data = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Consultation avec constantes',
+        'observations': 'Examen complet',
+        'diagnostic': 'Bilan normal',
+        'compte_rendu': 'Constantes stables',
+        'constantes': {
+            'temperature': '37.2',
+            'poids': '70.50',
+            'taille': '175.0',
+            'tension_arterielle': '120/80',
+            'frequence_cardiaque': 72
+        }
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['constantes'] is not None
+    assert str(res.data['constantes']['temperature']) == '37.2'
+    assert str(res.data['constantes']['tension_arterielle']) == '120/80'
+
+    consultation = Consultation.objects.get(pk=res.data['id'])
+    assert hasattr(consultation, 'constantes')
+    assert ConstantesVitales.objects.filter(consultation=consultation).exists()
+    assert consultation.constantes.poids == 70.50
+    assert consultation.constantes.frequence_cardiaque == 72
+
+
+@pytest.mark.django_db
+def test_validation_constantes_bornes_physiologiques(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+
+    # Température hors borne (> 45°C)
+    data_bad_temp = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Test température',
+        'observations': 'Obs',
+        'diagnostic': 'Diag',
+        'constantes': {'temperature': '48.0'}
+    }
+    res = api_client.post(url, data_bad_temp, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+    # Tension artérielle format invalide
+    data_bad_ta = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Test TA',
+        'observations': 'Obs',
+        'diagnostic': 'Diag',
+        'constantes': {'tension_arterielle': 'invalide'}
+    }
+    res_ta = api_client.post(url, data_bad_ta, format='json')
+    assert res_ta.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_date_controle_recommandee_sans_effet_secondaire(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+    date_rec = (datetime.now() + timedelta(days=10)).strftime('%Y-%m-%d')
+
+    rdv_count_before = RendezVous.objects.count()
+    facture_count_before = Facture.objects.count()
+
+    data = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Consultation avec date recommandée',
+        'observations': 'À revoir dans 10 jours',
+        'diagnostic': 'Rhinite',
+        'date_controle_recommandee': date_rec
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['date_controle_recommandee'] == date_rec
+
+    # Aucun rendez-vous supplémentaire créé
+    assert RendezVous.objects.count() == rdv_count_before
+    # Aucune facture supplémentaire créée
+    assert Facture.objects.count() == facture_count_before
+
+
+@pytest.mark.django_db
+def test_date_controle_recommandee_anterieure_refusee(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+    date_passee = (datetime.now() - timedelta(days=5)).strftime('%Y-%m-%d')
+
+    data = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Date passée',
+        'observations': 'Obs',
+        'diagnostic': 'Diag',
+        'date_controle_recommandee': date_passee
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "date de contrôle recommandée ne peut pas être antérieure" in str(res.data)
+
+
+@pytest.mark.django_db
+def test_consultation_affiche_allergies_et_antecedents_du_patient(api_client, setup_data):
+    # Enregistrer des allergies et antécédents dans le dossier patient
+    patient = setup_data['patient']
+    patient.allergies = 'Pénicilline, Arachides'
+    patient.antecedents = 'Asthme sévère, Hypertension'
+    patient.save()
+
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+
+    data = {
+        'rendez_vous': setup_data['rdv'].id,
+        'motif': 'Consultation avec historique médical',
+        'observations': 'Vérification dossier',
+        'diagnostic': 'Stable'
+    }
+    res = api_client.post(url, data, format='json')
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['patient_allergies'] == 'Pénicilline, Arachides'
+    assert res.data['patient_antecedents'] == 'Asthme sévère, Hypertension'
+
+
+@pytest.mark.django_db
+def test_echec_creation_consultation_ne_cloture_pas_rdv_rollback(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+    rdv = setup_data['rdv']
+
+    # Simuler une exception en base lors de l'enregistrement de la consultation
+    with patch('consultations.models.Consultation.save', side_effect=RuntimeError("Erreur base simulée")):
+        data = {
+            'rendez_vous': rdv.id,
+            'motif': 'Test rollback',
+            'observations': 'Obs',
+            'diagnostic': 'Diag'
+        }
+        with pytest.raises(RuntimeError):
+            api_client.post(url, data, format='json')
+
+    # Vérification : le rendez-vous n'a PAS été clôturé
+    rdv.refresh_from_db()
+    assert rdv.statut == 'CONFIRME'
+
+
+@pytest.mark.django_db
+def test_concurrence_doublon_consultation_rdv_bloque(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-list')
+    rdv = setup_data['rdv']
+
+    # Première création : RDV clôturé à TERMINE
+    data1 = {
+        'rendez_vous': rdv.id,
+        'motif': 'Première consultation',
+        'observations': 'Obs 1',
+        'diagnostic': 'Diag 1'
+    }
+    res1 = api_client.post(url, data1, format='json')
+    assert res1.status_code == status.HTTP_201_CREATED
+    rdv.refresh_from_db()
+    assert rdv.statut == 'TERMINE'
+
+    # Seconde création concurrente ou immédiate : refusée avec message contrôlé
+    data2 = {
+        'rendez_vous': rdv.id,
+        'motif': 'Tentative doublon',
+        'observations': 'Obs 2',
+        'diagnostic': 'Diag 2'
+    }
+    res2 = api_client.post(url, data2, format='json')
+    assert res2.status_code == status.HTTP_400_BAD_REQUEST
+    assert "rendez-vous" in str(res2.data).lower()
+
+
+@pytest.mark.django_db
+def test_modification_consultation_exige_motif_et_cree_historique(api_client, setup_data):
+    consultation = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=setup_data['rdv'],
+        motif='Motif initial',
+        observations='Obs initiales',
+        diagnostic='Diagnostic initial'
+    )
+
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-detail', args=[consultation.id])
+
+    patch_data = {
+        'diagnostic': 'Diagnostic révisé : Bronchite aiguë',
+        'compte_rendu': 'Patient sous traitement',
+        'motif_correction': 'Précision diagnostique après réception de la radiographie'
+    }
+    res = api_client.patch(url, patch_data, format='json')
+    assert res.status_code == status.HTTP_200_OK
+
+    # Vérification de l'historique d'audit
+    historiques = ConsultationHistorique.objects.filter(consultation=consultation)
+    assert historiques.count() == 1
+    h = historiques.first()
+    assert h.motif_correction == 'Précision diagnostique après réception de la radiographie'
+    assert h.auteur == setup_data['medecin_user']
+    assert 'diagnostic' in h.champs_modifies
+    assert h.anciennes_valeurs['diagnostic'] == 'Diagnostic initial'
+    assert h.nouvelles_valeurs['diagnostic'] == 'Diagnostic révisé : Bronchite aiguë'
+
+
+@pytest.mark.django_db
+def test_modification_sans_motif_refusee(api_client, setup_data):
+    consultation = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=setup_data['rdv'],
+        motif='Motif initial',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-detail', args=[consultation.id])
+
+    # Tentative de modification sans fournir motif_correction
+    res = api_client.patch(url, {'diagnostic': 'Nouveau diag pirate'}, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "motif_correction" in res.data
+    assert "motif de correction est obligatoire" in str(res.data['motif_correction'])
+
+
+@pytest.mark.django_db
+def test_interdiction_suppression_par_medecin_ordinaire(api_client, setup_data):
+    consultation = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=setup_data['rdv'],
+        motif='Consultation protégée',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+
+    # Le médecin auteur tente de supprimer la consultation -> 403 Forbidden
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    url = reverse('consultation-detail', args=[consultation.id])
+    res = api_client.delete(url)
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+    assert Consultation.objects.filter(pk=consultation.id).exists()
+
+
+@pytest.mark.django_db
+def test_parcours_secretaire_retour_sans_rdv_sans_donnees_cliniques(api_client, setup_data):
+    # Consultation initiale avec notes confidentielles
+    consultation = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=setup_data['rdv'],
+        motif='Secret médical',
+        observations='Observation ultra confidentielle',
+        diagnostic='Diagnostic secret',
+        compte_rendu='CR secret',
+        date_controle_recommandee=(datetime.now() + timedelta(days=7)).date()
+    )
+
+    # Secrétaire se connecte et consulte l'accueil / vérification éligibilité
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url_eligibilite = reverse('retour-sans-rdv-verifier-eligibilite')
+    res = api_client.get(url_eligibilite, {'patient': setup_data['patient'].id})
+
+    assert res.status_code == status.HTTP_200_OK
+    data = res.data
+
+    # Les données médicales confidentielles sont strictement absentes
+    assert 'observations' not in data
+    assert 'diagnostic' not in data
+    assert 'compte_rendu' not in data
+    assert 'Observation ultra confidentielle' not in str(data)
+    assert 'Diagnostic secret' not in str(data)
+
+    # Les informations administratives utiles sont présentes
+    assert data['patient_nom'] == f"{setup_data['patient'].nom} {setup_data['patient'].prenom}"
+    assert data['dernier_passage']['medecin_nom'] == f"Dr. {setup_data['medecin_user'].last_name} {setup_data['medecin_user'].first_name}".strip()
+    assert str(data['dernier_passage']['date_controle_recommandee']) == str(consultation.date_controle_recommandee)
+
+
+@pytest.mark.django_db
+def test_calcul_eligibilite_controle_eligible_15_jours(api_client, setup_data):
+    now = datetime.now()
+    # Consultation initiale il y a 8 jours (terminée et payante)
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(now - timedelta(days=8)),
+        statut='TERMINE',
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=8)),
+        motif='Consultation payante initiale',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('retour-sans-rdv-verifier-eligibilite')
+    res = api_client.get(url, {'patient': setup_data['patient'].id})
+
+    assert res.status_code == status.HTTP_200_OK
+    elig = res.data['eligibilite']
+    assert elig['statut'] == 'ELIGIBLE'
+    assert elig['est_gratuit'] is True
+    assert elig['consultation_origine_id'] == c_init.id
+    assert "Éligible au contrôle gratuit" in elig['explication']
+    assert "15 jours" in elig['explication']
+
+
+@pytest.mark.django_db
+def test_calcul_eligibilite_controle_non_eligible_delai_depasse(api_client, setup_data):
+    now = datetime.now()
+    # Consultation initiale il y a 20 jours (> 15 jours)
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(now - timedelta(days=20)),
+        statut='TERMINE',
+        type=RendezVous.Type.CONSULTATION
+    )
+    Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=20)),
+        motif='Consultation payante initiale ancienne',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('retour-sans-rdv-verifier-eligibilite')
+    res = api_client.get(url, {'patient': setup_data['patient'].id})
+
+    assert res.status_code == status.HTTP_200_OK
+    elig = res.data['eligibilite']
+    assert elig['statut'] == 'NON_ELIGIBLE'
+    assert elig['est_gratuit'] is False
+    assert "Délai dépassé" in elig['explication']
+
+
+@pytest.mark.django_db
+def test_calcul_eligibilite_controle_a_verifier_deja_consomme(api_client, setup_data):
+    now = datetime.now()
+    # Consultation initiale il y a 5 jours
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(now - timedelta(days=5)),
+        statut='TERMINE',
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=5)),
+        motif='Consultation payante initiale',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+    # Un contrôle a déjà été créé pour cette consultation
+    RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(now - timedelta(days=2)),
+        statut='CONFIRME',
+        type=RendezVous.Type.CONTROLE,
+        consultation_origine=c_init
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('retour-sans-rdv-verifier-eligibilite')
+    res = api_client.get(url, {'patient': setup_data['patient'].id})
+
+    assert res.status_code == status.HTTP_200_OK
+    elig = res.data['eligibilite']
+    assert elig['statut'] == 'A_VERIFIER'
+    assert elig['est_gratuit'] is False
+    assert "Situation à vérifier" in elig['explication']
+
+
+@pytest.mark.django_db
+def test_creer_rdv_jour_pour_retour_sans_rdv_option_a(api_client, setup_data):
+    now = datetime.now()
+    # Consultation payante initiale il y a 6 jours
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(now - timedelta(days=6)),
+        statut='TERMINE',
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=6)),
+        motif='Initiale',
+        observations='Obs',
+        diagnostic='Diag'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+
+    # 1. Secrétaire signale le retour sans RDV
+    signal_url = reverse('retour-sans-rdv-list')
+    res_signal = api_client.post(signal_url, {
+        'patient': setup_data['patient'].id,
+        'medecin_souhaite': setup_data['medecin_user'].id,
+        'motif_administratif': 'Contrôle post-opératoire sans rendez-vous'
+    }, format='json')
+    assert res_signal.status_code == status.HTTP_201_CREATED
+    retour_id = res_signal.data['id']
+
+    # 2. Secrétaire crée le RDV du jour immédiat (Option A)
+    action_url = reverse('retour-sans-rdv-creer-rdv-jour', args=[retour_id])
+    res_action = api_client.post(action_url, {}, format='json')
+    assert res_action.status_code == status.HTTP_201_CREATED
+    assert res_action.data['type'] == 'CONTROLE'
+    assert res_action.data['statut_paiement'] == 'GRATUIT'
+
+    retour = RetourSansRendezVous.objects.get(pk=retour_id)
+    assert retour.statut == RetourSansRendezVous.Statut.PRIS_EN_CHARGE
+    assert retour.rendez_vous_cree is not None
+    assert retour.rendez_vous_cree.type == RendezVous.Type.CONTROLE
+    assert retour.rendez_vous_cree.consultation_origine == c_init
+    assert retour.rendez_vous_cree.statut == 'CONFIRME'
