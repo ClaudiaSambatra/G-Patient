@@ -32,7 +32,10 @@ import {
   AlertTriangle,
   FileSignature,
   Printer,
-  RotateCcw
+  RotateCcw,
+  UserCheck,
+  Activity,
+  History
 } from "lucide-react"
 
 interface Patient {
@@ -58,6 +61,8 @@ interface RendezVous {
   patient: number
   patient_nom: string
   patient_contact: string
+  patient_allergies?: string
+  patient_antecedents?: string
   medecin: number
   medecin_nom: string
   medecin_absent_aujourdhui?: boolean
@@ -71,11 +76,34 @@ interface RendezVous {
   facture_id?: number | null
 }
 
+interface ConstantesVitales {
+  id?: number
+  temperature?: string | number | null
+  poids?: string | number | null
+  taille?: string | number | null
+  tension_arterielle?: string | null
+  frequence_cardiaque?: number | null
+  date_prise?: string
+}
+
+interface ConsultationHistoriqueItem {
+  id: number
+  auteur: number
+  auteur_nom: string
+  date_modification: string
+  motif_correction: string
+  champs_modifies: string[]
+  anciennes_valeurs: Record<string, any>
+  nouvelles_valeurs: Record<string, any>
+}
+
 interface ConsultationData {
   id: number
   patient: number
   patient_nom: string
   patient_prenom: string
+  patient_allergies?: string
+  patient_antecedents?: string
   medecin: number
   medecin_nom: string
   rendez_vous: number | null
@@ -84,6 +112,9 @@ interface ConsultationData {
   observations: string
   diagnostic: string
   compte_rendu?: string
+  date_controle_recommandee?: string | null
+  constantes?: ConstantesVitales | null
+  historique?: ConsultationHistoriqueItem[]
 }
 
 interface RendezVousListResponse {
@@ -140,13 +171,39 @@ export default function RendezVousPage() {
     motif: "",
     observations: "",
     diagnostic: "",
-    compte_rendu: ""
+    compte_rendu: "",
+    date_controle_recommandee: "",
+    motif_correction: "",
+    constantes: {
+      temperature: "",
+      poids: "",
+      taille: "",
+      tension_arterielle: "",
+      frequence_cardiaque: ""
+    }
   })
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false)
   const [prescriptionForm, setPrescriptionForm] = useState({
     medicaments: "",
     posologie: "",
     duree: ""
+  })
+
+  // Modale Accueil Retour sans rendez-vous (Option A)
+  const [retourSansRdvModal, setRetourSansRdvModal] = useState<{
+    isOpen: boolean
+    patientId: string
+    medecinId: string
+    motifAdministratif: string
+    loadingEligibilite: boolean
+    eligibiliteData: any | null
+  }>({
+    isOpen: false,
+    patientId: "",
+    medecinId: "",
+    motifAdministratif: "",
+    loadingEligibilite: false,
+    eligibiliteData: null
   })
 
   // Notifications et erreurs de formulaire
@@ -191,7 +248,15 @@ export default function RendezVousPage() {
     motif: "",
     observations: "",
     diagnostic: "",
-    compte_rendu: ""
+    compte_rendu: "",
+    date_controle_recommandee: "",
+    constantes: {
+      temperature: "",
+      poids: "",
+      taille: "",
+      tension_arterielle: "",
+      frequence_cardiaque: ""
+    }
   })
 
   function showNotification(type: "success" | "error", message: string) {
@@ -558,16 +623,41 @@ export default function RendezVousPage() {
 
   // Mutation Création Consultation
   const createConsultationMutation = useMutation({
-    mutationFn: async () => apiClient.post("/consultations/", { 
-      ...consultForm, 
-      rendez_vous: selectedRdv?.id,
-      patient: selectedRdv?.patient
-    }),
+    mutationFn: async () => {
+      const payload: Record<string, any> = {
+        rendez_vous: selectedRdv?.id,
+        patient: selectedRdv?.patient,
+        motif: consultForm.motif,
+        observations: consultForm.observations,
+        diagnostic: consultForm.diagnostic,
+        compte_rendu: consultForm.compte_rendu,
+        date_controle_recommandee: consultForm.date_controle_recommandee || null
+      }
+      const c = consultForm.constantes
+      if (c.temperature || c.poids || c.taille || c.tension_arterielle || c.frequence_cardiaque) {
+        payload.constantes = {
+          temperature: c.temperature ? parseFloat(c.temperature) : null,
+          poids: c.poids ? parseFloat(c.poids) : null,
+          taille: c.taille ? parseFloat(c.taille) : null,
+          tension_arterielle: c.tension_arterielle || null,
+          frequence_cardiaque: c.frequence_cardiaque ? parseInt(c.frequence_cardiaque) : null
+        }
+      }
+      return apiClient.post("/consultations/", payload)
+    },
     onSuccess: () => {
       setIsConsultOpen(false)
-      setConsultForm({ motif: "", observations: "", diagnostic: "", compte_rendu: "" })
+      setConsultForm({
+        motif: "",
+        observations: "",
+        diagnostic: "",
+        compte_rendu: "",
+        date_controle_recommandee: "",
+        constantes: { temperature: "", poids: "", taille: "", tension_arterielle: "", frequence_cardiaque: "" }
+      })
       setSelectedRdv(null)
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      queryClient.invalidateQueries({ queryKey: ["consultations"] })
       showNotification("success", "Consultation enregistrée avec succès. Rendez-vous passé à Terminé.")
     },
     onError: (err) => {
@@ -580,7 +670,25 @@ export default function RendezVousPage() {
   const updateConsultationMutation = useMutation({
     mutationFn: async () => {
       if (!existingConsultation) return
-      return apiClient.patch<ConsultationData>(`/consultations/${existingConsultation.id}/`, editConsultForm)
+      const payload: Record<string, any> = {
+        motif: editConsultForm.motif,
+        observations: editConsultForm.observations,
+        diagnostic: editConsultForm.diagnostic,
+        compte_rendu: editConsultForm.compte_rendu,
+        date_controle_recommandee: editConsultForm.date_controle_recommandee || null,
+        motif_correction: editConsultForm.motif_correction
+      }
+      const c = editConsultForm.constantes
+      if (c.temperature || c.poids || c.taille || c.tension_arterielle || c.frequence_cardiaque) {
+        payload.constantes = {
+          temperature: c.temperature ? parseFloat(c.temperature) : null,
+          poids: c.poids ? parseFloat(c.poids) : null,
+          taille: c.taille ? parseFloat(c.taille) : null,
+          tension_arterielle: c.tension_arterielle || null,
+          frequence_cardiaque: c.frequence_cardiaque ? parseInt(c.frequence_cardiaque) : null
+        }
+      }
+      return apiClient.patch<ConsultationData>(`/consultations/${existingConsultation.id}/`, payload)
     },
     onSuccess: (res) => {
       setIsEditingConsultation(false)
@@ -596,6 +704,55 @@ export default function RendezVousPage() {
       showNotification("error", msg)
     },
   })
+
+  // Mutation Retour sans RDV (Accueil Secrétaire & Option A : RDV du jour immédiat)
+  const createRetourSansRdvMutation = useMutation({
+    mutationFn: async () => {
+      const { data: signalement } = await apiClient.post<{ id: number }>("/consultations/retours-sans-rdv/", {
+        patient: Number(retourSansRdvModal.patientId),
+        medecin_souhaite: retourSansRdvModal.medecinId ? Number(retourSansRdvModal.medecinId) : null,
+        motif_administratif: retourSansRdvModal.motifAdministratif
+      })
+      return apiClient.post<{ detail: string; rdv_id: number; type: string; statut_paiement: string }>(
+        `/consultations/retours-sans-rdv/${signalement.id}/creer-rdv-jour/`,
+        { medecin: retourSansRdvModal.medecinId ? Number(retourSansRdvModal.medecinId) : null }
+      )
+    },
+    onSuccess: (res) => {
+      setRetourSansRdvModal({
+        isOpen: false,
+        patientId: "",
+        medecinId: "",
+        motifAdministratif: "",
+        loadingEligibilite: false,
+        eligibiliteData: null
+      })
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
+      showNotification(
+        "success",
+        `Accueil enregistré. Rendez-vous créé (${res?.data?.type === "CONTROLE" ? "Contrôle gratuit" : "Consultation"}) et intégré à l'agenda.`
+      )
+    },
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de l'enregistrement de l'accueil sans RDV.")
+      showNotification("error", msg)
+    }
+  })
+
+  async function handleSelectRetourPatient(pId: string) {
+    setRetourSansRdvModal(prev => ({ ...prev, patientId: pId, loadingEligibilite: true, eligibiliteData: null }))
+    if (!pId) {
+      setRetourSansRdvModal(prev => ({ ...prev, loadingEligibilite: false }))
+      return
+    }
+    try {
+      const { data } = await apiClient.get(`/consultations/retours-sans-rdv/verifier-eligibilite/?patient=${pId}`)
+      setRetourSansRdvModal(prev => ({ ...prev, loadingEligibilite: false, eligibiliteData: data }))
+    } catch {
+      setRetourSansRdvModal(prev => ({ ...prev, loadingEligibilite: false }))
+      showNotification("error", "Impossible de charger les données d'accueil du patient.")
+    }
+  }
 
   // Mutation Création Ordonnance
   const createPrescriptionMutation = useMutation({
@@ -624,13 +781,23 @@ export default function RendezVousPage() {
     try {
       const { data } = await apiClient.get<{ results: ConsultationData[] }>(`/consultations/?rendez_vous=${rdv.id}`)
       if (data.results && data.results.length > 0) {
-        setExistingConsultation(data.results[0])
+        const c = data.results[0]
+        setExistingConsultation(c)
         setIsEditingConsultation(false)
         setEditConsultForm({
-          motif: data.results[0].motif || "",
-          observations: data.results[0].observations || "",
-          diagnostic: data.results[0].diagnostic || "",
-          compte_rendu: data.results[0].compte_rendu || ""
+          motif: c.motif || "",
+          observations: c.observations || "",
+          diagnostic: c.diagnostic || "",
+          compte_rendu: c.compte_rendu || "",
+          date_controle_recommandee: c.date_controle_recommandee || "",
+          motif_correction: "",
+          constantes: {
+            temperature: c.constantes?.temperature?.toString() || "",
+            poids: c.constantes?.poids?.toString() || "",
+            taille: c.constantes?.taille?.toString() || "",
+            tension_arterielle: c.constantes?.tension_arterielle || "",
+            frequence_cardiaque: c.constantes?.frequence_cardiaque?.toString() || ""
+          }
         })
         setIsConsultReadOnlyOpen(true)
       } else {
@@ -638,7 +805,9 @@ export default function RendezVousPage() {
           motif: rdv.motif || "",
           observations: "",
           diagnostic: "",
-          compte_rendu: ""
+          compte_rendu: "",
+          date_controle_recommandee: "",
+          constantes: { temperature: "", poids: "", taille: "", tension_arterielle: "", frequence_cardiaque: "" }
         })
         setIsConsultOpen(true)
       }
@@ -647,7 +816,9 @@ export default function RendezVousPage() {
         motif: rdv.motif || "",
         observations: "",
         diagnostic: "",
-        compte_rendu: ""
+        compte_rendu: "",
+        date_controle_recommandee: "",
+        constantes: { temperature: "", poids: "", taille: "", tension_arterielle: "", frequence_cardiaque: "" }
       })
       setIsConsultOpen(true)
     }
@@ -800,6 +971,25 @@ export default function RendezVousPage() {
             >
               <RefreshCw className="size-4" />
             </button>
+
+            {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
+              <button 
+                onClick={() => {
+                  setRetourSansRdvModal({
+                    isOpen: true,
+                    patientId: "",
+                    medecinId: medecinsData[0]?.id?.toString() || "",
+                    motifAdministratif: "",
+                    loadingEligibilite: false,
+                    eligibiliteData: null
+                  })
+                }} 
+                className="flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-semibold text-primary transition-all hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <UserCheck className="size-4" />
+                <span>Accueil sans RDV</span>
+              </button>
+            )}
 
             {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
               <button 
@@ -1873,6 +2063,24 @@ export default function RendezVousPage() {
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); createConsultationMutation.mutate(); }} className="mt-5 flex flex-col gap-4">
+              {/* Dossier Médical Patient : Allergies & Antécédents */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wide">
+                  <AlertTriangle className="size-4 shrink-0" />
+                  Dossier patient — Données médicales clés
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                    <span className="font-semibold text-rose-700 dark:text-rose-400 block mb-0.5">⚠️ Allergies connues :</span>
+                    <span className="text-foreground">{selectedRdv?.patient_allergies || <span className="italic text-muted-foreground">Aucune allergie signalée</span>}</span>
+                  </div>
+                  <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                    <span className="font-semibold text-blue-700 dark:text-blue-400 block mb-0.5">📋 Antécédents médicaux :</span>
+                    <span className="text-foreground">{selectedRdv?.patient_antecedents || <span className="italic text-muted-foreground">Aucun antécédent répertorié</span>}</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <Label>Motif de consultation *</Label>
                 <Input 
@@ -1883,19 +2091,96 @@ export default function RendezVousPage() {
                 />
               </div>
 
+              {/* Constantes vitales */}
+              <div className="rounded-xl border border-border/70 p-3 bg-muted/20 space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Activity className="size-3.5 text-primary" /> Constantes physiologiques (Optionnel)
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground">Temp. (°C)</span>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="37.0"
+                      value={consultForm.constantes.temperature}
+                      onChange={(e) => setConsultForm({
+                        ...consultForm,
+                        constantes: { ...consultForm.constantes, temperature: e.target.value }
+                      })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground">Tension (12/8)</span>
+                    <Input
+                      placeholder="120/80"
+                      value={consultForm.constantes.tension_arterielle}
+                      onChange={(e) => setConsultForm({
+                        ...consultForm,
+                        constantes: { ...consultForm.constantes, tension_arterielle: e.target.value }
+                      })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground">Pouls (bpm)</span>
+                    <Input
+                      type="number"
+                      placeholder="72"
+                      value={consultForm.constantes.frequence_cardiaque}
+                      onChange={(e) => setConsultForm({
+                        ...consultForm,
+                        constantes: { ...consultForm.constantes, frequence_cardiaque: e.target.value }
+                      })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground">Poids (kg)</span>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="70"
+                      value={consultForm.constantes.poids}
+                      onChange={(e) => setConsultForm({
+                        ...consultForm,
+                        constantes: { ...consultForm.constantes, poids: e.target.value }
+                      })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground">Taille (cm)</span>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      placeholder="175"
+                      value={consultForm.constantes.taille}
+                      onChange={(e) => setConsultForm({
+                        ...consultForm,
+                        constantes: { ...consultForm.constantes, taille: e.target.value }
+                      })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <Label>Observations cliniques</Label>
                 <textarea 
                   value={consultForm.observations} 
                   onChange={e => setConsultForm({...consultForm, observations: e.target.value})} 
-                  placeholder="Constantes vitales : tension, température, auscultation, examen clinique..."
-                  className="flex min-h-[90px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Auscultation, examen clinique..."
+                  className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label>Diagnostic</Label>
+                <Label>Diagnostic *</Label>
                 <textarea 
+                  required
                   value={consultForm.diagnostic} 
                   onChange={e => setConsultForm({...consultForm, diagnostic: e.target.value})} 
                   placeholder="Hypothèse ou conclusion diagnostique..."
@@ -1908,9 +2193,23 @@ export default function RendezVousPage() {
                 <textarea 
                   value={consultForm.compte_rendu} 
                   onChange={e => setConsultForm({...consultForm, compte_rendu: e.target.value})} 
-                  placeholder="Compte rendu détaillé, recommandations, ordonnance ou protocole thérapeutique..."
-                  className="flex min-h-[90px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Compte rendu détaillé, protocole..."
+                  className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Date de contrôle recommandée (indicatif)</Label>
+                <Input
+                  type="date"
+                  min={todayStr}
+                  value={consultForm.date_controle_recommandee}
+                  onChange={(e) => setConsultForm({ ...consultForm, date_controle_recommandee: e.target.value })}
+                  className="max-w-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Date indicative pour le suivi. Ne crée pas de rendez-vous et ne bloque aucun créneau.
+                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
@@ -1967,6 +2266,24 @@ export default function RendezVousPage() {
                   <span className="font-bold text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</span>
                 </div>
 
+                {/* Motif de correction obligatoire */}
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
+                  <Label htmlFor="edit-motif-correction" className="text-amber-900 dark:text-amber-300 font-bold flex items-center gap-1.5">
+                    <History className="size-4" /> Motif obligatoire de la modification *
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Une justification obligatoire est requise pour conserver la traçabilité de cette modification dans le dossier médical.
+                  </p>
+                  <Input
+                    id="edit-motif-correction"
+                    required
+                    value={editConsultForm.motif_correction}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, motif_correction: e.target.value }))}
+                    placeholder="Ex: Précision diagnostique après bilan radiologique..."
+                    className="bg-background"
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="edit-motif">Motif *</Label>
                   <Input
@@ -1978,8 +2295,84 @@ export default function RendezVousPage() {
                   />
                 </div>
 
+                {/* Constantes vitales */}
+                <div className="rounded-xl border border-border/70 p-3 bg-muted/20 space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Activity className="size-3.5 text-primary" /> Constantes physiologiques
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Temp. (°C)</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="37.0"
+                        value={editConsultForm.constantes.temperature}
+                        onChange={(e) => setEditConsultForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, temperature: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Tension</span>
+                      <Input
+                        placeholder="120/80"
+                        value={editConsultForm.constantes.tension_arterielle}
+                        onChange={(e) => setEditConsultForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, tension_arterielle: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Pouls</span>
+                      <Input
+                        type="number"
+                        placeholder="72"
+                        value={editConsultForm.constantes.frequence_cardiaque}
+                        onChange={(e) => setEditConsultForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, frequence_cardiaque: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Poids</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="70"
+                        value={editConsultForm.constantes.poids}
+                        onChange={(e) => setEditConsultForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, poids: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Taille</span>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        placeholder="175"
+                        value={editConsultForm.constantes.taille}
+                        onChange={(e) => setEditConsultForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, taille: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="edit-observations">Observations cliniques (Constantes vitales)</Label>
+                  <Label htmlFor="edit-observations">Observations cliniques</Label>
                   <textarea
                     id="edit-observations"
                     value={editConsultForm.observations}
@@ -2012,6 +2405,17 @@ export default function RendezVousPage() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="edit-date-controle">Date de contrôle recommandée</Label>
+                  <Input
+                    id="edit-date-controle"
+                    type="date"
+                    value={editConsultForm.date_controle_recommandee}
+                    onChange={(e) => setEditConsultForm((prev) => ({ ...prev, date_controle_recommandee: e.target.value }))}
+                    className="mt-1 max-w-xs"
+                  />
+                </div>
+
                 <div className="flex justify-end gap-3 pt-5 border-t border-border/60 mt-6">
                   <Button type="button" variant="outline" onClick={() => setIsEditingConsultation(false)}>
                     Annuler
@@ -2032,6 +2436,66 @@ export default function RendezVousPage() {
                     <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Patient</span>
                     <span className="font-bold text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</span>
                   </div>
+
+                  {/* Dossier patient : Allergies & Antécédents */}
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wide">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      Dossier patient — Données médicales clés
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                        <span className="font-semibold text-rose-700 dark:text-rose-400 block mb-0.5">⚠️ Allergies connues :</span>
+                        <span className="text-foreground">{existingConsultation.patient_allergies || <span className="italic text-muted-foreground">Aucune allergie signalée</span>}</span>
+                      </div>
+                      <div className="bg-background/90 p-2 rounded-lg border border-border/50">
+                        <span className="font-semibold text-blue-700 dark:text-blue-400 block mb-0.5">📋 Antécédents médicaux :</span>
+                        <span className="text-foreground">{existingConsultation.patient_antecedents || <span className="italic text-muted-foreground">Aucun antécédent répertorié</span>}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Constantes vitales */}
+                  {existingConsultation.constantes && (
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
+                      <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                        <Activity className="size-3.5 text-primary" /> Constantes physiologiques
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Température</span>
+                          <span className="font-bold text-foreground text-sm">{existingConsultation.constantes.temperature ? `${existingConsultation.constantes.temperature} °C` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Tension</span>
+                          <span className="font-bold text-foreground text-sm">{existingConsultation.constantes.tension_arterielle || "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Pouls</span>
+                          <span className="font-bold text-foreground text-sm">{existingConsultation.constantes.frequence_cardiaque ? `${existingConsultation.constantes.frequence_cardiaque} bpm` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Poids</span>
+                          <span className="font-bold text-foreground text-sm">{existingConsultation.constantes.poids ? `${existingConsultation.constantes.poids} kg` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Taille</span>
+                          <span className="font-bold text-foreground text-sm">{existingConsultation.constantes.taille ? `${existingConsultation.constantes.taille} cm` : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Date de contrôle recommandée */}
+                  {existingConsultation.date_controle_recommandee && (
+                    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 flex items-center gap-2.5 text-xs text-blue-900 dark:text-blue-300">
+                      <CalendarIcon className="size-4 text-blue-600 shrink-0" />
+                      <div>
+                        <span className="font-bold block">Date de contrôle recommandée :</span>
+                        <span>{new Date(existingConsultation.date_controle_recommandee).toLocaleDateString("fr-FR")} (indicatif)</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Motif</span>
@@ -2060,6 +2524,32 @@ export default function RendezVousPage() {
                       {existingConsultation.compte_rendu || <span className="italic text-muted-foreground">Aucun compte rendu rédigé</span>}
                     </div>
                   </div>
+
+                  {/* Historique des modifications & Audit */}
+                  {existingConsultation.historique && existingConsultation.historique.length > 0 && (
+                    <div className="pt-3 border-t border-border/60 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <History className="size-4 text-amber-600" />
+                        Historique des corrections &amp; Audit ({existingConsultation.historique.length})
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {existingConsultation.historique.map((h) => (
+                          <div key={h.id} className="rounded-xl border border-border/60 bg-muted/30 p-2.5 text-xs space-y-1">
+                            <div className="flex justify-between items-center text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground">Modifié par {h.auteur_nom}</span>
+                              <span>{new Date(h.date_modification).toLocaleString("fr-FR")}</span>
+                            </div>
+                            <div className="text-foreground">
+                              <span className="font-medium text-amber-700 dark:text-amber-400">Motif :</span> {h.motif_correction}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Champs modifiés : {h.champs_modifies.join(", ")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/60 mt-6">
@@ -2086,7 +2576,16 @@ export default function RendezVousPage() {
                             motif: existingConsultation.motif || "",
                             observations: existingConsultation.observations || "",
                             diagnostic: existingConsultation.diagnostic || "",
-                            compte_rendu: existingConsultation.compte_rendu || ""
+                            compte_rendu: existingConsultation.compte_rendu || "",
+                            date_controle_recommandee: existingConsultation.date_controle_recommandee || "",
+                            motif_correction: "",
+                            constantes: {
+                              temperature: existingConsultation.constantes?.temperature?.toString() || "",
+                              poids: existingConsultation.constantes?.poids?.toString() || "",
+                              taille: existingConsultation.constantes?.taille?.toString() || "",
+                              tension_arterielle: existingConsultation.constantes?.tension_arterielle || "",
+                              frequence_cardiaque: existingConsultation.constantes?.frequence_cardiaque?.toString() || ""
+                            }
                           })
                           setIsEditingConsultation(true)
                         }}
@@ -2106,6 +2605,182 @@ export default function RendezVousPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ACCUEIL SANS RENDEZ-VOUS (PARCOURS SECRÉTAIRE & OPTION A) */}
+      {retourSansRdvModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                  <UserCheck className="size-5 text-primary" /> Accueil d&apos;un patient sans rendez-vous
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Vérifiez l&apos;identité du patient, son éligibilité au contrôle gratuit et créez son rendez-vous du jour
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRetourSansRdvModal(prev => ({ ...prev, isOpen: false }))}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                createRetourSansRdvMutation.mutate()
+              }}
+              className="mt-5 space-y-4 text-sm"
+            >
+              {/* Choix du patient */}
+              <div className="space-y-1">
+                <Label htmlFor="retour-patient-select">Patient accueilli *</Label>
+                <select
+                  id="retour-patient-select"
+                  required
+                  value={retourSansRdvModal.patientId}
+                  onChange={(e) => handleSelectRetourPatient(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Sélectionner un patient...</option>
+                  {patientsData.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nom} {p.prenom} — {p.contact || "Sans contact"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* État de chargement de l'éligibilité */}
+              {retourSansRdvModal.loadingEligibilite && (
+                <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground animate-pulse">
+                  Vérification de l&apos;historique et des règles de gratuité...
+                </div>
+              )}
+
+              {/* Données d'accueil et d'éligibilité (sans détails médicaux confidentiels) */}
+              {retourSansRdvModal.eligibiliteData && !retourSansRdvModal.loadingEligibilite && (
+                <div className="space-y-3">
+                  {/* Identité administrative */}
+                  <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs space-y-1">
+                    <span className="font-bold text-foreground block">
+                      Identité confirmée : {retourSansRdvModal.eligibiliteData.patient_nom}
+                    </span>
+                    <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Né(e) le : {retourSansRdvModal.eligibiliteData.patient_date_naissance || "Non renseigné"}</span>
+                      <span>Contact : {retourSansRdvModal.eligibiliteData.patient_contact || "Non renseigné"}</span>
+                    </div>
+                  </div>
+
+                  {/* Dernier passage et date recommandée */}
+                  {retourSansRdvModal.eligibiliteData.dernier_passage ? (
+                    <div className="rounded-xl border border-border/60 bg-card p-3 text-xs space-y-1">
+                      <span className="font-semibold text-foreground block">Dernier passage enregistré :</span>
+                      <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Date : {new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date).toLocaleDateString("fr-FR")}</span>
+                        <span>Praticien : {retourSansRdvModal.eligibiliteData.dernier_passage.medecin_nom}</span>
+                        <span>Type : {retourSansRdvModal.eligibiliteData.dernier_passage.type}</span>
+                      </div>
+                      {retourSansRdvModal.eligibiliteData.dernier_passage.date_controle_recommandee && (
+                        <div className="mt-1 pt-1 border-t border-border/40 text-blue-700 dark:text-blue-400 font-medium">
+                          📅 Date de contrôle recommandée par le médecin : {new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date_controle_recommandee).toLocaleDateString("fr-FR")}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border/60 bg-card p-2.5 text-xs text-muted-foreground italic">
+                      Aucune consultation antérieure enregistrée pour ce patient.
+                    </div>
+                  )}
+
+                  {/* Statut d'éligibilité à la gratuité (Règle 15 jours) */}
+                  {retourSansRdvModal.eligibiliteData.eligibilite && (
+                    <div className={`rounded-xl border p-3 text-xs space-y-1.5 ${
+                      retourSansRdvModal.eligibiliteData.eligibilite.statut === "ELIGIBLE"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+                        : retourSansRdvModal.eligibiliteData.eligibilite.statut === "A_VERIFIER"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-200"
+                        : "border-slate-400/40 bg-muted/40 text-foreground"
+                    }`}>
+                      <div className="flex items-center gap-2 font-bold">
+                        {retourSansRdvModal.eligibiliteData.eligibilite.statut === "ELIGIBLE" && (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="size-4" /> Éligible au contrôle gratuit
+                          </span>
+                        )}
+                        {retourSansRdvModal.eligibiliteData.eligibilite.statut === "A_VERIFIER" && (
+                          <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="size-4" /> Situation à vérifier
+                          </span>
+                        )}
+                        {retourSansRdvModal.eligibiliteData.eligibilite.statut === "NON_ELIGIBLE" && (
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <AlertCircle className="size-4" /> Non éligible à la gratuité
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        {retourSansRdvModal.eligibiliteData.eligibilite.explication}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Choix du médecin */}
+              <div className="space-y-1">
+                <Label htmlFor="retour-medecin-select">Médecin pour la visite du jour</Label>
+                <select
+                  id="retour-medecin-select"
+                  value={retourSansRdvModal.medecinId}
+                  onChange={(e) => setRetourSansRdvModal(prev => ({ ...prev, medecinId: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {medecinsData.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      Dr. {m.nom} {m.prenom} ({m.specialite}) {m.absent_aujourdhui ? "— (Absent aujourd&apos;hui)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Motif administratif */}
+              <div className="space-y-1">
+                <Label htmlFor="retour-motif-admin">Motif administratif du passage</Label>
+                <Input
+                  id="retour-motif-admin"
+                  value={retourSansRdvModal.motifAdministratif}
+                  onChange={(e) => setRetourSansRdvModal(prev => ({ ...prev, motifAdministratif: e.target.value }))}
+                  placeholder="Ex: Retour sans RDV pour contrôle post-traitement..."
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Information administrative destinée à l&apos;accueil et au praticien. Le numéro de visite/ticket reste attribué manuellement à l&apos;accueil.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-5 border-t border-border/60 mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRetourSansRdvModal(prev => ({ ...prev, isOpen: false }))}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!retourSansRdvModal.patientId || createRetourSansRdvMutation.isPending}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  {createRetourSansRdvMutation.isPending ? "Création en cours..." : "Créer le rendez-vous du jour"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

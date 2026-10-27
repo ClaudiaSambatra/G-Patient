@@ -24,14 +24,42 @@ import {
   FilterX,
   CheckCircle2,
   AlertCircle,
-  Printer
+  Printer,
+  Activity,
+  History,
+  AlertTriangle
 } from "lucide-react"
+
+interface ConstantesVitales {
+  id?: number
+  temperature?: string | number | null
+  poids?: string | number | null
+  taille?: string | number | null
+  tension_arterielle?: string | null
+  frequence_cardiaque?: number | null
+  date_prise?: string
+}
+
+interface ConsultationHistoriqueItem {
+  id: number
+  auteur: number
+  auteur_nom: string
+  date_modification: string
+  motif_correction: string
+  champs_modifies: string[]
+  anciennes_valeurs: Record<string, any>
+  nouvelles_valeurs: Record<string, any>
+}
 
 interface Consultation {
   id: number
   patient: number
   patient_nom: string
   patient_prenom: string
+  patient_date_naissance?: string
+  patient_contact?: string
+  patient_allergies?: string
+  patient_antecedents?: string
   medecin: number
   medecin_nom: string
   rendez_vous: number | null
@@ -40,6 +68,9 @@ interface Consultation {
   observations: string
   diagnostic: string
   compte_rendu?: string
+  date_controle_recommandee?: string | null
+  constantes?: ConstantesVitales | null
+  historique?: ConsultationHistoriqueItem[]
   statut_paiement?: "PAYE" | "IMPAYE" | "GRATUIT"
 }
 
@@ -85,7 +116,16 @@ export default function ConsultationsPage() {
     motif: "",
     observations: "",
     diagnostic: "",
-    compte_rendu: ""
+    compte_rendu: "",
+    date_controle_recommandee: "",
+    motif_correction: "",
+    constantes: {
+      temperature: "",
+      poids: "",
+      taille: "",
+      tension_arterielle: "",
+      frequence_cardiaque: ""
+    }
   })
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false)
   const [prescriptionForm, setPrescriptionForm] = useState({
@@ -132,7 +172,25 @@ export default function ConsultationsPage() {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!selectedConsultation) return
-      return apiClient.patch<Consultation>(`/consultations/${selectedConsultation.id}/`, editForm)
+      const payload: Record<string, any> = {
+        motif: editForm.motif,
+        observations: editForm.observations,
+        diagnostic: editForm.diagnostic,
+        compte_rendu: editForm.compte_rendu,
+        date_controle_recommandee: editForm.date_controle_recommandee || null,
+        motif_correction: editForm.motif_correction
+      }
+      const c = editForm.constantes
+      if (c.temperature || c.poids || c.taille || c.tension_arterielle || c.frequence_cardiaque) {
+        payload.constantes = {
+          temperature: c.temperature ? parseFloat(c.temperature) : null,
+          poids: c.poids ? parseFloat(c.poids) : null,
+          taille: c.taille ? parseFloat(c.taille) : null,
+          tension_arterielle: c.tension_arterielle || null,
+          frequence_cardiaque: c.frequence_cardiaque ? parseInt(c.frequence_cardiaque) : null
+        }
+      }
+      return apiClient.patch<Consultation>(`/consultations/${selectedConsultation.id}/`, payload)
     },
     onSuccess: (res) => {
       setIsEditing(false)
@@ -272,7 +330,16 @@ export default function ConsultationsPage() {
       motif: consultation.motif || "",
       observations: consultation.observations || "",
       diagnostic: consultation.diagnostic || "",
-      compte_rendu: consultation.compte_rendu || ""
+      compte_rendu: consultation.compte_rendu || "",
+      date_controle_recommandee: consultation.date_controle_recommandee || "",
+      motif_correction: "",
+      constantes: {
+        temperature: consultation.constantes?.temperature?.toString() || "",
+        poids: consultation.constantes?.poids?.toString() || "",
+        taille: consultation.constantes?.taille?.toString() || "",
+        tension_arterielle: consultation.constantes?.tension_arterielle || "",
+        frequence_cardiaque: consultation.constantes?.frequence_cardiaque?.toString() || ""
+      }
     })
   }
 
@@ -573,8 +640,26 @@ export default function ConsultationsPage() {
                   </span>
                 </div>
 
+                {/* Motif de correction OBLIGATOIRE */}
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
+                  <Label htmlFor="detail-edit-motif-corr" className="text-amber-900 dark:text-amber-300 font-bold flex items-center gap-1.5">
+                    <History className="size-4" /> Motif obligatoire de la modification *
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Conformément aux exigences de traçabilité médicale, tout changement apporté à une consultation validée doit être justifié et consigné dans l&apos;audit trail.
+                  </p>
+                  <Input
+                    id="detail-edit-motif-corr"
+                    value={editForm.motif_correction}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, motif_correction: e.target.value }))}
+                    placeholder="Ex: Correction diagnostique suite aux examens d&apos;imagerie..."
+                    required
+                    className="mt-1 bg-background"
+                  />
+                </div>
+
                 <div>
-                  <Label htmlFor="detail-edit-motif">Motif *</Label>
+                  <Label htmlFor="detail-edit-motif">Motif de consultation *</Label>
                   <Input
                     id="detail-edit-motif"
                     value={editForm.motif}
@@ -584,8 +669,84 @@ export default function ConsultationsPage() {
                   />
                 </div>
 
+                {/* Constantes vitales */}
+                <div className="rounded-xl border border-border/70 p-3 bg-muted/20 space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Activity className="size-3.5 text-primary" /> Constantes physiologiques
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Temp. (°C)</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="37.0"
+                        value={editForm.constantes.temperature}
+                        onChange={(e) => setEditForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, temperature: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Tension (12/8)</span>
+                      <Input
+                        placeholder="120/80"
+                        value={editForm.constantes.tension_arterielle}
+                        onChange={(e) => setEditForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, tension_arterielle: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Pouls (bpm)</span>
+                      <Input
+                        type="number"
+                        placeholder="72"
+                        value={editForm.constantes.frequence_cardiaque}
+                        onChange={(e) => setEditForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, frequence_cardiaque: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Poids (kg)</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="70"
+                        value={editForm.constantes.poids}
+                        onChange={(e) => setEditForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, poids: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground">Taille (cm)</span>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        placeholder="175"
+                        value={editForm.constantes.taille}
+                        onChange={(e) => setEditForm((prev) => ({
+                          ...prev,
+                          constantes: { ...prev.constantes, taille: e.target.value }
+                        }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="detail-edit-obs">Observations cliniques (Constantes vitales)</Label>
+                  <Label htmlFor="detail-edit-obs">Observations cliniques</Label>
                   <textarea
                     id="detail-edit-obs"
                     value={editForm.observations}
@@ -618,6 +779,20 @@ export default function ConsultationsPage() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="detail-edit-date-ctrl">Date de contrôle recommandée (indicatif)</Label>
+                  <Input
+                    id="detail-edit-date-ctrl"
+                    type="date"
+                    value={editForm.date_controle_recommandee}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, date_controle_recommandee: e.target.value }))}
+                    className="mt-1 max-w-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Sélectionnez une date précise sur le calendrier. Ne réserve aucun créneau et ne génère aucun rendez-vous automatique.
+                  </p>
+                </div>
+
                 <div className="flex justify-end gap-3 pt-5 border-t border-border/60 mt-6">
                   <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
                     Annuler
@@ -627,7 +802,7 @@ export default function ConsultationsPage() {
                     disabled={updateMutation.isPending}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                   >
-                    {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+                    {updateMutation.isPending ? "Enregistrement..." : "Enregistrer la modification"}
                   </Button>
                 </div>
               </form>
@@ -661,6 +836,66 @@ export default function ConsultationsPage() {
                     </div>
                   </div>
 
+                  {/* Bannière Allergies & Antécédents */}
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wide">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      Dossier patient — Données médicales clés
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-background/90 p-2.5 rounded-lg border border-border/50">
+                        <span className="font-semibold text-rose-700 dark:text-rose-400 block mb-0.5">⚠️ Allergies connues :</span>
+                        <span className="text-foreground">{selectedConsultation.patient_allergies || <span className="italic text-muted-foreground">Aucune allergie signalée</span>}</span>
+                      </div>
+                      <div className="bg-background/90 p-2.5 rounded-lg border border-border/50">
+                        <span className="font-semibold text-blue-700 dark:text-blue-400 block mb-0.5">📋 Antécédents médicaux :</span>
+                        <span className="text-foreground">{selectedConsultation.patient_antecedents || <span className="italic text-muted-foreground">Aucun antécédent répertorié</span>}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Constantes vitales */}
+                  {selectedConsultation.constantes && (
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
+                      <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                        <Activity className="size-3.5 text-primary" /> Constantes physiologiques
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Température</span>
+                          <span className="font-bold text-foreground text-sm">{selectedConsultation.constantes.temperature ? `${selectedConsultation.constantes.temperature} °C` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Tension</span>
+                          <span className="font-bold text-foreground text-sm">{selectedConsultation.constantes.tension_arterielle || "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Pouls</span>
+                          <span className="font-bold text-foreground text-sm">{selectedConsultation.constantes.frequence_cardiaque ? `${selectedConsultation.constantes.frequence_cardiaque} bpm` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Poids</span>
+                          <span className="font-bold text-foreground text-sm">{selectedConsultation.constantes.poids ? `${selectedConsultation.constantes.poids} kg` : "—"}</span>
+                        </div>
+                        <div className="bg-card p-2 rounded-lg border border-border/60 text-center">
+                          <span className="text-muted-foreground block text-[10px]">Taille</span>
+                          <span className="font-bold text-foreground text-sm">{selectedConsultation.constantes.taille ? `${selectedConsultation.constantes.taille} cm` : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Date de contrôle recommandée */}
+                  {selectedConsultation.date_controle_recommandee && (
+                    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 flex items-center gap-2.5 text-xs text-blue-900 dark:text-blue-300">
+                      <Calendar className="size-4 text-blue-600 shrink-0" />
+                      <div>
+                        <span className="font-bold block">Date de contrôle recommandée :</span>
+                        <span>{new Date(selectedConsultation.date_controle_recommandee).toLocaleDateString("fr-FR")} (indicatif)</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1">Motif</span>
                     <div className="p-3 rounded-lg border border-border/60 bg-background text-foreground font-medium">
@@ -688,6 +923,32 @@ export default function ConsultationsPage() {
                       {selectedConsultation.compte_rendu || <span className="italic text-muted-foreground">Aucun compte rendu rédigé</span>}
                     </div>
                   </div>
+
+                  {/* Historique des modifications (Addenda) */}
+                  {selectedConsultation.historique && selectedConsultation.historique.length > 0 && (
+                    <div className="pt-3 border-t border-border/60 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <History className="size-4 text-amber-600" />
+                        Historique des modifications &amp; Audit ({selectedConsultation.historique.length})
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedConsultation.historique.map((h) => (
+                          <div key={h.id} className="rounded-xl border border-border/60 bg-muted/30 p-2.5 text-xs space-y-1">
+                            <div className="flex justify-between items-center text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground">Modifié par {h.auteur_nom}</span>
+                              <span>{new Date(h.date_modification).toLocaleString("fr-FR")}</span>
+                            </div>
+                            <div className="text-foreground">
+                              <span className="font-medium text-amber-700 dark:text-amber-400">Motif :</span> {h.motif_correction}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Champs modifiés : {h.champs_modifies.join(", ")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Ordonnances associées */}
                   <div className="pt-3 border-t border-border/60">
@@ -769,7 +1030,16 @@ export default function ConsultationsPage() {
                             motif: selectedConsultation.motif || "",
                             observations: selectedConsultation.observations || "",
                             diagnostic: selectedConsultation.diagnostic || "",
-                            compte_rendu: selectedConsultation.compte_rendu || ""
+                            compte_rendu: selectedConsultation.compte_rendu || "",
+                            date_controle_recommandee: selectedConsultation.date_controle_recommandee || "",
+                            motif_correction: "",
+                            constantes: {
+                              temperature: selectedConsultation.constantes?.temperature?.toString() || "",
+                              poids: selectedConsultation.constantes?.poids?.toString() || "",
+                              taille: selectedConsultation.constantes?.taille?.toString() || "",
+                              tension_arterielle: selectedConsultation.constantes?.tension_arterielle || "",
+                              frequence_cardiaque: selectedConsultation.constantes?.frequence_cardiaque?.toString() || ""
+                            }
                           })
                           setIsEditing(true)
                         }}
