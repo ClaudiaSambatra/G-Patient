@@ -39,11 +39,18 @@ class RendezVousSerializer(serializers.ModelSerializer):
             current_statut = self.instance.statut
             new_statut = attrs.get('statut', current_statut)
 
-            # Si le rendez-vous est déjà annulé ou terminé, aucun changement n'est possible
-            if current_statut in [RendezVous.Statut.ANNULE, RendezVous.Statut.TERMINE]:
+            # Si le rendez-vous est déjà terminé, aucun changement n'est possible
+            if current_statut == RendezVous.Statut.TERMINE:
                 if new_statut != current_statut or any(k for k in attrs.keys() if k not in ['id']):
                     raise serializers.ValidationError({
                         'statut': f"Le statut '{self.instance.get_statut_display()}' est définitif et le rendez-vous ne peut plus être modifié."
+                    })
+
+            # Si le rendez-vous est déjà annulé : seul le rétablissement en Planifié est autorisé en cas de faute de manipulation
+            if current_statut == RendezVous.Statut.ANNULE:
+                if new_statut != RendezVous.Statut.PLANIFIE:
+                    raise serializers.ValidationError({
+                        'statut': f"Le statut '{self.instance.get_statut_display()}' est définitif et le rendez-vous ne peut plus être modifié (seul le rétablissement en 'Planifié' est autorisé)."
                     })
 
             if new_statut != current_statut:
@@ -55,6 +62,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
                 allowed_transitions = {
                     RendezVous.Statut.PLANIFIE: [RendezVous.Statut.CONFIRME, RendezVous.Statut.ANNULE],
                     RendezVous.Statut.CONFIRME: [RendezVous.Statut.ANNULE],
+                    RendezVous.Statut.ANNULE: [RendezVous.Statut.PLANIFIE],
                 }
                 allowed = allowed_transitions.get(current_statut, [])
                 if new_statut not in allowed:

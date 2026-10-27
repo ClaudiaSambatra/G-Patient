@@ -31,7 +31,8 @@ import {
   Ban,
   AlertTriangle,
   FileSignature,
-  Printer
+  Printer,
+  RotateCcw
 } from "lucide-react"
 
 interface Patient {
@@ -1050,23 +1051,40 @@ export default function RendezVousPage() {
 
                             {/* Statut avec menu de transitions autorisées */}
                             <td className="py-3 px-4">
-                              {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (rdv.statut === "PLANIFIE" || rdv.statut === "CONFIRME") ? (
+                              {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (rdv.statut === "PLANIFIE" || rdv.statut === "CONFIRME" || rdv.statut === "ANNULE") ? (
                                 <select
                                   value={rdv.statut}
-                                  onChange={(e) => updateStatusMutation.mutate({ id: rdv.id, statut: e.target.value })}
+                                  onChange={(e) => {
+                                    const nextStatus = e.target.value
+                                    if (nextStatus === rdv.statut) return
+                                    if (nextStatus === "ANNULE") {
+                                      if (!window.confirm("Êtes-vous sûr de vouloir annuler ce rendez-vous ?")) {
+                                        // Annulation refusée : le statut reste le même (Planifié / Confirmé)
+                                        e.target.value = rdv.statut
+                                        return
+                                      }
+                                    }
+                                    updateStatusMutation.mutate({ id: rdv.id, statut: nextStatus })
+                                  }}
                                   className="text-xs font-semibold rounded-lg border border-border bg-background px-2.5 py-1 shadow-2xs focus:outline-none focus:ring-1 focus:ring-primary"
                                 >
                                   {rdv.statut === "PLANIFIE" && (
                                     <>
                                       <option value="PLANIFIE">Planifié</option>
                                       <option value="CONFIRME">Confirmé</option>
-                                      <option value="ANNULE">Annulé</option>
+                                      <option value="ANNULE">Annuler le RDV</option>
                                     </>
                                   )}
                                   {rdv.statut === "CONFIRME" && (
                                     <>
                                       <option value="CONFIRME">Confirmé</option>
+                                      <option value="ANNULE">Annuler le RDV</option>
+                                    </>
+                                  )}
+                                  {rdv.statut === "ANNULE" && (
+                                    <>
                                       <option value="ANNULE">Annulé</option>
+                                      <option value="PLANIFIE">Rétablir en Planifié</option>
                                     </>
                                   )}
                                 </select>
@@ -1165,6 +1183,18 @@ export default function RendezVousPage() {
                                   >
                                     <Ban className="size-3.5" />
                                     Annuler
+                                  </button>
+                                )}
+
+                                {/* Secrétaire & Admin : Bouton Rétablir si annulé par faute de manipulation */}
+                                {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && rdv.statut === "ANNULE" && (
+                                  <button
+                                    onClick={() => updateStatusMutation.mutate({ id: rdv.id, statut: "PLANIFIE" })}
+                                    title="Rétablir le rendez-vous au statut Planifié (faute de manipulation)"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 dark:bg-primary/20 dark:text-primary-foreground"
+                                  >
+                                    <RotateCcw className="size-3.5" />
+                                    Rétablir
                                   </button>
                                 )}
 

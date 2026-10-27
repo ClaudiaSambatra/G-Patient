@@ -186,3 +186,8 @@ class RendezVous(models.Model):
                 if self.facture.statut == 'IMPAYEE':
                     self.facture.statut = 'ANNULEE'
                     self.facture.save(update_fields=['statut'])
+        elif self.statut == self.Statut.PLANIFIE:
+            if hasattr(self, 'facture') and self.facture:
+                if self.facture.statut == 'ANNULEE':
+                    self.facture.statut = 'IMPAYEE'
+                    self.facture.save(update_fields=['statut'])

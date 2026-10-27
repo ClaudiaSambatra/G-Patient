@@ -279,9 +279,52 @@ def test_forbidden_status_transitions(api_client, setup_data):
     assert "définitif" in str(res_term.data)
 
 
+@pytest.mark.django_db
+def test_retablir_rendezvous_annule_vers_planifie(api_client, setup_data):
+    """En cas d'erreur de manipulation, un RDV annulé peut être rétabli en Planifié et réactive sa facture."""
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    future_date = make_aware(datetime.now() + timedelta(days=2))
+
+    # Création d'un RDV consultation qui crée automatiquement une facture impayée
+    rdv = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=future_date,
+        statut=RendezVous.Statut.PLANIFIE
+    )
+    url_annuler = reverse('rendezvous-annuler', args=[rdv.id])
+    res_annuler = api_client.post(url_annuler)
+    assert res_annuler.status_code == status.HTTP_200_OK
+
+    rdv.refresh_from_db()
+    assert rdv.statut == RendezVous.Statut.ANNULE
+    if hasattr(rdv, 'facture') and rdv.facture:
+        assert rdv.facture.statut == 'ANNULEE'
+
+    # Rétablissement en Planifié via PATCH (faute de manipulation)
+    url_detail = reverse('rendezvous-detail', args=[rdv.id])
+    res_retablir = api_client.patch(url_detail, {'statut': 'PLANIFIE'}, format='json')
+    assert res_retablir.status_code == status.HTTP_200_OK
+
+    rdv.refresh_from_db()
+    assert rdv.statut == RendezVous.Statut.PLANIFIE
+    if hasattr(rdv, 'facture') and rdv.facture:
+        assert rdv.facture.statut == 'IMPAYEE'
+
+    # Rétablissement également fonctionnel via l'action POST /retablir/
+    res_annuler2 = api_client.post(url_annuler)
+    assert res_annuler2.status_code == status.HTTP_200_OK
+    url_retablir_action = reverse('rendezvous-retablir', args=[rdv.id])
+    res_action = api_client.post(url_retablir_action)
+    assert res_action.status_code == status.HTTP_200_OK
+    rdv.refresh_from_db()
+    assert rdv.statut == RendezVous.Statut.PLANIFIE
+
+
 # ============================================================================
 # Tests : Conflits de date et heure (médecin, patient, auto-conflit)
 # ============================================================================
+
 
 @pytest.mark.django_db
 def test_update_rendezvous_no_false_conflict_with_itself(api_client, setup_data):

@@ -126,3 +126,19 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             instance.facture.save(update_fields=['statut'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='retablir')
+    def retablir(self, request, pk=None):
+        instance = self.get_object()
+        if instance.statut != RendezVous.Statut.ANNULE:
+            return Response(
+                {"detail": "Seul un rendez-vous annulé peut être rétabli en 'Planifié'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.statut = RendezVous.Statut.PLANIFIE
+        instance.save()
+        if hasattr(instance, 'facture') and instance.facture and instance.facture.statut == 'ANNULEE':
+            instance.facture.statut = 'IMPAYEE'
+            instance.facture.save(update_fields=['statut'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
