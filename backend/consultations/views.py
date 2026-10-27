@@ -1,9 +1,17 @@
 from django.db import transaction
-from rest_framework import viewsets, filters, permissions
+from django.utils import timezone
+from rest_framework import viewsets, filters, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
-from .models import Consultation
-from .serializers import ConsultationSerializer
+from .models import Consultation, RetourSansRendezVous
+from .serializers import ConsultationSerializer, RetourSansRendezVousSerializer
+from .services import calculer_eligibilite_controle
 from accounts.permissions import IsSecretaireOuMedecinOuAdmin, IsMedecin
+from patients.models import Patient
+from appointments.models import RendezVous
+from accounts.models import Medecin
 
 
 class ConsultationPagination(PageNumberPagination):
@@ -14,10 +22,11 @@ class ConsultationPagination(PageNumberPagination):
 
 class IsAuteurMedecin(permissions.BasePermission):
     """
-    Permission accordée :
-    - En lecture (GET/HEAD/OPTIONS) : aux utilisateurs autorisés (Secrétaire, Médecin, Admin).
-      Cependant, un médecin ne peut consulter les détails que de ses propres consultations.
-    - En écriture (PUT/PATCH/DELETE) : au médecin auteur de la consultation, ou à l'administrateur.
+    Permission médicale :
+    - En lecture : Secrétaires et Admins ont accès en lecture globale ;
+      Le médecin a accès à ses consultations et à la consultation d'origine s'il effectue un contrôle.
+    - En écriture (PUT/PATCH) : Réservée au médecin auteur de la consultation ou à l'administrateur.
+    - En suppression (DELETE) : Réservée exclusivement aux administrateurs (interdit aux médecins et secrétaires).
     """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
@@ -30,28 +39,33 @@ class IsAuteurMedecin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.user.role == 'ADMIN' or request.user.is_superuser:
             return True
+
         if request.method in permissions.SAFE_METHODS:
             if request.user.role == 'MEDECIN':
                 if obj.medecin == request.user:
                     return True
-                from appointments.models import RendezVous
                 return RendezVous.objects.filter(
                     medecin__utilisateur=request.user,
                     type=RendezVous.Type.CONTROLE,
                     consultation_origine=obj
                 ).exists()
             return True
-        return request.user.role == 'MEDECIN' and obj.medecin == request.user
+
+        # Modification réservée au médecin auteur
+        if request.method in ['PUT', 'PATCH']:
+            return request.user.role == 'MEDECIN' and obj.medecin == request.user
+
+        # Suppression interdite aux médecins ordinaires
+        return False
 
 
 class ConsultationViewSet(viewsets.ModelViewSet):
     """
-    CRUD pour les consultations.
-    - Création : Réservée aux médecins (pour un de leurs RDV au statut CONFIRME).
-    - Modification : Réservée exclusivement au médecin auteur.
-    - Lecture : Secrétaires et Admins ont accès en lecture seule globale ;
-      Le médecin ne voit que ses propres consultations.
-    - Passage automatique et transactionnel du RDV à TERMINE lors de la création.
+    CRUD sécurisé pour les consultations médicales.
+    - Création : Médecin (sur RDV au statut CONFIRME). Clôture atomique du RDV à TERMINE.
+    - Modification : Médecin auteur uniquement avec motif de correction obligatoire.
+    - Suppression : Interdite aux praticiens ordinaires pour garantir la valeur probante du dossier médical.
+    - Lecture : Cloisonnée selon le praticien.
     """
     serializer_class = ConsultationSerializer
     pagination_class = ConsultationPagination
@@ -65,10 +79,11 @@ class ConsultationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Consultation.objects.all().select_related('patient', 'medecin', 'rendez_vous')
+        queryset = Consultation.objects.all().select_related(
+            'patient', 'medecin', 'rendez_vous', 'constantes'
+        ).prefetch_related('historique__auteur')
 
         if user.role == 'MEDECIN' and self.action == 'list':
-            from appointments.models import RendezVous
             from django.db.models import Q
             consult_origine_ids = RendezVous.objects.filter(
                 medecin__utilisateur=user,
@@ -96,17 +111,156 @@ class ConsultationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            # Assigner le médecin : si admin, utiliser le médecin du rendez-vous
-            rendez_vous = serializer.validated_data.get('rendez_vous')
-            if (self.request.user.role == 'ADMIN' or self.request.user.is_superuser) and rendez_vous and rendez_vous.medecin:
-                medecin_user = rendez_vous.medecin.utilisateur
+            rendez_vous_data = serializer.validated_data.get('rendez_vous')
+            if not rendez_vous_data:
+                raise ValidationError({"rendez_vous": "Le rendez-vous est obligatoire pour créer une consultation."})
+
+            # Verrouillage pessimiste en base pour empêcher les conditions de course et doublons
+            rdv = RendezVous.objects.select_for_update().get(pk=rendez_vous_data.pk)
+
+            # Vérification de l'état du rendez-vous
+            if rdv.statut != RendezVous.Statut.CONFIRME:
+                raise ValidationError({"rendez_vous": "Le rendez-vous doit être au statut CONFIRME pour pouvoir être consulté."})
+
+            # Vérification de l'existence d'une consultation déjà enregistrée
+            if hasattr(rdv, 'consultation') and rdv.consultation:
+                raise ValidationError({"rendez_vous": "Ce rendez-vous possède déjà une consultation."})
+
+            # Détermination du médecin responsable
+            if (self.request.user.role == 'ADMIN' or self.request.user.is_superuser) and rdv.medecin:
+                medecin_user = rdv.medecin.utilisateur
             else:
                 medecin_user = self.request.user
 
-            consultation = serializer.save(medecin=medecin_user)
+            serializer.save(medecin=medecin_user)
 
-            # Mettre à jour le statut du rendez-vous lié si existant
-            if consultation.rendez_vous:
-                rdv = consultation.rendez_vous
-                rdv.statut = 'TERMINE'
-                rdv.save(update_fields=['statut', 'date_modification'])
+            # Clôture atomique du rendez-vous
+            rdv.statut = RendezVous.Statut.TERMINE
+            rdv.save(update_fields=['statut', 'date_modification'])
+
+
+class RetourSansRendezVousViewSet(viewsets.ModelViewSet):
+    """
+    Gestion des signalements d'accueil pour les retours de patients sans rendez-vous.
+    Permet à la secrétaire d'accueillir le patient, de vérifier l'éligibilité au contrôle gratuit
+    (15 jours) sans jamais divulguer les informations médicales confidentielles (diagnostic, observations).
+    """
+    queryset = RetourSansRendezVous.objects.all().select_related(
+        'patient', 'medecin_souhaite', 'signale_par', 'rendez_vous_cree'
+    )
+    serializer_class = RetourSansRendezVousSerializer
+    permission_classes = [permissions.IsAuthenticated, IsSecretaireOuMedecinOuAdmin]
+    pagination_class = ConsultationPagination
+
+    def perform_create(self, serializer):
+        serializer.save(signale_par=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='verifier-eligibilite')
+    def verifier_eligibilite(self, request):
+        patient_id = request.query_params.get('patient')
+        if not patient_id:
+            return Response(
+                {"detail": "Le paramètre 'patient' est requis."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response(
+                {"detail": "Patient introuvable."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        eligibilite = calculer_eligibilite_controle(patient)
+        last_consult = Consultation.objects.filter(patient=patient).order_by('-date_consultation').first()
+
+        dernier_passage = None
+        if last_consult:
+            dernier_passage = {
+                'date': last_consult.date_consultation,
+                'medecin_nom': f"Dr. {last_consult.medecin.last_name} {last_consult.medecin.first_name}".strip(),
+                'type': last_consult.rendez_vous.type if last_consult.rendez_vous else 'CONSULTATION',
+                'date_controle_recommandee': last_consult.date_controle_recommandee
+            }
+
+        return Response({
+            'patient_id': patient.id,
+            'patient_nom': f"{patient.nom} {patient.prenom}",
+            'patient_contact': patient.contact,
+            'patient_date_naissance': patient.date_naissance,
+            'dernier_passage': dernier_passage,
+            'eligibilite': eligibilite
+        })
+
+    @action(detail=True, methods=['post'], url_path='creer-rdv-jour')
+    def creer_rdv_jour(self, request, pk=None):
+        """
+        Option A : Permet à la secrétaire de convertir l'accueil du retour sans RDV
+        en un rendez-vous du jour immédiat (CONFIRME), type CONTROLE (si éligible) ou CONSULTATION,
+        disponible immédiatement dans le flux du praticien.
+        """
+        retour = self.get_object()
+
+        if retour.statut == RetourSansRendezVous.Statut.PRIS_EN_CHARGE and retour.rendez_vous_cree:
+            return Response(
+                {"detail": f"Un rendez-vous a déjà été créé pour ce signalement (RDV #{retour.rendez_vous_cree_id})."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Déterminer le médecin
+        medecin_id = request.data.get('medecin')
+        medecin = None
+        if medecin_id:
+            medecin = Medecin.objects.filter(pk=medecin_id).first()
+        elif retour.medecin_souhaite:
+            medecin = Medecin.objects.filter(utilisateur=retour.medecin_souhaite).first()
+
+        if not medecin:
+            # Essayer de reprendre le praticien de la dernière consultation
+            last_c = Consultation.objects.filter(patient=retour.patient).order_by('-date_consultation').first()
+            if last_c and last_c.medecin:
+                medecin = Medecin.objects.filter(utilisateur=last_c.medecin).first()
+
+        if not medecin:
+            medecin = Medecin.objects.first()
+
+        if not medecin:
+            return Response(
+                {"detail": "Aucun praticien n'est disponible dans l'établissement pour créer le rendez-vous."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calcul d'éligibilité
+        eligibilite = calculer_eligibilite_controle(retour.patient)
+        est_controle_gratuit = eligibilite.get('est_gratuit', False)
+
+        rdv_type = RendezVous.Type.CONTROLE if est_controle_gratuit else RendezVous.Type.CONSULTATION
+        consultation_origine = None
+        if est_controle_gratuit and eligibilite.get('consultation_origine_id'):
+            consultation_origine = Consultation.objects.filter(pk=eligibilite['consultation_origine_id']).first()
+
+        with transaction.atomic():
+            rdv = RendezVous(
+                patient=retour.patient,
+                medecin=medecin,
+                date_heure=timezone.now(),
+                statut=RendezVous.Statut.CONFIRME,
+                type=rdv_type,
+                consultation_origine=consultation_origine,
+                motif=retour.motif_administratif or "Retour sans rendez-vous"
+            )
+            rdv.save()
+
+            retour.rendez_vous_cree = rdv
+            retour.statut = RetourSansRendezVous.Statut.PRIS_EN_CHARGE
+            retour.save(update_fields=['rendez_vous_cree', 'statut'])
+
+        return Response({
+            'detail': "Rendez-vous immédiat créé avec succès.",
+            'rendez_vous_id': rdv.id,
+            'type': rdv.type,
+            'statut_paiement': rdv.statut_paiement,
+            'statut': rdv.statut,
+            'medecin_nom': f"Dr. {medecin.utilisateur.last_name} {medecin.utilisateur.first_name}".strip(),
+            'explication_eligibilite': eligibilite.get('explication')
+        }, status=status.HTTP_201_CREATED)
