@@ -960,6 +960,36 @@ export default function RendezVousPage() {
               </div>
             )}
 
+            {/* Contrôle de présence des praticiens pour l'Administrateur */}
+            {(currentUser?.role === "ADMIN" || currentUser?.is_superuser) && medecinsData && medecinsData.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 shadow-xs">
+                <span className="text-xs font-medium text-muted-foreground">Présence praticiens :</span>
+                <select
+                  aria-label="Modifier la présence d'un praticien"
+                  className="h-7 text-xs rounded-lg border border-border bg-background px-2 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+                  onChange={(e) => {
+                    const mId = Number(e.target.value)
+                    const target = medecinsData.find(m => m.id === mId)
+                    if (target) {
+                      updatePresenceMutation.mutate({
+                        medecinId: target.id,
+                        absent: !target.absent_aujourdhui
+                      })
+                    }
+                    e.target.value = ""
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Modifier présence...</option>
+                  {medecinsData.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      Dr. {m.nom} {m.prenom} ({m.absent_aujourdhui ? "Absent" : "Présent"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Bascule Vue Liste / Calendrier */}
             <div className="flex items-center rounded-xl border border-border bg-card p-1 shadow-xs">
               <button
@@ -1803,27 +1833,13 @@ export default function RendezVousPage() {
                 <div className="flex items-center justify-between">
                   <Label>Médecin *</Label>
                   {selectedMedecinInForm && (
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                        selectedMedecinInForm.absent_aujourdhui
-                          ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
-                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                      }`}>
-                        {selectedMedecinInForm.absent_aujourdhui ? "Absent aujourd'hui" : "Présent"}
-                      </span>
-                      {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
-                        <button
-                          type="button"
-                          onClick={() => updatePresenceMutation.mutate({
-                            medecinId: selectedMedecinInForm.id,
-                            absent: !selectedMedecinInForm.absent_aujourdhui
-                          })}
-                          className="text-[10px] text-primary hover:underline font-semibold"
-                        >
-                          (Bascule)
-                        </button>
-                      )}
-                    </div>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                      selectedMedecinInForm.absent_aujourdhui
+                        ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
+                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                    }`}>
+                      {selectedMedecinInForm.absent_aujourdhui ? "Absent aujourd'hui" : "Présent"}
+                    </span>
                   )}
                 </div>
                 <select 
