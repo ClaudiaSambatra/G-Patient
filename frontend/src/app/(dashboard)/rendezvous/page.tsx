@@ -141,6 +141,30 @@ const TIME_SLOTS_30MIN = [
   "17:00", "17:30"
 ]
 
+function computeBMI(poids?: string | number | null, taille?: string | number | null) {
+  if (!poids || !taille) return null
+  const p = typeof poids === "string" ? parseFloat(poids) : poids
+  const t = typeof taille === "string" ? parseFloat(taille) : taille
+  if (!p || !t || p <= 0 || t <= 0) return null
+  const hM = t / 100
+  const imc = p / (hM * hM)
+  if (isNaN(imc) || imc <= 0) return null
+  const val = Math.round(imc * 10) / 10
+  let label = "Corpulence normale"
+  let color = "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800"
+  if (val < 18.5) {
+    label = "Insuffisance pondérale"
+    color = "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-800"
+  } else if (val >= 25 && val < 30) {
+    label = "Surpoids"
+    color = "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800"
+  } else if (val >= 30) {
+    label = "Obésité"
+    color = "text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-300 dark:bg-rose-950/40 dark:border-rose-800"
+  }
+  return { val, label, color }
+}
+
 export default function RendezVousPage() {
   const queryClient = useQueryClient()
 
@@ -2092,13 +2116,23 @@ export default function RendezVousPage() {
               </div>
 
               {/* Constantes vitales */}
-              <div className="rounded-xl border border-border/70 p-3 bg-muted/20 space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Activity className="size-3.5 text-primary" /> Constantes physiologiques (Optionnel)
-                </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Activity className="size-3.5 text-primary" /> Constantes physiologiques (Optionnel)
+                  </Label>
+                  {(() => {
+                    const bmi = computeBMI(consultForm.constantes.poids, consultForm.constantes.taille)
+                    return bmi ? (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${bmi.color}`}>
+                        IMC : {bmi.val} kg/m² ({bmi.label})
+                      </span>
+                    ) : null
+                  })()}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Temp. (°C)</span>
+                    <span className="text-[10px] font-medium text-muted-foreground block mb-1">Temp. (°C)</span>
                     <Input
                       type="number"
                       step="0.1"
@@ -2108,11 +2142,11 @@ export default function RendezVousPage() {
                         ...consultForm,
                         constantes: { ...consultForm.constantes, temperature: e.target.value }
                       })}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Tension (12/8)</span>
+                    <span className="text-[10px] font-medium text-muted-foreground block mb-1">Tension (12/8)</span>
                     <Input
                       placeholder="120/80"
                       value={consultForm.constantes.tension_arterielle}
@@ -2120,11 +2154,11 @@ export default function RendezVousPage() {
                         ...consultForm,
                         constantes: { ...consultForm.constantes, tension_arterielle: e.target.value }
                       })}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Pouls (bpm)</span>
+                    <span className="text-[10px] font-medium text-muted-foreground block mb-1">Pouls (bpm)</span>
                     <Input
                       type="number"
                       placeholder="72"
@@ -2133,11 +2167,11 @@ export default function RendezVousPage() {
                         ...consultForm,
                         constantes: { ...consultForm.constantes, frequence_cardiaque: e.target.value }
                       })}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Poids (kg)</span>
+                    <span className="text-[10px] font-medium text-muted-foreground block mb-1">Poids (kg)</span>
                     <Input
                       type="number"
                       step="0.1"
@@ -2147,11 +2181,11 @@ export default function RendezVousPage() {
                         ...consultForm,
                         constantes: { ...consultForm.constantes, poids: e.target.value }
                       })}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground">Taille (cm)</span>
+                    <span className="text-[10px] font-medium text-muted-foreground block mb-1">Taille (cm)</span>
                     <Input
                       type="number"
                       step="0.5"
@@ -2161,7 +2195,7 @@ export default function RendezVousPage() {
                         ...consultForm,
                         constantes: { ...consultForm.constantes, taille: e.target.value }
                       })}
-                      className="h-8 text-xs"
+                      className="h-8 text-xs rounded-lg"
                     />
                   </div>
                 </div>
@@ -2296,13 +2330,23 @@ export default function RendezVousPage() {
                 </div>
 
                 {/* Constantes vitales */}
-                <div className="rounded-xl border border-border/70 p-3 bg-muted/20 space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Activity className="size-3.5 text-primary" /> Constantes physiologiques
-                  </Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Activity className="size-3.5 text-primary" /> Constantes physiologiques
+                    </Label>
+                    {(() => {
+                      const bmi = computeBMI(editConsultForm.constantes.poids, editConsultForm.constantes.taille)
+                      return bmi ? (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${bmi.color}`}>
+                          IMC : {bmi.val} kg/m² ({bmi.label})
+                        </span>
+                      ) : null
+                    })()}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                     <div>
-                      <span className="text-[10px] text-muted-foreground">Temp. (°C)</span>
+                      <span className="text-[10px] font-medium text-muted-foreground block mb-1">Temp. (°C)</span>
                       <Input
                         type="number"
                         step="0.1"
@@ -2312,11 +2356,11 @@ export default function RendezVousPage() {
                           ...prev,
                           constantes: { ...prev.constantes, temperature: e.target.value }
                         }))}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs rounded-lg"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-muted-foreground">Tension</span>
+                      <span className="text-[10px] font-medium text-muted-foreground block mb-1">Tension</span>
                       <Input
                         placeholder="120/80"
                         value={editConsultForm.constantes.tension_arterielle}
@@ -2324,11 +2368,11 @@ export default function RendezVousPage() {
                           ...prev,
                           constantes: { ...prev.constantes, tension_arterielle: e.target.value }
                         }))}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs rounded-lg"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-muted-foreground">Pouls</span>
+                      <span className="text-[10px] font-medium text-muted-foreground block mb-1">Pouls</span>
                       <Input
                         type="number"
                         placeholder="72"
@@ -2337,11 +2381,11 @@ export default function RendezVousPage() {
                           ...prev,
                           constantes: { ...prev.constantes, frequence_cardiaque: e.target.value }
                         }))}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs rounded-lg"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-muted-foreground">Poids</span>
+                      <span className="text-[10px] font-medium text-muted-foreground block mb-1">Poids</span>
                       <Input
                         type="number"
                         step="0.1"
@@ -2351,11 +2395,11 @@ export default function RendezVousPage() {
                           ...prev,
                           constantes: { ...prev.constantes, poids: e.target.value }
                         }))}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs rounded-lg"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-muted-foreground">Taille</span>
+                      <span className="text-[10px] font-medium text-muted-foreground block mb-1">Taille</span>
                       <Input
                         type="number"
                         step="0.5"
@@ -2365,7 +2409,7 @@ export default function RendezVousPage() {
                           ...prev,
                           constantes: { ...prev.constantes, taille: e.target.value }
                         }))}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs rounded-lg"
                       />
                     </div>
                   </div>
@@ -2612,20 +2656,25 @@ export default function RendezVousPage() {
       {/* MODAL ACCUEIL SANS RENDEZ-VOUS (PARCOURS SECRÉTAIRE & OPTION A) */}
       {retourSansRdvModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-xl rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                  <UserCheck className="size-5 text-primary" /> Accueil d&apos;un patient sans rendez-vous
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Vérifiez l&apos;identité du patient, son éligibilité au contrôle gratuit et créez son rendez-vous du jour
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <UserCheck className="size-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Accueil d&apos;un patient sans rendez-vous
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Vérifiez l&apos;identité, l&apos;éligibilité au contrôle gratuit et créez le rendez-vous du jour
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setRetourSansRdvModal(prev => ({ ...prev, isOpen: false }))}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <XCircle className="size-5" />
               </button>
@@ -2639,16 +2688,18 @@ export default function RendezVousPage() {
               className="mt-5 space-y-4 text-sm"
             >
               {/* Choix du patient */}
-              <div className="space-y-1">
-                <Label htmlFor="retour-patient-select">Patient accueilli *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="retour-patient-select" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Patient accueilli *
+                </Label>
                 <select
                   id="retour-patient-select"
                   required
                   value={retourSansRdvModal.patientId}
                   onChange={(e) => handleSelectRetourPatient(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring font-medium"
                 >
-                  <option value="">Sélectionner un patient...</option>
+                  <option value="">Sélectionner un patient dans le dossier...</option>
                   {patientsData.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nom} {p.prenom} — {p.contact || "Sans contact"}
@@ -2659,73 +2710,88 @@ export default function RendezVousPage() {
 
               {/* État de chargement de l'éligibilité */}
               {retourSansRdvModal.loadingEligibilite && (
-                <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground animate-pulse">
-                  Vérification de l&apos;historique et des règles de gratuité...
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground animate-pulse flex items-center justify-center gap-2">
+                  <RefreshCw className="size-4 animate-spin text-primary" />
+                  Vérification de l&apos;historique médical et des règles de gratuité...
                 </div>
               )}
 
               {/* Données d'accueil et d'éligibilité (sans détails médicaux confidentiels) */}
               {retourSansRdvModal.eligibiliteData && !retourSansRdvModal.loadingEligibilite && (
-                <div className="space-y-3">
-                  {/* Identité administrative */}
-                  <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs space-y-1">
-                    <span className="font-bold text-foreground block">
-                      Identité confirmée : {retourSansRdvModal.eligibiliteData.patient_nom}
-                    </span>
-                    <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                      <span>Né(e) le : {retourSansRdvModal.eligibiliteData.patient_date_naissance || "Non renseigné"}</span>
-                      <span>Contact : {retourSansRdvModal.eligibiliteData.patient_contact || "Non renseigné"}</span>
+                <div className="space-y-3 pt-1">
+                  {/* Identité administrative confirmée */}
+                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 text-xs space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[11px]">
+                        PT
+                      </div>
+                      <span className="font-bold text-foreground text-sm">
+                        {retourSansRdvModal.eligibiliteData.patient_nom}
+                      </span>
+                    </div>
+                    <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs pl-9">
+                      <span>Né(e) le : <strong className="text-foreground">{retourSansRdvModal.eligibiliteData.patient_date_naissance || "Non renseigné"}</strong></span>
+                      <span>•</span>
+                      <span>Contact : <strong className="text-foreground">{retourSansRdvModal.eligibiliteData.patient_contact || "Non renseigné"}</strong></span>
                     </div>
                   </div>
 
                   {/* Dernier passage et date recommandée */}
                   {retourSansRdvModal.eligibiliteData.dernier_passage ? (
-                    <div className="rounded-xl border border-border/60 bg-card p-3 text-xs space-y-1">
-                      <span className="font-semibold text-foreground block">Dernier passage enregistré :</span>
-                      <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                        <span>Date : {new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date).toLocaleDateString("fr-FR")}</span>
-                        <span>Praticien : {retourSansRdvModal.eligibiliteData.dernier_passage.medecin_nom}</span>
-                        <span>Type : {retourSansRdvModal.eligibiliteData.dernier_passage.type}</span>
+                    <div className="rounded-2xl border border-border/70 bg-card p-3.5 text-xs space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground flex items-center gap-1.5">
+                          <History className="size-3.5 text-primary" /> Dernier passage enregistré
+                        </span>
+                        <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {retourSansRdvModal.eligibiliteData.dernier_passage.type}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <span>Date : <strong className="text-foreground">{new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date).toLocaleDateString("fr-FR")}</strong></span>
+                        <span>•</span>
+                        <span>Praticien : <strong className="text-foreground">{retourSansRdvModal.eligibiliteData.dernier_passage.medecin_nom}</strong></span>
                       </div>
                       {retourSansRdvModal.eligibiliteData.dernier_passage.date_controle_recommandee && (
-                        <div className="mt-1 pt-1 border-t border-border/40 text-blue-700 dark:text-blue-400 font-medium">
-                          📅 Date de contrôle recommandée par le médecin : {new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date_controle_recommandee).toLocaleDateString("fr-FR")}
+                        <div className="mt-1 pt-2 border-t border-border/50 text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1.5">
+                          <CalendarIcon className="size-3.5 text-blue-600" />
+                          <span>Date de contrôle recommandée par le médecin : {new Date(retourSansRdvModal.eligibiliteData.dernier_passage.date_controle_recommandee).toLocaleDateString("fr-FR")}</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-border/60 bg-card p-2.5 text-xs text-muted-foreground italic">
+                    <div className="rounded-2xl border border-border/60 bg-card p-3 text-xs text-muted-foreground italic">
                       Aucune consultation antérieure enregistrée pour ce patient.
                     </div>
                   )}
 
                   {/* Statut d'éligibilité à la gratuité (Règle 15 jours) */}
                   {retourSansRdvModal.eligibiliteData.eligibilite && (
-                    <div className={`rounded-xl border p-3 text-xs space-y-1.5 ${
+                    <div className={`rounded-2xl border p-3.5 text-xs space-y-1.5 shadow-2xs ${
                       retourSansRdvModal.eligibiliteData.eligibilite.statut === "ELIGIBLE"
                         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
                         : retourSansRdvModal.eligibiliteData.eligibilite.statut === "A_VERIFIER"
                         ? "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-200"
                         : "border-slate-400/40 bg-muted/40 text-foreground"
                     }`}>
-                      <div className="flex items-center gap-2 font-bold">
+                      <div className="flex items-center gap-2 font-bold text-sm">
                         {retourSansRdvModal.eligibiliteData.eligibilite.statut === "ELIGIBLE" && (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                             <CheckCircle2 className="size-4" /> Éligible au contrôle gratuit
                           </span>
                         )}
                         {retourSansRdvModal.eligibiliteData.eligibilite.statut === "A_VERIFIER" && (
-                          <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                          <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="size-4" /> Situation à vérifier
                           </span>
                         )}
                         {retourSansRdvModal.eligibiliteData.eligibilite.statut === "NON_ELIGIBLE" && (
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                             <AlertCircle className="size-4" /> Non éligible à la gratuité
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] leading-relaxed">
+                      <p className="text-[11px] leading-relaxed pl-6">
                         {retourSansRdvModal.eligibiliteData.eligibilite.explication}
                       </p>
                     </div>
@@ -2734,33 +2800,38 @@ export default function RendezVousPage() {
               )}
 
               {/* Choix du médecin */}
-              <div className="space-y-1">
-                <Label htmlFor="retour-medecin-select">Médecin pour la visite du jour</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="retour-medecin-select" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Médecin pour la visite du jour
+                </Label>
                 <select
                   id="retour-medecin-select"
                   value={retourSansRdvModal.medecinId}
                   onChange={(e) => setRetourSansRdvModal(prev => ({ ...prev, medecinId: e.target.value }))}
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring font-medium"
                 >
                   {medecinsData.map((m) => (
                     <option key={m.id} value={m.id}>
-                      Dr. {m.nom} {m.prenom} ({m.specialite}) {m.absent_aujourdhui ? "— (Absent aujourd&apos;hui)" : ""}
+                      Dr. {m.nom} {m.prenom} ({m.specialite}) {m.absent_aujourdhui ? "— (Absent aujourd'hui)" : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
               {/* Motif administratif */}
-              <div className="space-y-1">
-                <Label htmlFor="retour-motif-admin">Motif administratif du passage</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="retour-motif-admin" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Motif administratif du passage
+                </Label>
                 <Input
                   id="retour-motif-admin"
                   value={retourSansRdvModal.motifAdministratif}
                   onChange={(e) => setRetourSansRdvModal(prev => ({ ...prev, motifAdministratif: e.target.value }))}
-                  placeholder="Ex: Retour sans RDV pour contrôle post-traitement..."
+                  placeholder="Ex : Retour sans RDV pour contrôle post-traitement..."
+                  className="h-10 rounded-xl"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Information administrative destinée à l&apos;accueil et au praticien. Le numéro de visite/ticket reste attribué manuellement à l&apos;accueil.
+                  Information administrative destinée à l&apos;accueil et au praticien. Le numéro de passage ou ticket reste attribué manuellement au guichet.
                 </p>
               </div>
 
@@ -2769,13 +2840,14 @@ export default function RendezVousPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setRetourSansRdvModal(prev => ({ ...prev, isOpen: false }))}
+                  className="rounded-xl"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
                   disabled={!retourSansRdvModal.patientId || createRetourSansRdvMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
                 >
                   {createRetourSansRdvMutation.isPending ? "Création en cours..." : "Créer le rendez-vous du jour"}
                 </Button>
