@@ -960,36 +960,6 @@ export default function RendezVousPage() {
               </div>
             )}
 
-            {/* Contrôle de présence des praticiens pour l'Administrateur */}
-            {(currentUser?.role === "ADMIN" || currentUser?.is_superuser) && medecinsData && medecinsData.length > 0 && (
-              <div className="hidden lg:flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 shadow-xs">
-                <span className="text-xs font-medium text-muted-foreground">Présence praticiens :</span>
-                <select
-                  aria-label="Modifier la présence d'un praticien"
-                  className="h-7 text-xs rounded-lg border border-border bg-background px-2 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                  onChange={(e) => {
-                    const mId = Number(e.target.value)
-                    const target = medecinsData.find(m => m.id === mId)
-                    if (target) {
-                      updatePresenceMutation.mutate({
-                        medecinId: target.id,
-                        absent: !target.absent_aujourdhui
-                      })
-                    }
-                    e.target.value = ""
-                  }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Modifier présence...</option>
-                  {medecinsData.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      Dr. {m.nom} {m.prenom} ({m.absent_aujourdhui ? "Absent" : "Présent"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* Bascule Vue Liste / Calendrier */}
             <div className="flex items-center rounded-xl border border-border bg-card p-1 shadow-xs">
               <button
