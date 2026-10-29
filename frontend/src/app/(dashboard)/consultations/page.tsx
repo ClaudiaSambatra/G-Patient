@@ -334,44 +334,116 @@ export default function ConsultationsPage() {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
+    const hasLignes = ord.lignes && ord.lignes.length > 0
+    const numOrd = ord.numero || `ORD-${ord.id}`
+
+    const lignesRows = hasLignes
+      ? ord.lignes.map((l: any, index: number) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px 8px; font-weight: 600; color: #0f766e;">${index + 1}</td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: bold; font-size: 1.05em; color: #0f172a;">${l.medicament} ${l.dosage || ""}</div>
+            ${l.forme ? `<div style="font-size: 0.85em; color: #64748b;">Forme : ${l.forme}</div>` : ""}
+          </td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 500;">${l.dose_par_prise || ""}${l.frequence ? ` — ${l.frequence}` : ""}</div>
+            ${l.voie_administration ? `<div style="font-size: 0.85em; color: #64748b;">Voie ${l.voie_administration}</div>` : ""}
+          </td>
+          <td style="padding: 10px 8px; font-weight: 600; color: #334155;">${l.duree || "—"}</td>
+          <td style="padding: 10px 8px; font-style: italic; color: #475569; font-size: 0.9em;">${l.instructions || "Selon prescription"}</td>
+        </tr>
+      `).join("")
+      : `
+        <tr>
+          <td colspan="5" style="padding: 16px; font-size: 1.05em; line-height: 1.8; white-space: pre-wrap;">
+            ${ord.medicaments}
+            ${ord.posologie ? `<br/><br/><strong>Posologie :</strong> ${ord.posologie}` : ""}
+            ${ord.duree ? `<br/><strong>Durée :</strong> ${ord.duree}` : ""}
+          </td>
+        </tr>
+      `
+
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="fr">
         <head>
-          <title>Ordonnance - ${ord.patient_nom || selectedConsultation?.patient_nom}</title>
+          <meta charset="utf-8" />
+          <title>Ordonnance ${numOrd} - ${ord.patient_nom || selectedConsultation?.patient_nom}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 40px; color: #1e293b; }
-            .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 20px; margin-bottom: 30px; }
-            .brand { color: #0f766e; font-size: 1.4em; font-weight: bold; margin-bottom: 4px; }
-            .doctor-info { font-weight: bold; font-size: 1.1em; margin-top: 10px; }
-            .patient-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 30px; }
-            .content { min-height: 350px; }
-            .medicaments { white-space: pre-wrap; font-size: 1.05em; line-height: 1.8; margin-top: 15px; font-weight: 500; }
-            .posology-item { margin-top: 10px; color: #475569; font-size: 0.95em; }
-            .footer { margin-top: 40px; text-align: right; }
-            .signature { border-top: 1px dashed #64748b; display: inline-block; padding-top: 8px; width: 220px; text-align: center; font-size: 0.9em; color: #475569; }
+            @page { size: A4 portrait; margin: 15mm 20mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
+            .header-table { width: 100%; border-bottom: 2.5px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; }
+            .brand-title { font-size: 1.45em; font-weight: 800; color: #0f766e; }
+            .brand-sub { font-size: 0.85em; color: #475569; }
+            .doctor-box { text-align: right; }
+            .doctor-name { font-size: 1.15em; font-weight: 700; color: #0f172a; }
+            .doctor-sub { font-size: 0.9em; color: #0d9488; font-weight: 600; }
+            .meta-grid { width: 100%; margin-bottom: 22px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc; }
+            .meta-cell { padding: 10px 14px; vertical-align: top; }
+            .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+            .value { font-size: 1em; font-weight: 700; color: #0f172a; }
+            .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+            .prescription-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0f766e; margin: 16px 0; text-transform: uppercase; }
+            .presc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .presc-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .footer-section { margin-top: 40px; page-break-inside: avoid; }
+            .stamp-box { width: 240px; height: 110px; border: 1.5px dashed #94a3b8; border-radius: 8px; margin-left: auto; text-align: center; padding: 8px; color: #64748b; font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="brand">CENTRE MÉDICAL GESTION PATIENTS</div>
-            <div class="doctor-info">${ord.medecin_nom || selectedConsultation?.medecin_nom}</div>
-            <div style="font-size: 0.9em; color: #64748b;">Date de prescription : ${new Date(ord.date_creation).toLocaleDateString("fr-FR")}</div>
-          </div>
-          <div class="patient-box">
-            <strong>Patient :</strong> ${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}
-          </div>
-          <div class="content">
-            <h3 style="color: #0f766e; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">PRESCRIPTION MÉDICALE</h3>
-            <div class="medicaments">${ord.medicaments}</div>
-            <div class="posology-item"><strong>Posologie :</strong> ${ord.posologie}</div>
-            <div class="posology-item"><strong>Durée du traitement :</strong> ${ord.duree}</div>
-          </div>
-          <div class="footer">
-            <div class="signature">
-              Signature et Cachet du Médecin<br/><br/><br/>
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="brand-title">CENTRE MÉDICAL GESTION PATIENTS</div>
+                <div class="brand-sub">Soins généraux & Spécialisés • Antananarivo</div>
+              </td>
+              <td class="doctor-box">
+                <div class="doctor-name">${ord.medecin_nom || selectedConsultation?.medecin_nom}</div>
+                ${ord.medecin_specialite ? `<div class="doctor-sub">${ord.medecin_specialite}</div>` : ""}
+              </td>
+            </tr>
+          </table>
+
+          <table class="meta-grid">
+            <tr>
+              <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
+                <div class="label">Patient(e)</div>
+                <div class="value">${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}</div>
+              </td>
+              <td class="meta-cell" style="width: 50%;">
+                <div class="label">Numéro d'ordonnance officiel</div>
+                <div class="value"><span class="badge-num">${numOrd}</span></div>
+                <div style="font-size: 0.85em; color: #475569; margin-top: 4px;">
+                  Délivrée le : <strong>${new Date(ord.date_creation).toLocaleDateString("fr-FR")}</strong>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="prescription-title">ORDONNANCE MÉDICALE</div>
+
+          <table class="presc-table">
+            <thead>
+              <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 35%;">Médicament & Dosage</th>
+                <th style="width: 25%;">Posologie & Administration</th>
+                <th style="width: 15%;">Durée</th>
+                <th style="width: 20%;">Instructions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lignesRows}
+            </tbody>
+          </table>
+
+          <div class="footer-section">
+            <div class="stamp-box">
+              <span style="font-weight: 600; text-transform: uppercase; font-size: 0.8em;">Cachet & Signature du Médecin</span>
+              <span style="font-size: 0.75em; color: #94a3b8;">Document médical authentifié</span>
             </div>
           </div>
+
           <script>
             window.onload = function() { window.print(); }
           </script>
@@ -1287,9 +1359,23 @@ export default function ConsultationsPage() {
                       {consultationPrescriptions.map((ord: any) => (
                         <div key={ord.id} className="rounded-xl border border-border/80 bg-muted/20 p-3.5 text-xs space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
-                            <span className="font-bold text-foreground">
-                              Ordonnance n°{ord.id} — Émise le {new Date(ord.date_creation).toLocaleDateString("fr-FR")}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                {ord.numero || `Ordonnance n°${ord.id}`}
+                              </span>
+                              {ord.statut === "ACTIVE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>
+                              )}
+                              {ord.statut === "MODIFIEE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Modifiée</span>
+                              )}
+                              {ord.statut === "ANNULEE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">Annulée</span>
+                              )}
+                              <span className="text-muted-foreground font-normal text-[11px]">
+                                Émise le {new Date(ord.date_creation).toLocaleDateString("fr-FR")}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-2">
                               <Button
                                 type="button"
@@ -1300,7 +1386,7 @@ export default function ConsultationsPage() {
                               >
                                 <Printer className="size-3" /> Imprimer
                               </Button>
-                              {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && (
+                              {(currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE") && !ord.facture_id && ord.statut !== "ANNULEE" && (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1309,13 +1395,23 @@ export default function ConsultationsPage() {
                                     isOpen: true,
                                     ordonnanceId: ord.id,
                                     patientId: selectedConsultation.patient,
-                                    designation: `Médicaments ordonnance n°${ord.id}`,
+                                    designation: `Médicaments ordonnance ${ord.numero || ord.id}`,
                                     montant: ""
                                   })}
                                   className="h-7 text-xs px-2.5 gap-1 text-emerald-700 hover:bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-lg"
                                 >
                                   Facturer médicaments
                                 </Button>
+                              )}
+                              {ord.facture_statut === "PAYEE" && (
+                                <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30">
+                                  ✓ Facture payée
+                                </span>
+                              )}
+                              {ord.facture_statut === "IMPAYEE" && (
+                                <span className="text-[10px] text-amber-600 font-semibold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30">
+                                  ⏳ Facture impayée
+                                </span>
                               )}
                             </div>
                           </div>
