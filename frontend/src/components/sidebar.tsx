@@ -15,6 +15,7 @@ import {
   Calendar as CalendarIcon,
   FileText,
   FileSignature,
+  FlaskConical,
   CreditCard,
   BarChart3,
   UserCircle,
@@ -136,6 +137,19 @@ export function Sidebar() {
         >
           <FileSignature className="size-4.5" />
           Ordonnances
+        </Link>
+
+        <Link
+          href="/examens"
+          id="nav-link-examens"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/examens"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <FlaskConical className="size-4.5" />
+          Examens médicaux
         </Link>
 
         <Link
