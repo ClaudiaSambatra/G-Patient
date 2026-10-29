@@ -3128,7 +3128,9 @@ export default function RendezVousPage() {
                       {consultationOrigineModal.ordonnances.map((ord: any) => (
                         <div key={ord.id} className="rounded-xl border border-border/70 bg-card p-3 text-xs space-y-1.5">
                           <div className="flex justify-between items-center font-bold text-foreground">
-                            <span>Ordonnance n°{ord.id}</span>
+                            <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                              {ord.numero || `Ordonnance n°${ord.id}`}
+                            </span>
                             <span className="text-muted-foreground font-normal">
                               {new Date(ord.date_creation).toLocaleDateString("fr-FR")}
                             </span>
