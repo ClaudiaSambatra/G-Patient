@@ -171,7 +171,7 @@ def test_rendezvous_today_refused_for_absent_medecin(api_client, setup_data):
     url = reverse('rendezvous-list')
 
     # RDV fixé à aujourd'hui (simulé le matin pour garantir que l'heure du RDV est dans le futur)
-    morning = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+    morning = timezone.localtime().replace(hour=8, minute=0, second=0, microsecond=0)
     today_dt = morning.replace(hour=14, minute=0, second=0, microsecond=0)
     with patch('django.utils.timezone.now', return_value=morning):
         data = {
@@ -196,7 +196,7 @@ def test_rendezvous_other_day_accepted_for_absent_medecin(api_client, setup_data
     url = reverse('rendezvous-list')
 
     # RDV fixé à demain
-    tomorrow_dt = timezone.now().replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    tomorrow_dt = timezone.localtime().replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=1)
     data = {
         'patient': setup_data['patient'].id,
         'medecin': med1_profile.id,
