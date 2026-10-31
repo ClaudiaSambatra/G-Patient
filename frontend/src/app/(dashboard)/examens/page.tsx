@@ -674,6 +674,8 @@ export default function ExamensPage() {
   }
 
   const isDoctor = currentUser?.role === "MEDECIN"
+  const isAdmin = currentUser?.role === "ADMIN"
+  const canPrescribe = isDoctor || isAdmin
   const demandesList = data || []
 
   // Stats
@@ -725,7 +727,7 @@ export default function ExamensPage() {
             Actualiser
           </Button>
 
-          {isDoctor && (
+          {canPrescribe && (
             <Button
               onClick={() => {
                 setFormConsultation("")
@@ -882,7 +884,7 @@ export default function ExamensPage() {
                 <tbody className="divide-y divide-border/40">
                   {demandesList.map((demande) => {
                     const isExpanded = expandedExamId === demande.id
-                    const canEditOrCancel = isDoctor && currentUser?.id === demande.medecin_id && demande.statut !== "ANNULEE"
+                    const canEditOrCancel = (isAdmin || (isDoctor && currentUser?.id === demande.medecin_id)) && demande.statut !== "ANNULEE"
 
                     return (
                       <tr

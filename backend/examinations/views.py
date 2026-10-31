@@ -3,23 +3,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from accounts.permissions import IsSecretaireOuMedecinOuAdmin
+from accounts.permissions import IsMedecin, IsSecretaireOuMedecinOuAdmin
 from .models import DemandeExamen, DemandeExamenHistorique
 from .serializers import DemandeExamenSerializer
-
-
-class IsStrictlyMedecin(BasePermission):
-    """Accès réservé uniquement aux praticiens avec le rôle MEDECIN (actes médicaux de prescription)."""
-    def has_permission(self, request, view):
-        return bool(
-            request.user and request.user.is_authenticated and request.user.role == 'MEDECIN'
-        )
 
 
 class DemandeExamenViewSet(viewsets.ModelViewSet):
     """
     CRUD et gestion sécurisée des Demandes d'Examens Médicaux (Biologie & Imagerie externe).
-    - Création / Modification / Annulation : Médecin prescripteur autorisé uniquement.
+    - Création / Modification / Annulation : Médecin prescripteur et Administrateur autorisés.
     - Consultation & Impression : Médecin, Secrétaire et Administrateur (orientation du patient).
     - Préservation médico-légale : Suppression physique interdite (annulation motivée requise).
     - Aucun flux de facturation interne : examens réalisés et réglés chez des prestataires externes.
@@ -47,7 +39,7 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'annuler']:
-            return [IsAuthenticated(), IsStrictlyMedecin()]
+            return [IsAuthenticated(), IsMedecin()]
         return [IsAuthenticated(), IsSecretaireOuMedecinOuAdmin()]
 
     def get_queryset(self):
@@ -93,14 +85,16 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         consultation = serializer.validated_data.get('consultation')
-        if consultation.medecin != user:
-            raise PermissionDenied("Vous n'êtes pas le praticien responsable de cette consultation.")
+        if user.role != 'ADMIN' and not user.is_superuser:
+            if consultation.medecin != user:
+                raise PermissionDenied("Vous n'êtes pas le praticien responsable de cette consultation.")
         serializer.save()
 
     def perform_update(self, serializer):
         user = self.request.user
-        if serializer.instance.medecin != user:
-            raise PermissionDenied("Vous n'êtes pas le praticien prescripteur de cette demande d'examens.")
+        if user.role != 'ADMIN' and not user.is_superuser:
+            if serializer.instance.medecin != user:
+                raise PermissionDenied("Vous n'êtes pas le praticien prescripteur de cette demande d'examens.")
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -110,11 +104,12 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='annuler')
     def annuler(self, request, pk=None):
-        """Permet au praticien prescripteur d'annuler formellement une demande avec motif tracé."""
+        """Permet au praticien prescripteur ou à un administrateur d'annuler formellement une demande avec motif tracé."""
         instance = self.get_object()
         user = request.user
-        if instance.medecin != user:
-            raise PermissionDenied("Vous n'êtes pas le praticien prescripteur de cette demande d'examens.")
+        if user.role != 'ADMIN' and not user.is_superuser:
+            if instance.medecin != user:
+                raise PermissionDenied("Vous n'êtes pas le praticien prescripteur de cette demande d'examens.")
 
         if instance.statut == DemandeExamen.Statut.ANNULEE:
             return Response(

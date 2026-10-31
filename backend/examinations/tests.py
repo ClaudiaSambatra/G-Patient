@@ -209,17 +209,38 @@ def test_secretaire_cannot_create_exam_request(api_client, test_data):
 
 
 @pytest.mark.django_db
-def test_admin_cannot_create_exam_request(api_client, test_data):
-    """L'administrateur n'a pas le droit de créer une prescription d'examens."""
+def test_admin_can_create_modify_and_cancel_exam_request(api_client, test_data):
+    """L'administrateur a le droit de créer, modifier et annuler une prescription d'examens."""
     api_client.force_authenticate(user=test_data['admin_user'])
     url = reverse('demandes-examens-list')
 
+    # 1. Création par l'admin
     payload = {
         'consultation': test_data['consultation1'].id,
+        'renseignements_cliniques': 'Bilan prescrit ou testé par admin',
         'lignes': [{'nom_examen': 'Scanner cérébral', 'categorie': 'IMAGERIE', 'ordre': 1}]
     }
     response = api_client.post(url, payload, format='json')
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_201_CREATED
+    exam_id = response.data['id']
+
+    # 2. Modification par l'admin
+    detail_url = reverse('demandes-examens-detail', kwargs={'pk': exam_id})
+    update_payload = {
+        'motif_correction': 'Ajustement prescription par administrateur',
+        'lignes': [
+            {'nom_examen': 'Scanner cérébral injecté', 'categorie': 'IMAGERIE', 'instructions': 'À jeun', 'ordre': 1}
+        ]
+    }
+    res_mod = api_client.put(detail_url, update_payload, format='json')
+    assert res_mod.status_code == status.HTTP_200_OK
+    assert res_mod.data['statut'] == 'MODIFIEE'
+
+    # 3. Annulation par l'admin
+    cancel_url = reverse('demandes-examens-annuler', kwargs={'pk': exam_id})
+    res_cancel = api_client.post(cancel_url, {'motif': 'Annulé par admin pour test'}, format='json')
+    assert res_cancel.status_code == status.HTTP_200_OK
+    assert res_cancel.data['statut'] == 'ANNULEE'
 
 
 # ==============================================================================
