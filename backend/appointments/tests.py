@@ -572,3 +572,275 @@ def test_filters_and_pagination(api_client, setup_data):
     })
     assert res_range.status_code == status.HTTP_200_OK
     assert res_range.data['count'] == 2
+
+
+# ============================================================================
+# Tests : Deux parcours distincts (Accueil Consultation vs Suivi de consultation)
+# ============================================================================
+
+@pytest.mark.django_db
+def test_accueil_consultation_normale_creates_rdv_and_facture(api_client, setup_data):
+    from billing.models import Facture
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-accueil-consultation')
+
+    payload = {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'motif': 'Consultation normale pour céphalées'
+    }
+
+    res = api_client.post(url, payload)
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['type'] == RendezVous.Type.CONSULTATION
+    assert res.data['statut'] == RendezVous.Statut.CONFIRME
+    assert res.data['facture_id'] is not None
+
+    # Vérification en base de données : RDV et Facture créée
+    rdv = RendezVous.objects.get(id=res.data['id'])
+    assert rdv.type == RendezVous.Type.CONSULTATION
+    assert rdv.statut == RendezVous.Statut.CONFIRME
+
+    facture = Facture.objects.get(rendez_vous=rdv)
+    assert facture.patient == setup_data['patient']
+    assert facture.statut == Facture.StatutPaiement.IMPAYEE
+    assert float(facture.montant) == 20000.0
+
+    # Idempotence : un second clic immédiat ne doit PAS créer une deuxième facture
+    res_second = api_client.post(url, payload)
+    assert res_second.status_code == status.HTTP_200_OK
+    assert res_second.data['id'] == rdv.id
+    assert Facture.objects.filter(rendez_vous=rdv).count() == 1
+
+
+@pytest.mark.django_db
+def test_accueil_suivi_success_strict_zero_billing(api_client, setup_data):
+    from consultations.models import Consultation
+    from billing.models import Facture
+
+    # Consultation initiale il y a 7 jours
+    now = datetime.now()
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=make_aware(now - timedelta(days=7)),
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=7)),
+        motif='Hypertension artérielle',
+        observations='Tension 15/9',
+        diagnostic='HTA stade 1',
+        suivi_recommande=True,
+        date_suivi_recommandee=(now + timedelta(days=1)).date(),
+        motif_suivi='Contrôle efficacité traitement sous 7 jours'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-accueil-suivi')
+
+    payload = {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'consultation_origine': c_init.id,
+        'motif': 'Suivi de consultation HTA'
+    }
+
+    res = api_client.post(url, payload)
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['type'] == RendezVous.Type.CONTROLE
+    assert res.data['statut'] == RendezVous.Statut.CONFIRME
+    assert res.data['consultation_origine'] == c_init.id
+    # Facture ID must be strictly None
+    assert res.data['facture_id'] is None
+    assert res.data['statut_paiement'] == 'GRATUIT'
+
+    # RÈGLE ABSOLUE : ZERO FACTURATION
+    rdv_suivi = RendezVous.objects.get(id=res.data['id'])
+    assert rdv_suivi.type == RendezVous.Type.CONTROLE
+    assert rdv_suivi.consultation_origine == c_init
+
+    # Aucune facture liée au RDV
+    assert Facture.objects.filter(rendez_vous=rdv_suivi).count() == 0
+    # Aucune facture à 0 Ar créée
+    assert Facture.objects.filter(patient=setup_data['patient'], montant=0).count() == 0
+
+
+@pytest.mark.django_db
+def test_accueil_suivi_rejet_si_deja_consomme(api_client, setup_data):
+    from consultations.models import Consultation
+
+    now = datetime.now()
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=make_aware(now - timedelta(days=5)),
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=5)),
+        motif='Grippe saisonnière'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-accueil-suivi')
+
+    # Premier suivi : réussi
+    res1 = api_client.post(url, {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'consultation_origine': c_init.id,
+        'numero_passage': 1
+    })
+    assert res1.status_code == status.HTTP_201_CREATED
+
+    # Deuxième suivi pour la même consultation : rejeté
+    res2 = api_client.post(url, {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'consultation_origine': c_init.id,
+        'numero_passage': 2
+    })
+    assert res2.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Un suivi gratuit a déjà été enregistré" in str(res2.data)
+
+
+@pytest.mark.django_db
+def test_accueil_suivi_rejet_si_delai_15_jours_depasse(api_client, setup_data):
+    from consultations.models import Consultation
+
+    now = datetime.now()
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=make_aware(now - timedelta(days=16)),  # 16 jours écoulés > 15
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=16)),
+        motif='Infection ORL'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-accueil-suivi')
+
+    res = api_client.post(url, {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin1_profile'].id,
+        'consultation_origine': c_init.id
+    })
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Délai dépassé" in str(res.data) or "non éligible" in str(res.data).lower()
+
+
+@pytest.mark.django_db
+def test_accueil_suivi_autre_medecin_reassigne(api_client, setup_data):
+    from consultations.models import Consultation
+
+    now = datetime.now()
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=make_aware(now - timedelta(days=4)),
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv_init,
+        date_consultation=make_aware(now - timedelta(days=4)),
+        motif='Asthme'
+    )
+
+    # Medecin 1 est absent, la secrétaire réassigne le suivi au Dr. Medecin 2
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-accueil-suivi')
+
+    res = api_client.post(url, {
+        'patient': setup_data['patient'].id,
+        'medecin': setup_data['medecin2_profile'].id,
+        'consultation_origine': c_init.id,
+        'motif': 'Suivi asthme par confrère'
+    })
+    assert res.status_code == status.HTTP_201_CREATED
+
+    rdv_suivi = RendezVous.objects.get(id=res.data['id'])
+    assert rdv_suivi.medecin == setup_data['medecin2_profile']
+    assert rdv_suivi.consultation_origine == c_init
+
+    # RÈGLE : La consultation initiale conserve son médecin d'origine
+    c_init.refresh_from_db()
+    assert c_init.medecin == setup_data['medecin1']
+
+    # Quand le medecin 2 réalise la consultation de suivi
+    api_client.force_authenticate(user=setup_data['medecin2'])
+    url_consult = reverse('consultation-list')
+    res_consult = api_client.post(url_consult, {
+        'patient': setup_data['patient'].id,
+        'rendez_vous': rdv_suivi.id,
+        'motif': 'Consultation de suivi asthme',
+        'diagnostic': 'Asthme sous contrôle',
+        'observations': 'Auscultation normale'
+    })
+    assert res_consult.status_code == status.HTTP_201_CREATED
+
+    consult_suivi = Consultation.objects.get(id=res_consult.data['id'])
+    assert consult_suivi.medecin == setup_data['medecin2']
+    assert consult_suivi.consultation_origine == c_init
+    c_init.refresh_from_db()
+    assert c_init.medecin == setup_data['medecin1']
+
+
+@pytest.mark.django_db
+def test_historique_suivi_endpoint(api_client, setup_data):
+    from consultations.models import Consultation
+
+    now = datetime.now()
+    # Créer une consultation payante éligible avec suivi recommandé
+    rdv1 = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1_profile'],
+        date_heure=make_aware(now - timedelta(days=3)),
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c1 = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin1'],
+        rendez_vous=rdv1,
+        date_consultation=make_aware(now - timedelta(days=3)),
+        motif='Bilan santé',
+        suivi_recommande=True,
+        date_suivi_recommandee=(now + timedelta(days=4)).date(),
+        motif_suivi='Vérifier glycémie'
+    )
+
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('rendezvous-historique-suivi')
+
+    res = api_client.get(url, {'patient': setup_data['patient'].id})
+    assert res.status_code == status.HTTP_200_OK
+    assert 'consultations' in res.data
+    assert len(res.data['consultations']) >= 1
+
+    item = res.data['consultations'][0]
+    assert item['id'] == c1.id
+    assert item['est_eligible'] is True
+    assert item['suivi_recommande'] is True
+    assert item['motif_suivi'] == 'Vérifier glycémie'
+    assert item['medecin_id'] == setup_data['medecin1'].id
+

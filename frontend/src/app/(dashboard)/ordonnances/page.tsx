@@ -26,7 +26,6 @@ import {
   Ban,
   History,
   Trash2,
-  FileText,
   Clock,
   ShieldAlert,
   ChevronDown,
@@ -210,7 +209,7 @@ export default function OrdonnancesPage() {
   const { data: consultations } = useQuery({
     queryKey: ["consultations_list"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ results: Consultation[] }>(`/consultations/`)
+      const { data } = await apiClient.get<{ results: Consultation[] }>(`/consultations/?page_size=100`)
       return (data.results || []) as Consultation[]
     },
     enabled: isCreateOpen
@@ -665,9 +664,10 @@ export default function OrdonnancesPage() {
             >
               <RefreshCw className="size-4" />
             </button>
-            {isDoctor && (
+            {(isDoctor || currentUser?.role === "ADMIN") && (
               <button 
                 onClick={() => {
+                  setFormConsultation("")
                   setFormLignes([
                     {
                       medicament: "",
@@ -685,7 +685,7 @@ export default function OrdonnancesPage() {
                 className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Plus className="size-4.5" />
-                <span>Rédiger une ordonnance</span>
+                <span>Créer une ordonnance</span>
               </button>
             )}
           </div>
@@ -984,7 +984,7 @@ export default function OrdonnancesPage() {
         </Card>
       </main>
 
-      {/* MODAL RÉDIGER UNE ORDONNANCE (LIGNES STRUCTURÉES) */}
+      {/* MODAL CRÉER UNE ORDONNANCE (LIGNES STRUCTURÉES) */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-3xl rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -995,7 +995,7 @@ export default function OrdonnancesPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
-                    Rédiger une ordonnance médicale
+                    Créer une ordonnance médicale
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Numérotation automatique unique et prescription de médicaments structurés
@@ -1009,6 +1009,12 @@ export default function OrdonnancesPage() {
                 <XCircle className="size-5" />
               </button>
             </div>
+
+            {!isDoctor && (
+              <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+                <strong>Information :</strong> La signature d&apos;une ordonnance médicale est un acte médical réservé au profil Médecin. Si vous êtes connecté en tant qu&apos;administrateur, utilisez un compte médecin (ex: <code>dr.voahangy</code> / <code>admin123</code>) pour signer et enregistrer une ordonnance.
+              </div>
+            )}
             
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="mt-5 flex flex-col gap-5">
               <div className="space-y-1.5">
@@ -1019,10 +1025,10 @@ export default function OrdonnancesPage() {
                   onChange={e => setFormConsultation(e.target.value)}
                   className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 >
-                  <option value="">Sélectionner une consultation</option>
+                  <option value="">Sélectionner une consultation...</option>
                   {consultations?.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.patient_nom} {c.patient_prenom} — {c.motif} ({new Date(c.date_consultation).toLocaleDateString("fr-FR")})
+                      {c.patient_nom} {c.patient_prenom} — {c.motif || "Consultation"} ({new Date(c.date_consultation).toLocaleDateString("fr-FR")}){c.medecin_nom ? ` [Dr. ${c.medecin_nom}]` : ""}
                     </option>
                   ))}
                 </select>

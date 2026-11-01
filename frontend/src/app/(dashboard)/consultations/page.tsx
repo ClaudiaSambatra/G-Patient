@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -35,11 +36,9 @@ import {
   Sparkles,
   Pill,
   FlaskConical,
-  Microscope,
-  Trash2,
   Plus,
   ShieldAlert,
-  Info
+  RotateCcw
 } from "lucide-react"
 
 interface ConstantesVitales {
@@ -81,9 +80,16 @@ interface Consultation {
   diagnostic: string
   compte_rendu?: string
   date_controle_recommandee?: string | null
+  suivi_recommande?: boolean
+  date_suivi_recommandee?: string | null
+  motif_suivi?: string
+  consultation_origine?: number | null
+  consultation_origine_details?: any
   constantes?: ConstantesVitales | null
   historique?: ConsultationHistoriqueItem[]
   statut_paiement?: "PAYE" | "IMPAYE" | "GRATUIT"
+  ordonnances?: any[]
+  examens?: any[]
 }
 
 interface ConsultationListResponse {
@@ -173,6 +179,9 @@ export default function ConsultationsPage() {
     diagnostic: "",
     compte_rendu: "",
     date_controle_recommandee: "",
+    suivi_recommande: false,
+    date_suivi_recommandee: "",
+    motif_suivi: "",
     motif_correction: "",
     constantes: {
       temperature: "",
@@ -181,12 +190,6 @@ export default function ConsultationsPage() {
       tension_arterielle: "",
       frequence_cardiaque: ""
     }
-  })
-  const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false)
-  const [prescriptionForm, setPrescriptionForm] = useState({
-    medicaments: "",
-    posologie: "",
-    duree: ""
   })
 
   // Notifications
@@ -239,7 +242,10 @@ export default function ConsultationsPage() {
         observations: editForm.observations,
         diagnostic: editForm.diagnostic,
         compte_rendu: editForm.compte_rendu,
-        date_controle_recommandee: editForm.date_controle_recommandee || null,
+        suivi_recommande: editForm.suivi_recommande,
+        date_suivi_recommandee: editForm.date_suivi_recommandee || null,
+        motif_suivi: editForm.motif_suivi || "",
+        date_controle_recommandee: editForm.date_suivi_recommandee || editForm.date_controle_recommandee || null,
         motif_correction: editForm.motif_correction
       }
       const c = editForm.constantes
@@ -268,27 +274,6 @@ export default function ConsultationsPage() {
     }
   })
 
-  // Mutation création d'ordonnance liée
-  const createPrescriptionMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedConsultation) return
-      return apiClient.post("/prescriptions/", {
-        consultation: selectedConsultation.id,
-        ...prescriptionForm
-      })
-    },
-    onSuccess: () => {
-      setIsPrescriptionOpen(false)
-      setPrescriptionForm({ medicaments: "", posologie: "", duree: "" })
-      queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
-      queryClient.invalidateQueries({ queryKey: ["consultation-prescriptions"] })
-      showNotification("success", "Ordonnance créée avec succès.")
-    },
-    onError: (err) => {
-      const msg = extractErrorMessage(err, "Erreur lors de la création de l'ordonnance.")
-      showNotification("error", msg)
-    }
-  })
 
   // Prescriptions de la consultation sélectionnée
   const { data: consultationPrescriptions = [] } = useQuery({
@@ -300,6 +285,10 @@ export default function ConsultationsPage() {
     },
     enabled: Boolean(selectedConsultation?.id)
   })
+
+  const currentPrescriptions = (selectedConsultation?.ordonnances && selectedConsultation.ordonnances.length > 0)
+    ? selectedConsultation.ordonnances
+    : consultationPrescriptions
 
   // Demandes d'examens médicaux de la consultation sélectionnée
   const { data: consultationExamens = [] } = useQuery({
@@ -314,56 +303,9 @@ export default function ConsultationsPage() {
     enabled: Boolean(selectedConsultation?.id)
   })
 
-  const [isExamModalOpen, setIsExamModalOpen] = useState(false)
-  const [examForm, setExamForm] = useState<{
-    renseignements_cliniques: string
-    lignes: Array<{
-      nom_examen: string
-      categorie: "BIOLOGIE" | "IMAGERIE" | "AUTRE"
-      instructions: string
-    }>
-  }>({
-    renseignements_cliniques: "",
-    lignes: [{ nom_examen: "", categorie: "BIOLOGIE", instructions: "" }]
-  })
-
-  const createExamMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedConsultation) throw new Error("Aucune consultation sélectionnée.")
-      const validLignes = examForm.lignes
-        .filter((l) => l.nom_examen.trim().length > 0)
-        .map((l, index) => ({
-          nom_examen: l.nom_examen.trim(),
-          categorie: l.categorie,
-          instructions: l.instructions.trim(),
-          ordre: index + 1
-        }))
-      if (validLignes.length === 0) {
-        throw new Error("Veuillez renseigner au moins un examen médical.")
-      }
-      const payload = {
-        consultation: selectedConsultation.id,
-        renseignements_cliniques: examForm.renseignements_cliniques.trim(),
-        lignes: validLignes
-      }
-      const { data } = await apiClient.post("/examinations/", payload)
-      return data
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["consultation-examens", selectedConsultation?.id] })
-      queryClient.invalidateQueries({ queryKey: ["demandes-examens"] })
-      setIsExamModalOpen(false)
-      setExamForm({
-        renseignements_cliniques: "",
-        lignes: [{ nom_examen: "", categorie: "BIOLOGIE", instructions: "" }]
-      })
-      showNotification("success", `Demande d'examens ${data.numero} créée avec succès.`)
-    },
-    onError: (err) => {
-      const msg = extractErrorMessage(err, "Erreur lors de la création de la demande d'examens.")
-      showNotification("error", msg)
-    }
-  })
+  const currentExamens = (selectedConsultation?.examens && selectedConsultation.examens.length > 0)
+    ? selectedConsultation.examens
+    : (Array.isArray(consultationExamens) ? consultationExamens : [])
 
   // Modal Facturation Médicaments
   const [factureMedModal, setFactureMedModal] = useState<{
@@ -655,6 +597,9 @@ export default function ConsultationsPage() {
       diagnostic: consultation.diagnostic || "",
       compte_rendu: consultation.compte_rendu || "",
       date_controle_recommandee: consultation.date_controle_recommandee || "",
+      suivi_recommande: consultation.suivi_recommande || false,
+      date_suivi_recommandee: consultation.date_suivi_recommandee || consultation.date_controle_recommandee || "",
+      motif_suivi: consultation.motif_suivi || "",
       motif_correction: "",
       constantes: {
         temperature: consultation.constantes?.temperature?.toString() || "",
@@ -1314,21 +1259,54 @@ export default function ConsultationsPage() {
                   </div>
                 </div>
 
-                {/* Date de contrôle recommandée */}
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-1.5">
-                  <Label htmlFor="edit-date-ctrl" className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                    <Calendar className="size-4 text-blue-600" /> Date de contrôle recommandée (indicative)
-                  </Label>
-                  <Input
-                    id="edit-date-ctrl"
-                    type="date"
-                    value={editForm.date_controle_recommandee}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, date_controle_recommandee: e.target.value }))}
-                    className="max-w-xs bg-background"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Sélectionnez une date précise sur le calendrier. Cette mention est indicative et ne bloque aucun créneau automatique.
-                  </p>
+                {/* Section Recommandation de suivi */}
+                <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-suivi-recommande"
+                      checked={editForm.suivi_recommande}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, suivi_recommande: e.target.checked }))}
+                      className="size-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="edit-suivi-recommande" className="text-xs font-bold uppercase tracking-wider text-foreground cursor-pointer flex items-center gap-1.5">
+                      <RotateCcw className="size-3.5 text-primary" /> Recommander une visite de suivi au patient
+                    </Label>
+                  </div>
+
+                  {editForm.suivi_recommande && (
+                    <div className="space-y-3 pt-2 border-t border-border/60 animate-in fade-in duration-200">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Date de suivi recommandée (indicatif)</Label>
+                        <Input
+                          type="date"
+                          value={editForm.date_suivi_recommandee}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            date_suivi_recommandee: e.target.value,
+                            date_controle_recommandee: e.target.value
+                          }))}
+                          className="max-w-xs bg-background"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Date indicative choisie librement par le médecin. Aucun créneau n&apos;est réservé, aucune facture créée, le patient revient quand il le souhaite.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Motif du suivi recommandé</Label>
+                        <Input
+                          value={editForm.motif_suivi}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, motif_suivi: e.target.value }))}
+                          placeholder="Ex : Contrôle NFS, surveillance tensionnelle, vérification cicatrisation..."
+                          className="bg-background"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Information médicale visible par la secrétaire et les confrères lors du retour du patient.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions du formulaire */}
@@ -1348,6 +1326,63 @@ export default function ConsultationsPage() {
             ) : (
               /* AFFICHAGE DU DOSSIER MÉDICAL */
               <div className="mt-6 space-y-6 text-sm">
+                {/* Consultation d'origine si suivi */}
+                {selectedConsultation.consultation_origine_details && (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-2 text-xs uppercase tracking-wider">
+                        <RotateCcw className="size-4 text-emerald-600" /> Suivi rattaché à la consultation d&apos;origine #{selectedConsultation.consultation_origine_details.id}
+                      </span>
+                      <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-200/50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                        Parcours de suivi (non facturable)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div>Praticien initial : <strong className="text-foreground">{selectedConsultation.consultation_origine_details.medecin_nom}</strong></div>
+                      <div>Date initiale : <strong className="text-foreground">{selectedConsultation.consultation_origine_details.date_consultation_formatee}</strong></div>
+                    </div>
+
+                    <div className="bg-background/90 p-3 rounded-xl border border-border/60 text-xs space-y-1.5">
+                      <div>
+                        <span className="font-bold text-foreground">Motif initial : </span>
+                        <span>{selectedConsultation.consultation_origine_details.motif}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-foreground">Diagnostic initial : </span>
+                        <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.diagnostic || "Non précisé"}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-foreground">Observations cliniques initiales : </span>
+                        <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.observations || "Non précisé"}</span>
+                      </div>
+                      {selectedConsultation.consultation_origine_details.compte_rendu && (
+                        <div>
+                          <span className="font-bold text-foreground">Compte-rendu initial : </span>
+                          <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.compte_rendu}</span>
+                        </div>
+                      )}
+                      {selectedConsultation.consultation_origine_details.motif_suivi && (
+                        <div className="pt-1 text-emerald-800 dark:text-emerald-300 font-medium">
+                          <strong>Motif du suivi recommandé : </strong>{selectedConsultation.consultation_origine_details.motif_suivi}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Prescriptions de la consultation d'origine */}
+                    {selectedConsultation.consultation_origine_details.ordonnances && selectedConsultation.consultation_origine_details.ordonnances.length > 0 && (
+                      <div className="bg-background/90 p-2.5 rounded-xl border border-border/60 text-xs space-y-1">
+                        <span className="font-bold text-blue-700 dark:text-blue-400 block mb-0.5">💊 Traitement prescrit lors de la consultation initiale :</span>
+                        {selectedConsultation.consultation_origine_details.ordonnances.map((ord: any) => (
+                          <div key={ord.id} className="text-muted-foreground pl-2 text-[11px]">
+                            • {ord.medicaments} ({ord.posologie}) — Durée : {ord.duree}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 1. Alerte Médicale Prioritaire : Allergies & Antécédents */}
                 <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
@@ -1451,29 +1486,36 @@ export default function ConsultationsPage() {
                 )}
 
                 {/* 3. Recommandation de Suivi / Contrôle Médical */}
-                {selectedConsultation.date_controle_recommandee && (
-                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                        <Calendar className="size-5" />
+                {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee || selectedConsultation.suivi_recommande) && (
+                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                          <Calendar className="size-5" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-foreground text-sm block">
+                            Date de contrôle recommandée : {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee) ? new Date(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee!).toLocaleDateString("fr-FR", {
+                              weekday: "long",
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric"
+                            }) : "Date libre / à l'appréciation du patient"}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Recommandation médicale à titre indicatif. Le patient peut revenir sans réservation préalable.
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-bold text-foreground text-sm block">
-                          Date de contrôle recommandée : {new Date(selectedConsultation.date_controle_recommandee).toLocaleDateString("fr-FR", {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric"
-                          })}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Recommandation médicale à titre indicatif. Le patient peut revenir sans réservation préalable.
-                        </p>
-                      </div>
+                      <span className="hidden sm:inline-flex rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                        Suivi recommandé
+                      </span>
                     </div>
-                    <span className="hidden sm:inline-flex rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                      Suivi prévu
-                    </span>
+                    {selectedConsultation.motif_suivi && (
+                      <div className="pl-13 text-xs text-blue-950 dark:text-blue-200 bg-background/60 p-2.5 rounded-xl border border-blue-500/20">
+                        <strong>Motif du suivi recommandé : </strong>{selectedConsultation.motif_suivi}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1527,29 +1569,42 @@ export default function ConsultationsPage() {
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <Pill className="size-4 text-primary" />
-                      Ordonnances et Prescriptions ({consultationPrescriptions.length})
+                      Ordonnances et Prescriptions ({currentPrescriptions.length})
                     </h4>
 
-                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsPrescriptionOpen(true)}
-                        className="h-7 text-xs px-2.5 gap-1.5 text-primary border-primary/30 hover:bg-primary/10 rounded-lg"
+                    {currentPrescriptions.length === 0 ? (
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors shadow-xs"
                       >
-                        <FileSignature className="size-3.5" /> Nouvelle ordonnance
-                      </Button>
+                        <FileSignature className="size-3.5" /> Gérer dans Ordonnances →
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <FileSignature className="size-3.5" /> Ouvrir dans Ordonnances →
+                      </Link>
                     )}
                   </div>
 
-                  {consultationPrescriptions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-2">
-                      Aucune ordonnance n&apos;a été délivrée lors de cette consultation.
-                    </p>
+                  {currentPrescriptions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border/70 bg-muted/10 text-center gap-2">
+                      <FileSignature className="size-8 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground">
+                        Aucune ordonnance n&apos;a été délivrée lors de cette consultation.
+                      </p>
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+                      >
+                        <Plus className="size-3.5" /> Gérer dans Ordonnances
+                      </Link>
+                    </div>
                   ) : (
                     <div className="space-y-3">
-                      {consultationPrescriptions.map((ord: any) => (
+                      {currentPrescriptions.map((ord: any) => (
                         <div key={ord.id} className="rounded-xl border border-border/80 bg-muted/20 p-3.5 text-xs space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
                             <div className="flex items-center gap-2">
@@ -1609,15 +1664,46 @@ export default function ConsultationsPage() {
                             </div>
                           </div>
 
-                          <div className="bg-background/80 p-2.5 rounded-lg border border-border/50 font-mono text-foreground whitespace-pre-wrap">
-                            {ord.medicaments}
-                          </div>
-
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                            <span><strong>Posologie :</strong> {ord.posologie}</span>
-                            <span>•</span>
-                            <span><strong>Durée :</strong> {ord.duree}</span>
-                          </div>
+                          {/* Médicaments structurés */}
+                          {ord.lignes && ord.lignes.length > 0 ? (
+                            <div className="space-y-1.5 pt-1">
+                              {ord.lignes.map((l: any, idx: number) => (
+                                <div key={l.id || idx} className="rounded-lg bg-background p-2.5 border border-border/60 flex flex-col gap-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-foreground text-xs">
+                                      {idx + 1}. {l.medicament} {l.dosage ? `(${l.dosage})` : ""}
+                                    </span>
+                                    {l.forme && (
+                                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {l.forme}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                                    {l.dose_par_prise && <span>Prise : <strong>{l.dose_par_prise}</strong></span>}
+                                    {l.frequence && <span>Fréquence : <strong>{l.frequence}</strong></span>}
+                                    {l.duree && <span>Durée : <strong>{l.duree}</strong></span>}
+                                    {l.voie_administration && <span>Voie : {l.voie_administration}</span>}
+                                  </div>
+                                  {l.instructions && (
+                                    <div className="text-[11px] italic text-muted-foreground/90 border-t border-border/30 pt-1 mt-0.5">
+                                      ℹ️ {l.instructions}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="bg-background/80 p-2.5 rounded-lg border border-border/50 font-mono text-foreground whitespace-pre-wrap">
+                                {ord.medicaments || "Aucun médicament spécifié"}
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                                {ord.posologie && <span><strong>Posologie :</strong> {ord.posologie}</span>}
+                                {ord.duree && <span><strong>Durée :</strong> {ord.duree}</span>}
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1629,35 +1715,42 @@ export default function ConsultationsPage() {
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <FlaskConical className="size-4 text-sky-600 dark:text-sky-400" />
-                      Demandes d&apos;examens médicaux ({consultationExamens.length})
+                      Demandes d&apos;examens médicaux ({currentExamens.length})
                     </h4>
 
-                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setExamForm({
-                            renseignements_cliniques: "",
-                            lignes: [{ nom_examen: "", categorie: "BIOLOGIE", instructions: "" }]
-                          })
-                          setIsExamModalOpen(true)
-                        }}
-                        className="h-7 text-xs px-2.5 gap-1.5 text-sky-600 border-sky-300 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-800 dark:hover:bg-sky-950/40 rounded-lg"
+                    {currentExamens.length === 0 ? (
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors shadow-xs"
                       >
-                        <Plus className="size-3.5" /> Nouvelle demande d&apos;examens
-                      </Button>
+                        <FlaskConical className="size-3.5" /> Gérer dans Examens →
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                      >
+                        <FlaskConical className="size-3.5" /> Ouvrir dans Examens →
+                      </Link>
                     )}
                   </div>
 
-                  {consultationExamens.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-2">
-                      Aucune demande d&apos;examens prescrite lors de cette consultation.
-                    </p>
+                  {currentExamens.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-sky-200 dark:border-sky-900/60 bg-sky-50/10 text-center gap-2">
+                      <FlaskConical className="size-8 text-sky-400/40" />
+                      <p className="text-xs text-muted-foreground">
+                        Aucune demande d&apos;examens n&apos;a été prescrite lors de cette consultation.
+                      </p>
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition-all shadow-xs"
+                      >
+                        <Plus className="size-3.5" /> Gérer dans Examens
+                      </Link>
+                    </div>
                   ) : (
                     <div className="space-y-3">
-                      {consultationExamens.map((exam: any) => (
+                      {currentExamens.map((exam: any) => (
                         <div key={exam.id} className="rounded-xl border border-sky-200/70 dark:border-sky-900/60 bg-sky-50/20 dark:bg-sky-950/10 p-3.5 text-xs space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
                             <div className="flex items-center gap-2">
@@ -1769,6 +1862,9 @@ export default function ConsultationsPage() {
                             diagnostic: selectedConsultation.diagnostic || "",
                             compte_rendu: selectedConsultation.compte_rendu || "",
                             date_controle_recommandee: selectedConsultation.date_controle_recommandee || "",
+                            suivi_recommande: selectedConsultation.suivi_recommande || false,
+                            date_suivi_recommandee: selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee || "",
+                            motif_suivi: selectedConsultation.motif_suivi || "",
                             motif_correction: "",
                             constantes: {
                               temperature: selectedConsultation.constantes?.temperature?.toString() || "",
@@ -1803,94 +1899,6 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* MODAL CRÉATION ORDONNANCE */}
-      {isPrescriptionOpen && selectedConsultation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <FileSignature className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    Rédiger une ordonnance
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Patient : <strong className="text-foreground">{selectedConsultation.patient_nom} {selectedConsultation.patient_prenom}</strong>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrescriptionOpen(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                createPrescriptionMutation.mutate()
-              }}
-              className="mt-5 space-y-4"
-            >
-              <div>
-                <Label htmlFor="page-presc-medicaments">Médicaments prescrits * (un médicament par ligne)</Label>
-                <textarea
-                  id="page-presc-medicaments"
-                  required
-                  rows={4}
-                  placeholder="Ex : Paracétamol 1g comprimé&#10;Amoxicilline 500mg gélule"
-                  value={prescriptionForm.medicaments}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, medicaments: e.target.value }))}
-                  className="mt-1 flex w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring font-mono"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="page-presc-posologie">Posologie détaillée *</Label>
-                <textarea
-                  id="page-presc-posologie"
-                  required
-                  rows={3}
-                  placeholder="Ex : 1 comprimé matin, midi et soir au milieu des repas"
-                  value={prescriptionForm.posologie}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, posologie: e.target.value }))}
-                  className="mt-1 flex w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="page-presc-duree">Durée du traitement *</Label>
-                <Input
-                  id="page-presc-duree"
-                  required
-                  placeholder="Ex : 7 jours"
-                  value={prescriptionForm.duree}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, duree: e.target.value }))}
-                  className="mt-1 rounded-xl"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={() => setIsPrescriptionOpen(false)} className="rounded-xl">
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createPrescriptionMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
-                >
-                  {createPrescriptionMutation.isPending ? "Enregistrement..." : "Valider l'ordonnance"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL FACTURATION MÉDICAMENTS (SECRÉTAIRE / ADMIN) */}
       {factureMedModal?.isOpen && (
@@ -1959,173 +1967,6 @@ export default function ConsultationsPage() {
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
                 >
                   {createFactureMedicamentsMutation.isPending ? "Création..." : "Enregistrer la facture"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CRÉATION DE DEMANDE D'EXAMENS MÉDICAUX */}
-      {isExamModalOpen && selectedConsultation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300">
-                  <FlaskConical className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    Prescrire des examens médicaux
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Patient : <strong className="text-foreground">{selectedConsultation.patient_nom} {selectedConsultation.patient_prenom}</strong>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsExamModalOpen(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                createExamMutation.mutate()
-              }}
-              className="mt-5 space-y-4"
-            >
-              <div>
-                <Label htmlFor="modal-exam-renseignements" className="font-semibold text-xs">
-                  Renseignements cliniques indicatifs pour le biologiste / radiologue
-                </Label>
-                <textarea
-                  id="modal-exam-renseignements"
-                  rows={2}
-                  placeholder="Ex : Suspicion de foyer infectieux, bilan préopératoire, fièvre prolongée..."
-                  value={examForm.renseignements_cliniques}
-                  onChange={(e) => setExamForm((prev) => ({ ...prev, renseignements_cliniques: e.target.value }))}
-                  className="mt-1 flex w-full rounded-xl border border-input bg-transparent px-3 py-2 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-semibold text-xs flex items-center gap-1.5">
-                    <Microscope className="size-3.5 text-sky-600" /> Examens prescrits ({examForm.lignes.length}) *
-                  </Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setExamForm((prev) => ({
-                        ...prev,
-                        lignes: [...prev.lignes, { nom_examen: "", categorie: "BIOLOGIE", instructions: "" }]
-                      }))
-                    }}
-                    className="h-7 text-xs rounded-lg gap-1 border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
-                  >
-                    <Plus className="size-3.5" /> Ajouter un examen
-                  </Button>
-                </div>
-
-                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
-                  {examForm.lignes.map((ligne, idx) => (
-                    <div key={idx} className="p-3 rounded-xl border border-border/80 bg-muted/20 space-y-2 relative">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-muted-foreground">Examen #{idx + 1}</span>
-                        {examForm.lignes.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExamForm((prev) => ({
-                                ...prev,
-                                lignes: prev.lignes.filter((_, i) => i !== idx)
-                              }))
-                            }}
-                            className="text-red-500 hover:text-red-700 p-1"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div className="md:col-span-2">
-                          <Input
-                            required
-                            placeholder="Nom de l'examen (ex: NFS + CRP, Radio thorax)"
-                            value={ligne.nom_examen}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              setExamForm((prev) => {
-                                const next = [...prev.lignes]
-                                next[idx] = { ...next[idx], nom_examen: val }
-                                return { ...prev, lignes: next }
-                              })
-                            }}
-                            className="h-8 rounded-lg text-xs"
-                          />
-                        </div>
-                        <div>
-                          <select
-                            value={ligne.categorie}
-                            onChange={(e) => {
-                              const val = e.target.value as any
-                              setExamForm((prev) => {
-                                const next = [...prev.lignes]
-                                next[idx] = { ...next[idx], categorie: val }
-                                return { ...prev, lignes: next }
-                              })
-                            }}
-                            className="flex w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
-                          >
-                            <option value="BIOLOGIE">🔬 Biologie</option>
-                            <option value="IMAGERIE">🩻 Imagerie</option>
-                            <option value="AUTRE">📋 Autre</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <Input
-                        placeholder="Précautions / Instructions (ex: à jeun, vessie pleine...)"
-                        value={ligne.instructions}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setExamForm((prev) => {
-                            const next = [...prev.lignes]
-                            next[idx] = { ...next[idx], instructions: val }
-                            return { ...prev, lignes: next }
-                          })
-                        }}
-                        className="h-8 rounded-lg text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsExamModalOpen(false)}
-                  className="rounded-xl"
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createExamMutation.isPending}
-                  className="bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl"
-                >
-                  {createExamMutation.isPending ? "Prescription..." : "Valider la demande d'examens"}
                 </Button>
               </div>
             </form>

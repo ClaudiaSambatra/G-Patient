@@ -132,7 +132,11 @@ class ConsultationViewSet(viewsets.ModelViewSet):
             else:
                 medecin_user = self.request.user
 
-            serializer.save(medecin=medecin_user)
+            extra_kwargs = {'medecin': medecin_user}
+            if rdv.consultation_origine:
+                extra_kwargs['consultation_origine'] = rdv.consultation_origine
+
+            serializer.save(**extra_kwargs)
 
             # Clôture atomique du rendez-vous
             rdv.statut = RendezVous.Statut.TERMINE

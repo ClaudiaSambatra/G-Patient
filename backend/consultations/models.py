@@ -35,6 +35,34 @@ class Consultation(models.Model):
     diagnostic = models.TextField()
     compte_rendu = models.TextField(blank=True, default='', help_text="Compte rendu médical de la consultation")
 
+    # Champs Suivi de consultation
+    suivi_recommande = models.BooleanField(
+        default=False,
+        verbose_name="Suivi recommandé",
+        help_text="Indique si le praticien recommande une visite de suivi"
+    )
+    date_suivi_recommandee = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Date de suivi recommandée",
+        help_text="Date indicative choisie par le médecin (sans prise de RDV automatique)"
+    )
+    motif_suivi = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Motif du suivi",
+        help_text="Raison médicale motivant la recommandation de suivi"
+    )
+    consultation_origine = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='consultations_suivi',
+        verbose_name="Consultation d'origine",
+        help_text="Consultation initiale dont découle cette visite de suivi"
+    )
+
     date_controle_recommandee = models.DateField(
         null=True,
         blank=True,
@@ -47,6 +75,31 @@ class Consultation(models.Model):
 
     class Meta:
         ordering = ['-date_consultation']
+
+    def clean(self):
+        super().clean()
+        if self.date_suivi_recommandee and not self.date_controle_recommandee:
+            self.date_controle_recommandee = self.date_suivi_recommandee
+            self.suivi_recommande = True
+        elif self.date_controle_recommandee and not self.date_suivi_recommandee:
+            self.date_suivi_recommandee = self.date_controle_recommandee
+            self.suivi_recommande = True
+
+        if self.suivi_recommande or self.motif_suivi or self.date_suivi_recommandee:
+            self.suivi_recommande = True
+
+    def save(self, *args, **kwargs):
+        if self.date_suivi_recommandee and not self.date_controle_recommandee:
+            self.date_controle_recommandee = self.date_suivi_recommandee
+            self.suivi_recommande = True
+        elif self.date_controle_recommandee and not self.date_suivi_recommandee:
+            self.date_suivi_recommandee = self.date_controle_recommandee
+            self.suivi_recommande = True
+
+        if not self.consultation_origine and self.rendez_vous and getattr(self.rendez_vous, 'consultation_origine', None):
+            self.consultation_origine = self.rendez_vous.consultation_origine
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Consultation de {self.patient} le {self.date_consultation:%d/%m/%Y}"
