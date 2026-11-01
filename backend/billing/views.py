@@ -5,6 +5,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.permissions import (
     IsAdmin,
@@ -17,6 +18,25 @@ from .serializers import FactureSerializer
 from .pdf import generate_recu_pdf
 
 
+class QueryParamOrHeaderJWTAuthentication(JWTAuthentication):
+    """
+    Authentifie les requêtes via le header standard 'Authorization: Bearer <token>'
+    OU via le paramètre de requête '?token=<token>' (requis pour l'ouverture directe du PDF dans un nouvel onglet navigateur).
+    """
+    def authenticate(self, request):
+        header = self.get_header(request)
+        if header is not None:
+            raw_token = self.get_raw_token(header)
+        else:
+            raw_token = request.query_params.get('token')
+            if raw_token is not None and isinstance(raw_token, str):
+                raw_token = raw_token.encode('utf-8')
+        if raw_token is None:
+            return None
+        validated_token = self.get_validated_token(raw_token)
+        return self.get_user(validated_token), validated_token
+
+
 class FactureViewSet(viewsets.ModelViewSet):
     """
     CRUD et gestion de la facturation.
@@ -24,6 +44,7 @@ class FactureViewSet(viewsets.ModelViewSet):
     - MEDECIN : consultation en lecture seule et téléchargement du reçu.
     - ADMIN : suppression (hors factures payées).
     """
+    authentication_classes = [QueryParamOrHeaderJWTAuthentication]
     queryset = Facture.objects.all().select_related('patient', 'rendez_vous', 'ordonnance', 'encaisse_par')
     serializer_class = FactureSerializer
     filter_backends = [filters.SearchFilter]
