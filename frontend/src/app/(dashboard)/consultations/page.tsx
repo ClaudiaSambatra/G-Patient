@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -34,8 +35,10 @@ import {
   Scale,
   Sparkles,
   Pill,
+  FlaskConical,
+  Plus,
   ShieldAlert,
-  Info
+  RotateCcw
 } from "lucide-react"
 
 interface ConstantesVitales {
@@ -77,9 +80,16 @@ interface Consultation {
   diagnostic: string
   compte_rendu?: string
   date_controle_recommandee?: string | null
+  suivi_recommande?: boolean
+  date_suivi_recommandee?: string | null
+  motif_suivi?: string
+  consultation_origine?: number | null
+  consultation_origine_details?: any
   constantes?: ConstantesVitales | null
   historique?: ConsultationHistoriqueItem[]
   statut_paiement?: "PAYE" | "IMPAYE" | "GRATUIT"
+  ordonnances?: any[]
+  examens?: any[]
 }
 
 interface ConsultationListResponse {
@@ -169,6 +179,9 @@ export default function ConsultationsPage() {
     diagnostic: "",
     compte_rendu: "",
     date_controle_recommandee: "",
+    suivi_recommande: false,
+    date_suivi_recommandee: "",
+    motif_suivi: "",
     motif_correction: "",
     constantes: {
       temperature: "",
@@ -177,12 +190,6 @@ export default function ConsultationsPage() {
       tension_arterielle: "",
       frequence_cardiaque: ""
     }
-  })
-  const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false)
-  const [prescriptionForm, setPrescriptionForm] = useState({
-    medicaments: "",
-    posologie: "",
-    duree: ""
   })
 
   // Notifications
@@ -235,7 +242,10 @@ export default function ConsultationsPage() {
         observations: editForm.observations,
         diagnostic: editForm.diagnostic,
         compte_rendu: editForm.compte_rendu,
-        date_controle_recommandee: editForm.date_controle_recommandee || null,
+        suivi_recommande: editForm.suivi_recommande,
+        date_suivi_recommandee: editForm.date_suivi_recommandee || null,
+        motif_suivi: editForm.motif_suivi || "",
+        date_controle_recommandee: editForm.date_suivi_recommandee || editForm.date_controle_recommandee || null,
         motif_correction: editForm.motif_correction
       }
       const c = editForm.constantes
@@ -264,27 +274,6 @@ export default function ConsultationsPage() {
     }
   })
 
-  // Mutation création d'ordonnance liée
-  const createPrescriptionMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedConsultation) return
-      return apiClient.post("/prescriptions/", {
-        consultation: selectedConsultation.id,
-        ...prescriptionForm
-      })
-    },
-    onSuccess: () => {
-      setIsPrescriptionOpen(false)
-      setPrescriptionForm({ medicaments: "", posologie: "", duree: "" })
-      queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
-      queryClient.invalidateQueries({ queryKey: ["consultation-prescriptions"] })
-      showNotification("success", "Ordonnance créée avec succès.")
-    },
-    onError: (err) => {
-      const msg = extractErrorMessage(err, "Erreur lors de la création de l'ordonnance.")
-      showNotification("error", msg)
-    }
-  })
 
   // Prescriptions de la consultation sélectionnée
   const { data: consultationPrescriptions = [] } = useQuery({
@@ -296,6 +285,27 @@ export default function ConsultationsPage() {
     },
     enabled: Boolean(selectedConsultation?.id)
   })
+
+  const currentPrescriptions = (selectedConsultation?.ordonnances && selectedConsultation.ordonnances.length > 0)
+    ? selectedConsultation.ordonnances
+    : consultationPrescriptions
+
+  // Demandes d'examens médicaux de la consultation sélectionnée
+  const { data: consultationExamens = [] } = useQuery({
+    queryKey: ["consultation-examens", selectedConsultation?.id],
+    queryFn: async () => {
+      if (!selectedConsultation?.id) return []
+      const { data } = await apiClient.get<{ results: any[] } | any[]>(
+        `/examinations/?consultation=${selectedConsultation.id}`
+      )
+      return Array.isArray(data) ? data : ((data.results || []) as any[])
+    },
+    enabled: Boolean(selectedConsultation?.id)
+  })
+
+  const currentExamens = (selectedConsultation?.examens && selectedConsultation.examens.length > 0)
+    ? selectedConsultation.examens
+    : (Array.isArray(consultationExamens) ? consultationExamens : [])
 
   // Modal Facturation Médicaments
   const [factureMedModal, setFactureMedModal] = useState<{
@@ -453,6 +463,131 @@ export default function ConsultationsPage() {
     printWindow.document.close()
   }
 
+  function handlePrintExam(exam: any) {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      alert("Veuillez autoriser les fenêtres pop-up pour imprimer la demande d'examens.")
+      return
+    }
+
+    const numExam = exam.numero || `EXAM-#${exam.id}`
+    const lignesRows = (exam.lignes && exam.lignes.length > 0)
+      ? exam.lignes.map((l: any, idx: number) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 9px; text-align: center; color: #64748b; font-weight: bold;">${idx + 1}</td>
+          <td style="padding: 9px; font-weight: 600; color: #0284c7;">
+            ${l.categorie === 'BIOLOGIE' ? '🔬 Biologie' : (l.categorie === 'IMAGERIE' ? '🩻 Imagerie' : '📋 Exploration')}
+          </td>
+          <td style="padding: 9px; font-weight: 700; color: #0f172a;">${l.nom_examen}</td>
+          <td style="padding: 9px; color: #475569;">${l.instructions || '—'}</td>
+          <td style="padding: 9px; text-align: center;">
+            <div style="width: 14px; height: 14px; border: 1.5px solid #94a3b8; border-radius: 3px; margin: 0 auto;"></div>
+          </td>
+        </tr>
+      `).join("")
+      : `<tr><td colspan="5" style="padding: 12px; text-align: center; font-style: italic; color: #64748b;">Aucun examen spécifié</td></tr>`
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Demande d'examens ${numExam} - ${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm 20mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
+            .header-table { width: 100%; border-bottom: 2.5px solid #0369a1; padding-bottom: 14px; margin-bottom: 20px; }
+            .brand-title { font-size: 1.45em; font-weight: 800; color: #0369a1; }
+            .brand-sub { font-size: 0.85em; color: #475569; }
+            .doctor-box { text-align: right; }
+            .doctor-name { font-size: 1.15em; font-weight: 700; color: #0f172a; }
+            .doctor-sub { font-size: 0.9em; color: #0284c7; font-weight: 600; }
+            .meta-grid { width: 100%; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc; }
+            .meta-cell { padding: 10px 14px; vertical-align: top; }
+            .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+            .value { font-size: 1em; font-weight: 700; color: #0f172a; }
+            .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+            .exam-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0369a1; margin: 16px 0; text-transform: uppercase; }
+            .exam-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .exam-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .clinical-box { background: #f0f9ff; border-left: 4px solid #0284c7; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; font-size: 0.9em; color: #0369a1; }
+            .footer-section { margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid; }
+            .stamp-box { width: 230px; height: 100px; border: 1.5px dashed #94a3b8; border-radius: 8px; text-align: center; padding: 8px; color: #64748b; font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="brand-title">CENTRE MÉDICAL GESTION PATIENTS</div>
+                <div class="brand-sub">Service Médical • Examens complémentaires externes</div>
+              </td>
+              <td class="doctor-box">
+                <div class="doctor-name">${exam.medecin_nom || selectedConsultation?.medecin_nom}</div>
+                ${exam.medecin_specialite ? `<div class="doctor-sub">${exam.medecin_specialite}</div>` : ""}
+              </td>
+            </tr>
+          </table>
+
+          <table class="meta-grid">
+            <tr>
+              <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
+                <div class="label">Patient(e)</div>
+                <div class="value">${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}</div>
+              </td>
+              <td class="meta-cell" style="width: 50%;">
+                <div class="label">Demande d'examens médicaux</div>
+                <div class="value"><span class="badge-num">${numExam}</span></div>
+                <div style="font-size: 0.85em; color: #475569; margin-top: 4px;">
+                  Date de prescription : <strong>${new Date(exam.date_creation).toLocaleDateString("fr-FR")}</strong>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="exam-title">PRESCRIPTION D'EXAMENS MÉDICAUX</div>
+
+          ${exam.renseignements_cliniques ? `
+            <div class="clinical-box">
+              <strong>Renseignements cliniques / Diagnostic d'orientation :</strong><br/>
+              ${exam.renseignements_cliniques}
+            </div>
+          ` : ""}
+
+          <table class="exam-table">
+            <thead>
+              <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 25%;">Catégorie</th>
+                <th style="width: 35%;">Examen demandé</th>
+                <th style="width: 25%;">Instructions particulières</th>
+                <th style="width: 10%; text-align: center;">Réalisé</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lignesRows}
+            </tbody>
+          </table>
+
+          <div class="footer-section">
+            <div style="font-size: 0.75em; color: #64748b; max-width: 55%; line-height: 1.4;">
+              <em>Examens à réaliser auprès d'un laboratoire ou centre d'imagerie médicale agréé. Règlements directs auprès du prestataire. Ce document ne donne lieu à aucune facturation par notre centre.</em>
+            </div>
+            <div class="stamp-box">
+              <span style="font-weight: 600; text-transform: uppercase; font-size: 0.8em;">Cachet & Signature du Médecin</span>
+              <span style="font-size: 0.75em; color: #94a3b8;">Document médical authentifié</span>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
   function handleOpenDetail(consultation: Consultation) {
     setSelectedConsultation(consultation)
     setIsEditing(false)
@@ -462,6 +597,9 @@ export default function ConsultationsPage() {
       diagnostic: consultation.diagnostic || "",
       compte_rendu: consultation.compte_rendu || "",
       date_controle_recommandee: consultation.date_controle_recommandee || "",
+      suivi_recommande: consultation.suivi_recommande || false,
+      date_suivi_recommandee: consultation.date_suivi_recommandee || consultation.date_controle_recommandee || "",
+      motif_suivi: consultation.motif_suivi || "",
       motif_correction: "",
       constantes: {
         temperature: consultation.constantes?.temperature?.toString() || "",
@@ -1121,21 +1259,54 @@ export default function ConsultationsPage() {
                   </div>
                 </div>
 
-                {/* Date de contrôle recommandée */}
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-1.5">
-                  <Label htmlFor="edit-date-ctrl" className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                    <Calendar className="size-4 text-blue-600" /> Date de contrôle recommandée (indicative)
-                  </Label>
-                  <Input
-                    id="edit-date-ctrl"
-                    type="date"
-                    value={editForm.date_controle_recommandee}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, date_controle_recommandee: e.target.value }))}
-                    className="max-w-xs bg-background"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Sélectionnez une date précise sur le calendrier. Cette mention est indicative et ne bloque aucun créneau automatique.
-                  </p>
+                {/* Section Recommandation de suivi */}
+                <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-suivi-recommande"
+                      checked={editForm.suivi_recommande}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, suivi_recommande: e.target.checked }))}
+                      className="size-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="edit-suivi-recommande" className="text-xs font-bold uppercase tracking-wider text-foreground cursor-pointer flex items-center gap-1.5">
+                      <RotateCcw className="size-3.5 text-primary" /> Recommander une visite de suivi au patient
+                    </Label>
+                  </div>
+
+                  {editForm.suivi_recommande && (
+                    <div className="space-y-3 pt-2 border-t border-border/60 animate-in fade-in duration-200">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Date de suivi recommandée (indicatif)</Label>
+                        <Input
+                          type="date"
+                          value={editForm.date_suivi_recommandee}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            date_suivi_recommandee: e.target.value,
+                            date_controle_recommandee: e.target.value
+                          }))}
+                          className="max-w-xs bg-background"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Date indicative choisie librement par le médecin. Aucun créneau n&apos;est réservé, aucune facture créée, le patient revient quand il le souhaite.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Motif du suivi recommandé</Label>
+                        <Input
+                          value={editForm.motif_suivi}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, motif_suivi: e.target.value }))}
+                          placeholder="Ex : Contrôle NFS, surveillance tensionnelle, vérification cicatrisation..."
+                          className="bg-background"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Information médicale visible par la secrétaire et les confrères lors du retour du patient.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions du formulaire */}
@@ -1155,6 +1326,63 @@ export default function ConsultationsPage() {
             ) : (
               /* AFFICHAGE DU DOSSIER MÉDICAL */
               <div className="mt-6 space-y-6 text-sm">
+                {/* Consultation d'origine si suivi */}
+                {selectedConsultation.consultation_origine_details && (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-2 text-xs uppercase tracking-wider">
+                        <RotateCcw className="size-4 text-emerald-600" /> Suivi rattaché à la consultation d&apos;origine #{selectedConsultation.consultation_origine_details.id}
+                      </span>
+                      <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-200/50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                        Parcours de suivi (non facturable)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div>Praticien initial : <strong className="text-foreground">{selectedConsultation.consultation_origine_details.medecin_nom}</strong></div>
+                      <div>Date initiale : <strong className="text-foreground">{selectedConsultation.consultation_origine_details.date_consultation_formatee}</strong></div>
+                    </div>
+
+                    <div className="bg-background/90 p-3 rounded-xl border border-border/60 text-xs space-y-1.5">
+                      <div>
+                        <span className="font-bold text-foreground">Motif initial : </span>
+                        <span>{selectedConsultation.consultation_origine_details.motif}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-foreground">Diagnostic initial : </span>
+                        <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.diagnostic || "Non précisé"}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-foreground">Observations cliniques initiales : </span>
+                        <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.observations || "Non précisé"}</span>
+                      </div>
+                      {selectedConsultation.consultation_origine_details.compte_rendu && (
+                        <div>
+                          <span className="font-bold text-foreground">Compte-rendu initial : </span>
+                          <span className="text-muted-foreground">{selectedConsultation.consultation_origine_details.compte_rendu}</span>
+                        </div>
+                      )}
+                      {selectedConsultation.consultation_origine_details.motif_suivi && (
+                        <div className="pt-1 text-emerald-800 dark:text-emerald-300 font-medium">
+                          <strong>Motif du suivi recommandé : </strong>{selectedConsultation.consultation_origine_details.motif_suivi}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Prescriptions de la consultation d'origine */}
+                    {selectedConsultation.consultation_origine_details.ordonnances && selectedConsultation.consultation_origine_details.ordonnances.length > 0 && (
+                      <div className="bg-background/90 p-2.5 rounded-xl border border-border/60 text-xs space-y-1">
+                        <span className="font-bold text-blue-700 dark:text-blue-400 block mb-0.5">💊 Traitement prescrit lors de la consultation initiale :</span>
+                        {selectedConsultation.consultation_origine_details.ordonnances.map((ord: any) => (
+                          <div key={ord.id} className="text-muted-foreground pl-2 text-[11px]">
+                            • {ord.medicaments} ({ord.posologie}) — Durée : {ord.duree}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 1. Alerte Médicale Prioritaire : Allergies & Antécédents */}
                 <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
@@ -1258,29 +1486,36 @@ export default function ConsultationsPage() {
                 )}
 
                 {/* 3. Recommandation de Suivi / Contrôle Médical */}
-                {selectedConsultation.date_controle_recommandee && (
-                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                        <Calendar className="size-5" />
+                {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee || selectedConsultation.suivi_recommande) && (
+                  <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                          <Calendar className="size-5" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-foreground text-sm block">
+                            Date de contrôle recommandée : {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee) ? new Date(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee!).toLocaleDateString("fr-FR", {
+                              weekday: "long",
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric"
+                            }) : "Date libre / à l'appréciation du patient"}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Recommandation médicale à titre indicatif. Le patient peut revenir sans réservation préalable.
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-bold text-foreground text-sm block">
-                          Date de contrôle recommandée : {new Date(selectedConsultation.date_controle_recommandee).toLocaleDateString("fr-FR", {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric"
-                          })}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Recommandation médicale à titre indicatif. Le patient peut revenir sans réservation préalable.
-                        </p>
-                      </div>
+                      <span className="hidden sm:inline-flex rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                        Suivi recommandé
+                      </span>
                     </div>
-                    <span className="hidden sm:inline-flex rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                      Suivi prévu
-                    </span>
+                    {selectedConsultation.motif_suivi && (
+                      <div className="pl-13 text-xs text-blue-950 dark:text-blue-200 bg-background/60 p-2.5 rounded-xl border border-blue-500/20">
+                        <strong>Motif du suivi recommandé : </strong>{selectedConsultation.motif_suivi}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1334,29 +1569,42 @@ export default function ConsultationsPage() {
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <Pill className="size-4 text-primary" />
-                      Ordonnances et Prescriptions ({consultationPrescriptions.length})
+                      Ordonnances et Prescriptions ({currentPrescriptions.length})
                     </h4>
 
-                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsPrescriptionOpen(true)}
-                        className="h-7 text-xs px-2.5 gap-1.5 text-primary border-primary/30 hover:bg-primary/10 rounded-lg"
+                    {currentPrescriptions.length === 0 ? (
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors shadow-xs"
                       >
-                        <FileSignature className="size-3.5" /> Nouvelle ordonnance
-                      </Button>
+                        <FileSignature className="size-3.5" /> Gérer dans Ordonnances →
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <FileSignature className="size-3.5" /> Ouvrir dans Ordonnances →
+                      </Link>
                     )}
                   </div>
 
-                  {consultationPrescriptions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-2">
-                      Aucune ordonnance n&apos;a été délivrée lors de cette consultation.
-                    </p>
+                  {currentPrescriptions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border/70 bg-muted/10 text-center gap-2">
+                      <FileSignature className="size-8 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground">
+                        Aucune ordonnance n&apos;a été délivrée lors de cette consultation.
+                      </p>
+                      <Link
+                        href="/ordonnances"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+                      >
+                        <Plus className="size-3.5" /> Gérer dans Ordonnances
+                      </Link>
+                    </div>
                   ) : (
                     <div className="space-y-3">
-                      {consultationPrescriptions.map((ord: any) => (
+                      {currentPrescriptions.map((ord: any) => (
                         <div key={ord.id} className="rounded-xl border border-border/80 bg-muted/20 p-3.5 text-xs space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
                             <div className="flex items-center gap-2">
@@ -1416,14 +1664,149 @@ export default function ConsultationsPage() {
                             </div>
                           </div>
 
-                          <div className="bg-background/80 p-2.5 rounded-lg border border-border/50 font-mono text-foreground whitespace-pre-wrap">
-                            {ord.medicaments}
+                          {/* Médicaments structurés */}
+                          {ord.lignes && ord.lignes.length > 0 ? (
+                            <div className="space-y-1.5 pt-1">
+                              {ord.lignes.map((l: any, idx: number) => (
+                                <div key={l.id || idx} className="rounded-lg bg-background p-2.5 border border-border/60 flex flex-col gap-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-foreground text-xs">
+                                      {idx + 1}. {l.medicament} {l.dosage ? `(${l.dosage})` : ""}
+                                    </span>
+                                    {l.forme && (
+                                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {l.forme}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                                    {l.dose_par_prise && <span>Prise : <strong>{l.dose_par_prise}</strong></span>}
+                                    {l.frequence && <span>Fréquence : <strong>{l.frequence}</strong></span>}
+                                    {l.duree && <span>Durée : <strong>{l.duree}</strong></span>}
+                                    {l.voie_administration && <span>Voie : {l.voie_administration}</span>}
+                                  </div>
+                                  {l.instructions && (
+                                    <div className="text-[11px] italic text-muted-foreground/90 border-t border-border/30 pt-1 mt-0.5">
+                                      ℹ️ {l.instructions}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="bg-background/80 p-2.5 rounded-lg border border-border/50 font-mono text-foreground whitespace-pre-wrap">
+                                {ord.medicaments || "Aucun médicament spécifié"}
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                                {ord.posologie && <span><strong>Posologie :</strong> {ord.posologie}</span>}
+                                {ord.duree && <span><strong>Durée :</strong> {ord.duree}</span>}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5b. Demandes d'Examens Médicaux (Biologie & Imagerie) */}
+                <div className="rounded-2xl border border-border/60 bg-muted/15 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <FlaskConical className="size-4 text-sky-600 dark:text-sky-400" />
+                      Demandes d&apos;examens médicaux ({currentExamens.length})
+                    </h4>
+
+                    {currentExamens.length === 0 ? (
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors shadow-xs"
+                      >
+                        <FlaskConical className="size-3.5" /> Gérer dans Examens →
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                      >
+                        <FlaskConical className="size-3.5" /> Ouvrir dans Examens →
+                      </Link>
+                    )}
+                  </div>
+
+                  {currentExamens.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-sky-200 dark:border-sky-900/60 bg-sky-50/10 text-center gap-2">
+                      <FlaskConical className="size-8 text-sky-400/40" />
+                      <p className="text-xs text-muted-foreground">
+                        Aucune demande d&apos;examens n&apos;a été prescrite lors de cette consultation.
+                      </p>
+                      <Link
+                        href="/examens"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition-all shadow-xs"
+                      >
+                        <Plus className="size-3.5" /> Gérer dans Examens
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {currentExamens.map((exam: any) => (
+                        <div key={exam.id} className="rounded-xl border border-sky-200/70 dark:border-sky-900/60 bg-sky-50/20 dark:bg-sky-950/10 p-3.5 text-xs space-y-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                {exam.numero || `Demande n°${exam.id}`}
+                              </span>
+                              {exam.statut === "ACTIVE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>
+                              )}
+                              {exam.statut === "MODIFIEE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Modifiée</span>
+                              )}
+                              {exam.statut === "ANNULEE" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">Annulée</span>
+                              )}
+                              <span className="text-muted-foreground font-normal text-[11px]">
+                                Émise le {new Date(exam.date_creation).toLocaleDateString("fr-FR")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePrintExam(exam)}
+                                className="h-7 text-xs px-2.5 gap-1 rounded-lg border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
+                              >
+                                <Printer className="size-3" /> Imprimer
+                              </Button>
+                            </div>
                           </div>
 
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                            <span><strong>Posologie :</strong> {ord.posologie}</span>
-                            <span>•</span>
-                            <span><strong>Durée :</strong> {ord.duree}</span>
+                          {exam.renseignements_cliniques && (
+                            <div className="text-[11px] text-muted-foreground bg-background/60 p-2 rounded-lg border border-border/40">
+                              <strong className="text-foreground">Renseignements :</strong> {exam.renseignements_cliniques}
+                            </div>
+                          )}
+
+                          <div className="space-y-1.5">
+                            {(exam.lignes || []).map((l: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-md bg-background/80 border border-border/40">
+                                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                  <span>{l.categorie === 'BIOLOGIE' ? '🔬' : (l.categorie === 'IMAGERIE' ? '🩻' : '📋')}</span>
+                                  {l.nom_examen}
+                                </span>
+                                {l.instructions && (
+                                  <span className="text-[11px] text-muted-foreground italic">
+                                    {l.instructions}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="text-[10px] text-muted-foreground italic">
+                            Examens réalisés auprès d&apos;un prestataire externe agréé (non facturés en interne).
                           </div>
                         </div>
                       ))}
@@ -1479,6 +1862,9 @@ export default function ConsultationsPage() {
                             diagnostic: selectedConsultation.diagnostic || "",
                             compte_rendu: selectedConsultation.compte_rendu || "",
                             date_controle_recommandee: selectedConsultation.date_controle_recommandee || "",
+                            suivi_recommande: selectedConsultation.suivi_recommande || false,
+                            date_suivi_recommandee: selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee || "",
+                            motif_suivi: selectedConsultation.motif_suivi || "",
                             motif_correction: "",
                             constantes: {
                               temperature: selectedConsultation.constantes?.temperature?.toString() || "",
@@ -1513,94 +1899,6 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* MODAL CRÉATION ORDONNANCE */}
-      {isPrescriptionOpen && selectedConsultation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <FileSignature className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    Rédiger une ordonnance
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Patient : <strong className="text-foreground">{selectedConsultation.patient_nom} {selectedConsultation.patient_prenom}</strong>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrescriptionOpen(false)}
-                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                createPrescriptionMutation.mutate()
-              }}
-              className="mt-5 space-y-4"
-            >
-              <div>
-                <Label htmlFor="page-presc-medicaments">Médicaments prescrits * (un médicament par ligne)</Label>
-                <textarea
-                  id="page-presc-medicaments"
-                  required
-                  rows={4}
-                  placeholder="Ex : Paracétamol 1g comprimé&#10;Amoxicilline 500mg gélule"
-                  value={prescriptionForm.medicaments}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, medicaments: e.target.value }))}
-                  className="mt-1 flex w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring font-mono"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="page-presc-posologie">Posologie détaillée *</Label>
-                <textarea
-                  id="page-presc-posologie"
-                  required
-                  rows={3}
-                  placeholder="Ex : 1 comprimé matin, midi et soir au milieu des repas"
-                  value={prescriptionForm.posologie}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, posologie: e.target.value }))}
-                  className="mt-1 flex w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="page-presc-duree">Durée du traitement *</Label>
-                <Input
-                  id="page-presc-duree"
-                  required
-                  placeholder="Ex : 7 jours"
-                  value={prescriptionForm.duree}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, duree: e.target.value }))}
-                  className="mt-1 rounded-xl"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={() => setIsPrescriptionOpen(false)} className="rounded-xl">
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createPrescriptionMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
-                >
-                  {createPrescriptionMutation.isPending ? "Enregistrement..." : "Valider l'ordonnance"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL FACTURATION MÉDICAMENTS (SECRÉTAIRE / ADMIN) */}
       {factureMedModal?.isOpen && (

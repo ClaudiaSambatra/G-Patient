@@ -7,7 +7,6 @@ import { CurrentUser } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { 
   CreditCard, 
@@ -57,9 +56,10 @@ export default function FacturesPage() {
 
   const [form, setForm] = useState({
     patient: "",
-    type: "MEDICAMENTS",
-    designation: "",
-    montant: "",
+    rendez_vous: "",
+    type: "CONSULTATION",
+    designation: "Frais de consultation",
+    montant: "20000",
   })
 
   function showNotification(type: "success" | "error", message: string) {
@@ -113,23 +113,55 @@ export default function FacturesPage() {
     enabled: isCreateOpen
   })
 
+  interface RdvOption {
+    id: number
+    date_heure: string
+    medecin_nom?: string
+    motif?: string
+    facture?: number | null
+  }
+
+  const { data: patientRdvs } = useQuery<RdvOption[]>({
+    queryKey: ["patient_unbilled_rdvs", form.patient],
+    queryFn: async () => {
+      if (!form.patient) return []
+      const { data } = await apiClient.get<{ results: RdvOption[] }>(`/appointments/?patient=${form.patient}&type=CONSULTATION&statut=PLANIFIE`)
+      return (data.results || []).filter(r => !r.facture)
+    },
+    enabled: Boolean(form.patient) && isCreateOpen,
+  })
+
   const createMutation = useMutation({
     mutationFn: async () => {
-      return apiClient.post("/billing/", {
-        ...form,
-        actes: form.designation,
-        montant: Number(form.montant)
-      })
+      const payload: Record<string, unknown> = {
+        patient: Number(form.patient),
+        type: form.type,
+        designation: form.designation.trim() || "Frais de consultation",
+        actes: form.designation.trim() || "Frais de consultation",
+        montant: Number(form.montant) || 20000
+      }
+      if (form.rendez_vous) {
+        payload.rendez_vous = Number(form.rendez_vous)
+      }
+      return apiClient.post("/billing/", payload)
     },
     onSuccess: () => {
       setIsCreateOpen(false)
-      setForm({ patient: "", type: "MEDICAMENTS", designation: "", montant: "" })
+      setForm({
+        patient: "",
+        rendez_vous: "",
+        type: "CONSULTATION",
+        designation: "Frais de consultation",
+        montant: "20000",
+      })
       queryClient.invalidateQueries({ queryKey: ["factures"] })
+      queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       showNotification("success", "Facture enregistrée avec succès.")
     },
-    onError: () => {
-      showNotification("error", "Erreur lors de la création de la facture.")
+    onError: (err) => {
+      const msg = extractErrorMessage(err, "Erreur lors de la création de la facture.")
+      showNotification("error", msg)
     }
   })
 
@@ -156,8 +188,9 @@ export default function FacturesPage() {
   })
 
   function handlePrintRecu(factureId: number) {
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null
     const baseURL = apiClient.defaults.baseURL || "http://localhost:8000/api"
-    const recuUrl = `${baseURL}/billing/factures/${factureId}/recu/`
+    const recuUrl = `${baseURL}/billing/factures/${factureId}/recu/${token ? `?token=${encodeURIComponent(token)}` : ""}`
     window.open(recuUrl, "_blank")
   }
 
@@ -201,6 +234,17 @@ export default function FacturesPage() {
     )
   }
 
+  const handleOpenCreateModal = () => {
+    setForm({
+      patient: "",
+      rendez_vous: "",
+      type: "CONSULTATION",
+      designation: "Frais de consultation",
+      montant: "20000",
+    })
+    setIsCreateOpen(true)
+  }
+
   const isSecretaireOrAdmin = currentUser?.role === "SECRETAIRE" || currentUser?.role === "ADMIN" || currentUser?.is_superuser
 
   return (
@@ -237,7 +281,7 @@ export default function FacturesPage() {
             </button>
             {isSecretaireOrAdmin && (
               <button 
-                onClick={() => setIsCreateOpen(true)} 
+                onClick={handleOpenCreateModal} 
                 className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Plus className="size-4.5" />
@@ -410,7 +454,7 @@ export default function FacturesPage() {
                 <select 
                   required 
                   value={form.patient} 
-                  onChange={e => setForm({...form, patient: e.target.value})}
+                  onChange={e => setForm({...form, patient: e.target.value, rendez_vous: ""})}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">Sélectionner un patient</option>
@@ -420,33 +464,58 @@ export default function FacturesPage() {
                 </select>
               </div>
 
+              {form.patient && patientRdvs && patientRdvs.length > 0 && (
+                <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <Label className="text-xs font-semibold text-foreground">
+                    Rattacher à un rendez-vous planifié (optionnel)
+                  </Label>
+                  <select
+                    value={form.rendez_vous}
+                    onChange={e => setForm({ ...form, rendez_vous: e.target.value })}
+                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="">Liaison automatique lors de l&apos;encaissement</option>
+                    {patientRdvs.map(r => (
+                      <option key={r.id} value={r.id}>
+                        RDV #{r.id} du {new Date(r.date_heure).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })} {r.medecin_nom ? `— Dr. ${r.medecin_nom}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Le rendez-vous sélectionné sera automatiquement confirmé lors du règlement de cette facture.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-1">
-                <Label>Type de facture *</Label>
+                <Label>Type de prestation *</Label>
                 <select 
                   value={form.type} 
                   onChange={e => setForm({...form, type: e.target.value})}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
-                  <option value="MEDICAMENTS">Médicaments</option>
-                  <option value="CONSULTATION">Consultation</option>
+                  <option value="CONSULTATION">Consultation médicale</option>
                 </select>
               </div>
 
               <div className="space-y-1">
-                <Label>Désignation *</Label>
-                <Textarea 
+                <Label>Désignation / Motif *</Label>
+                <Input 
                   required 
-                  placeholder="Ex: Médicaments ordonnance n°..." 
+                  placeholder="Ex: Frais de consultation, Acte médical..." 
                   value={form.designation} 
                   onChange={e => setForm({...form, designation: e.target.value})} 
                 />
               </div>
 
               <div className="space-y-1">
-                <Label>Montant total (Ar) *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Montant total (Ar) *</Label>
+                  <span className="text-[11px] text-muted-foreground">Tarif standard : 20 000 Ar</span>
+                </div>
                 <Input 
                   type="number" 
-                  step="100" 
+                  step="500" 
                   min="0" 
                   required 
                   placeholder="20000" 

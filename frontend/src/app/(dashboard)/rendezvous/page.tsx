@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -35,7 +36,8 @@ import {
   RotateCcw,
   UserCheck,
   Activity,
-  History
+  History,
+  FlaskConical
 } from "lucide-react"
 
 interface Patient {
@@ -115,6 +117,8 @@ interface ConsultationData {
   date_controle_recommandee?: string | null
   constantes?: ConstantesVitales | null
   historique?: ConsultationHistoriqueItem[]
+  ordonnances?: any[]
+  examens?: any[]
 }
 
 interface RendezVousListResponse {
@@ -205,12 +209,6 @@ export default function RendezVousPage() {
       tension_arterielle: "",
       frequence_cardiaque: ""
     }
-  })
-  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false)
-  const [prescriptionForm, setPrescriptionForm] = useState({
-    medicaments: "",
-    posologie: "",
-    duree: ""
   })
 
   // Modale Accueil Retour sans rendez-vous (Option A)
@@ -504,8 +502,233 @@ export default function RendezVousPage() {
   }
 
   function handlePrintRecu(factureId: number) {
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null
     const baseURL = apiClient.defaults.baseURL || "http://localhost:8000/api"
-    window.open(`${baseURL}/billing/factures/${factureId}/recu/`, "_blank")
+    const recuUrl = `${baseURL}/billing/factures/${factureId}/recu/${token ? `?token=${encodeURIComponent(token)}` : ""}`
+    window.open(recuUrl, "_blank")
+  }
+
+  function handlePrintPrescription(ord: any) {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    const hasLignes = ord.lignes && ord.lignes.length > 0
+    const numOrd = ord.numero || `ORD-${ord.id}`
+
+    const lignesRows = hasLignes
+      ? ord.lignes.map((l: any, index: number) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px 8px; font-weight: 600; color: #0f766e;">${index + 1}</td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: bold; font-size: 1.05em; color: #0f172a;">${l.medicament} ${l.dosage || ""}</div>
+            ${l.forme ? `<div style="font-size: 0.85em; color: #64748b;">Forme : ${l.forme}</div>` : ""}
+          </td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 500;">${l.dose_par_prise || ""}${l.frequence ? ` — ${l.frequence}` : ""}</div>
+            ${l.voie_administration ? `<div style="font-size: 0.85em; color: #64748b;">Voie ${l.voie_administration}</div>` : ""}
+          </td>
+          <td style="padding: 10px 8px; font-weight: 600; color: #334155;">${l.duree || "—"}</td>
+          <td style="padding: 10px 8px; font-style: italic; color: #475569; font-size: 0.9em;">${l.instructions || "Selon prescription"}</td>
+        </tr>
+      `).join("")
+      : `
+        <tr>
+          <td colspan="5" style="padding: 16px; font-size: 1.05em; line-height: 1.8; white-space: pre-wrap;">
+            ${ord.medicaments}
+            ${ord.posologie ? `<br/><br/><strong>Posologie :</strong> ${ord.posologie}` : ""}
+            ${ord.duree ? `<br/><strong>Durée :</strong> ${ord.duree}` : ""}
+          </td>
+        </tr>
+      `
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Ordonnance ${numOrd}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm 20mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
+            .header-table { width: 100%; border-bottom: 2.5px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; }
+            .brand-title { font-size: 1.45em; font-weight: 800; color: #0f766e; }
+            .brand-sub { font-size: 0.85em; color: #475569; }
+            .meta-grid { width: 100%; margin-bottom: 22px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc; }
+            .meta-cell { padding: 10px 14px; vertical-align: top; }
+            .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+            .value { font-size: 1em; font-weight: 700; color: #0f172a; }
+            .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+            .prescription-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0f766e; margin: 16px 0; text-transform: uppercase; }
+            .presc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .presc-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .footer-section { margin-top: 40px; page-break-inside: avoid; }
+            .stamp-box { width: 240px; height: 110px; border: 1.5px dashed #94a3b8; border-radius: 8px; margin-left: auto; text-align: center; padding: 8px; color: #64748b; font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="brand-title">CENTRE MÉDICAL GESTION PATIENTS</div>
+                <div class="brand-sub">Service Médical &amp; Soins Ambulatoires • Tél : +261 34 00 000 00</div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="meta-grid">
+            <tr>
+              <td class="meta-cell" style="width: 50%;">
+                <div class="label">Numéro d'ordonnance</div>
+                <div class="value" style="margin-top: 4px;"><span class="badge-num">${numOrd}</span></div>
+                <div style="font-size: 0.85em; color: #64748b; margin-top: 6px;">Date d'émission : ${ord.date_creation ? new Date(ord.date_creation).toLocaleDateString("fr-FR") : ""}</div>
+              </td>
+              <td class="meta-cell" style="width: 50%;">
+                <div class="label">Patient</div>
+                <div class="value" style="font-size: 1.1em; color: #0f766e; margin-top: 4px;">${ord.patient_nom || existingConsultation?.patient_nom || ""} ${ord.patient_prenom || existingConsultation?.patient_prenom || ""}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="prescription-title">Prescription Médicale</div>
+
+          <table class="presc-table">
+            <thead>
+              <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 35%;">Médicament &amp; Dosage</th>
+                <th style="width: 25%;">Posologie / Prise</th>
+                <th style="width: 15%;">Durée</th>
+                <th style="width: 20%;">Instructions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lignesRows}
+            </tbody>
+          </table>
+
+          <div class="footer-section">
+            <div class="stamp-box">
+              <div style="font-weight: bold; color: #0f172a;">Signature &amp; Cachet du Médecin</div>
+              <div style="font-size: 0.8em; font-style: italic;">Praticien : ${ord.medecin_nom || existingConsultation?.medecin_nom || "Docteur"}</div>
+            </div>
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  function handlePrintExam(exam: any) {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    const numExam = exam.numero || `EXAM-#${exam.id}`
+    const lignesRows = (exam.lignes && exam.lignes.length > 0)
+      ? exam.lignes.map((l: any, idx: number) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 9px; text-align: center; color: #64748b; font-weight: bold;">${idx + 1}</td>
+          <td style="padding: 9px; font-weight: 600; color: #0284c7;">
+            ${l.categorie === 'BIOLOGIE' ? '🔬 Biologie' : (l.categorie === 'IMAGERIE' ? '🩻 Imagerie' : '📋 Exploration')}
+          </td>
+          <td style="padding: 9px; font-weight: 700; color: #0f172a;">${l.nom_examen}</td>
+          <td style="padding: 9px; color: #475569;">${l.instructions || '—'}</td>
+        </tr>
+      `).join("")
+      : `<tr><td colspan="4" style="padding: 12px; text-align: center; font-style: italic; color: #64748b;">Aucun examen spécifié</td></tr>`
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Demande d'examens ${numExam} - ${existingConsultation?.patient_nom} ${existingConsultation?.patient_prenom}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm 20mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
+            .header-table { width: 100%; border-bottom: 2.5px solid #0369a1; padding-bottom: 14px; margin-bottom: 20px; }
+            .brand-title { font-size: 1.45em; font-weight: 800; color: #0369a1; }
+            .brand-sub { font-size: 0.85em; color: #475569; }
+            .doctor-box { text-align: right; }
+            .doctor-name { font-size: 1.15em; font-weight: 700; color: #0f172a; }
+            .meta-grid { width: 100%; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc; }
+            .meta-cell { padding: 10px 14px; vertical-align: top; }
+            .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+            .value { font-size: 1em; font-weight: 700; color: #0f172a; }
+            .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+            .exam-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0369a1; margin: 16px 0; text-transform: uppercase; }
+            .exam-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .exam-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            .clinical-box { background: #f0f9ff; border-left: 4px solid #0284c7; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; font-size: 0.9em; color: #0369a1; }
+            .footer-section { margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid; }
+            .stamp-box { width: 230px; height: 100px; border: 1.5px dashed #94a3b8; border-radius: 8px; text-align: center; padding: 8px; color: #64748b; font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="brand-title">CENTRE MÉDICAL GESTION PATIENTS</div>
+                <div class="brand-sub">Service Médical • Examens complémentaires externes</div>
+              </td>
+              <td class="doctor-box">
+                <div class="doctor-name">${exam.medecin_nom || existingConsultation?.medecin_nom || "Médecin"}</div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="meta-grid">
+            <tr>
+              <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
+                <div class="label">Patient(e)</div>
+                <div class="value">${exam.patient_nom || existingConsultation?.patient_nom} ${exam.patient_prenom || existingConsultation?.patient_prenom}</div>
+              </td>
+              <td class="meta-cell" style="width: 50%;">
+                <div class="label">Numéro de demande</div>
+                <div class="value"><span class="badge-num">${numExam}</span></div>
+                <div style="font-size: 0.85em; color: #64748b; margin-top: 4px;">Date : ${exam.date_creation ? new Date(exam.date_creation).toLocaleDateString("fr-FR") : ""}</div>
+              </td>
+            </tr>
+          </table>
+
+          ${exam.renseignements_cliniques ? `
+            <div class="clinical-box">
+              <strong>Renseignements cliniques / Diagnostic d'orientation :</strong><br/>
+              ${exam.renseignements_cliniques}
+            </div>
+          ` : ""}
+
+          <div class="exam-title">Examens Médicaux Prescrits</div>
+
+          <table class="exam-table">
+            <thead>
+              <tr>
+                <th style="width: 8%;">#</th>
+                <th style="width: 25%;">Catégorie</th>
+                <th style="width: 42%;">Examen demandé</th>
+                <th style="width: 25%;">Instructions / Précautions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lignesRows}
+            </tbody>
+          </table>
+
+          <div class="footer-section">
+            <div style="font-size: 0.8em; color: #64748b; max-width: 60%;">
+              * Examens à réaliser auprès d'un laboratoire ou centre d'imagerie externe agréé.<br/>
+              Règlement direct auprès du prestataire exécutant. Ce document ne donne lieu à aucune facturation interne.
+            </div>
+            <div class="stamp-box">
+              <div style="font-weight: bold; color: #0f172a;">Signature &amp; Cachet</div>
+              <div style="font-size: 0.8em; font-style: italic;">Praticien : ${exam.medecin_nom || existingConsultation?.medecin_nom || "Docteur"}</div>
+            </div>
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   async function handleOpenConsultationOrigine(consultationId: number) {
@@ -777,27 +1000,6 @@ export default function RendezVousPage() {
       showNotification("error", "Impossible de charger les données d'accueil du patient.")
     }
   }
-
-  // Mutation Création Ordonnance
-  const createPrescriptionMutation = useMutation({
-    mutationFn: async () => {
-      if (!existingConsultation) return
-      return apiClient.post("/prescriptions/", {
-        consultation: existingConsultation.id,
-        ...prescriptionForm
-      })
-    },
-    onSuccess: () => {
-      setIsPrescriptionModalOpen(false)
-      setPrescriptionForm({ medicaments: "", posologie: "", duree: "" })
-      queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
-      showNotification("success", "Ordonnance rédigée avec succès.")
-    },
-    onError: (err) => {
-      const msg = extractErrorMessage(err, "Erreur lors de la création de l'ordonnance.")
-      showNotification("error", msg)
-    },
-  })
 
   // Ouvrir consultation : consultation existante ou rédaction
   async function handleOpenConsultation(rdv: RendezVous) {
@@ -2555,6 +2757,225 @@ export default function RendezVousPage() {
                     </div>
                   </div>
 
+                  {/* Ordonnances et Prescriptions de la consultation */}
+                  <div className="pt-3 border-t border-border/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <FileSignature className="size-4 text-primary" />
+                        Ordonnances et Prescriptions ({existingConsultation.ordonnances?.length || 0})
+                      </h4>
+
+                      {(!existingConsultation.ordonnances || existingConsultation.ordonnances.length === 0) ? (
+                        <Link
+                          href="/ordonnances"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors shadow-xs"
+                        >
+                          <FileSignature className="size-3.5" /> Gérer dans Ordonnances →
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/ordonnances"
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <FileSignature className="size-3.5" /> Ouvrir dans Ordonnances →
+                        </Link>
+                      )}
+                    </div>
+
+                    {(!existingConsultation.ordonnances || existingConsultation.ordonnances.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-border/70 bg-muted/10 text-center gap-2">
+                        <FileSignature className="size-6 text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">
+                          Aucune ordonnance n&apos;a été délivrée lors de cette consultation.
+                        </p>
+                        <Link
+                          href="/ordonnances"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+                        >
+                          <Plus className="size-3.5" /> Gérer dans Ordonnances
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {existingConsultation.ordonnances.map((ord: any) => (
+                          <div key={ord.id} className="rounded-xl border border-border/80 bg-muted/20 p-3 text-xs space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                  {ord.numero || `Ordonnance n°${ord.id}`}
+                                </span>
+                                {ord.statut === "ACTIVE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>
+                                )}
+                                {ord.statut === "MODIFIEE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Modifiée</span>
+                                )}
+                                {ord.statut === "ANNULEE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">Annulée</span>
+                                )}
+                                <span className="text-muted-foreground font-normal text-[11px]">
+                                  {ord.date_creation ? new Date(ord.date_creation).toLocaleDateString("fr-FR") : ""}
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePrintPrescription(ord)}
+                                className="h-6 text-[11px] px-2 gap-1 rounded-lg"
+                              >
+                                <Printer className="size-3" /> Imprimer
+                              </Button>
+                            </div>
+
+                            {/* Lignes structurées */}
+                            {ord.lignes && ord.lignes.length > 0 ? (
+                              <div className="space-y-1 pt-0.5">
+                                {ord.lignes.map((l: any, idx: number) => (
+                                  <div key={l.id || idx} className="rounded-lg bg-background p-2 border border-border/60 flex flex-col gap-0.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-semibold text-foreground text-xs">
+                                        {idx + 1}. {l.medicament} {l.dosage ? `(${l.dosage})` : ""}
+                                      </span>
+                                      {l.forme && (
+                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                          {l.forme}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                                      {l.dose_par_prise && <span>Prise : <strong>{l.dose_par_prise}</strong></span>}
+                                      {l.frequence && <span>Fréquence : <strong>{l.frequence}</strong></span>}
+                                      {l.duree && <span>Durée : <strong>{l.duree}</strong></span>}
+                                      {l.voie_administration && <span>Voie : {l.voie_administration}</span>}
+                                    </div>
+                                    {l.instructions && (
+                                      <div className="text-[10px] italic text-muted-foreground/90 border-t border-border/30 pt-0.5 mt-0.5">
+                                        ℹ️ {l.instructions}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="bg-background/80 p-2 rounded-lg border border-border/50 font-mono text-foreground whitespace-pre-wrap">
+                                  {ord.medicaments || "Aucun médicament spécifié"}
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-[11px]">
+                                  {ord.posologie && <span><strong>Posologie :</strong> {ord.posologie}</span>}
+                                  {ord.duree && <span><strong>Durée :</strong> {ord.duree}</span>}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Demandes d'examens médicaux de la consultation */}
+                  <div className="pt-3 border-t border-border/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <FlaskConical className="size-4 text-sky-600 dark:text-sky-400" />
+                        Demandes d&apos;examens médicaux ({existingConsultation.examens?.length || 0})
+                      </h4>
+
+                      {(!existingConsultation.examens || existingConsultation.examens.length === 0) ? (
+                        <Link
+                          href="/examens"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors shadow-xs"
+                        >
+                          <FlaskConical className="size-3.5" /> Gérer dans Examens →
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/examens"
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                        >
+                          <FlaskConical className="size-3.5" /> Ouvrir dans Examens →
+                        </Link>
+                      )}
+                    </div>
+
+                    {(!existingConsultation.examens || existingConsultation.examens.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-sky-200 dark:border-sky-900/60 bg-sky-50/10 text-center gap-2">
+                        <FlaskConical className="size-6 text-sky-400/40" />
+                        <p className="text-xs text-muted-foreground">
+                          Aucune demande d&apos;examens n&apos;a été prescrite lors de cette consultation.
+                        </p>
+                        <Link
+                          href="/examens"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition-all shadow-xs"
+                        >
+                          <Plus className="size-3.5" /> Gérer dans Examens
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {existingConsultation.examens.map((exam: any) => (
+                          <div key={exam.id} className="rounded-xl border border-sky-200/70 dark:border-sky-900/60 bg-sky-50/20 dark:bg-sky-950/10 p-3 text-xs space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                  {exam.numero || `Demande n°${exam.id}`}
+                                </span>
+                                {exam.statut === "ACTIVE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Active</span>
+                                )}
+                                {exam.statut === "MODIFIEE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Modifiée</span>
+                                )}
+                                {exam.statut === "ANNULEE" && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">Annulée</span>
+                                )}
+                                <span className="text-muted-foreground font-normal text-[11px]">
+                                  {exam.date_creation ? new Date(exam.date_creation).toLocaleDateString("fr-FR") : ""}
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePrintExam(exam)}
+                                className="h-6 text-[11px] px-2 gap-1 rounded-lg border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
+                              >
+                                <Printer className="size-3" /> Imprimer
+                              </Button>
+                            </div>
+
+                            {exam.renseignements_cliniques && (
+                              <div className="text-[11px] text-muted-foreground bg-background/60 p-2 rounded-lg border border-border/40">
+                                <strong className="text-foreground">Renseignements :</strong> {exam.renseignements_cliniques}
+                              </div>
+                            )}
+
+                            <div className="space-y-1">
+                              {(exam.lignes || []).map((l: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-md bg-background/80 border border-border/40">
+                                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                    <span>{l.categorie === 'BIOLOGIE' ? '🔬' : (l.categorie === 'IMAGERIE' ? '🩻' : '📋')}</span>
+                                    {l.nom_examen}
+                                  </span>
+                                  {l.instructions && (
+                                    <span className="text-[11px] text-muted-foreground italic">
+                                      {l.instructions}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="text-[10px] text-muted-foreground italic">
+                              Examens réalisés auprès d&apos;un prestataire externe agréé (sans facturation interne).
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Historique des modifications & Audit */}
                   {existingConsultation.historique && existingConsultation.historique.length > 0 && (
                     <div className="pt-3 border-t border-border/60 space-y-2">
@@ -2583,17 +3004,19 @@ export default function RendezVousPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/60 mt-6">
-                  <div>
-                    {(currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN") && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setIsPrescriptionModalOpen(true)}
-                        className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-                      >
-                        <FileSignature className="size-4" /> Rédiger une ordonnance
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href="/ordonnances"
+                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-semibold"
+                    >
+                      <FileSignature className="size-4" /> Registre des ordonnances →
+                    </Link>
+                    <Link
+                      href="/examens"
+                      className="inline-flex items-center gap-1.5 text-xs text-sky-600 dark:text-sky-400 hover:underline font-semibold"
+                    >
+                      <FlaskConical className="size-4" /> Registre des examens →
+                    </Link>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -2843,89 +3266,6 @@ export default function RendezVousPage() {
         </div>
       )}
 
-      {/* MODAL CRÉATION ORDONNANCE */}
-      {isPrescriptionModalOpen && existingConsultation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <FileSignature className="size-5 text-primary" /> Rédiger une ordonnance
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Patient : <strong className="text-foreground">{existingConsultation.patient_nom} {existingConsultation.patient_prenom}</strong>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPrescriptionModalOpen(false)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                createPrescriptionMutation.mutate()
-              }}
-              className="mt-5 space-y-4"
-            >
-              <div>
-                <Label htmlFor="presc-medicaments">Médicaments * (un par ligne)</Label>
-                <textarea
-                  id="presc-medicaments"
-                  required
-                  rows={4}
-                  placeholder="Ex : Paracétamol 1g&#10;Amoxicilline 500mg"
-                  value={prescriptionForm.medicaments}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, medicaments: e.target.value }))}
-                  className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="presc-posologie">Posologie *</Label>
-                <textarea
-                  id="presc-posologie"
-                  required
-                  rows={3}
-                  placeholder="Ex : 1 comprimé 3 fois par jour au cours des repas"
-                  value={prescriptionForm.posologie}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, posologie: e.target.value }))}
-                  className="mt-1 flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="presc-duree">Durée du traitement *</Label>
-                <Input
-                  id="presc-duree"
-                  required
-                  placeholder="Ex : 7 jours, 2x/jour"
-                  value={prescriptionForm.duree}
-                  onChange={(e) => setPrescriptionForm((prev) => ({ ...prev, duree: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={() => setIsPrescriptionModalOpen(false)}>
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createPrescriptionMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                >
-                  {createPrescriptionMutation.isPending ? "Enregistrement..." : "Enregistrer l'ordonnance"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* MODAL ENCAISSEMENT IMMÉDIAT (PREMIÈRE VISITE) */}
       {encaissementModal?.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
