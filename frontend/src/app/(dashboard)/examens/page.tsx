@@ -206,7 +206,7 @@ export default function ExamensPage() {
   const { data: consultations } = useQuery({
     queryKey: ["consultations_list_for_exam"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ results: Consultation[] } | Consultation[]>(`/consultations/`)
+      const { data } = await apiClient.get<{ results: Consultation[] } | Consultation[]>(`/consultations/?page_size=100`)
       return Array.isArray(data) ? data : ((data.results || []) as Consultation[])
     },
     enabled: isCreateOpen
@@ -744,7 +744,7 @@ export default function ExamensPage() {
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-sm gap-2"
             >
               <Plus className="size-4" />
-              Nouvelle demande d&apos;examens
+              Créer une demande d&apos;examen
             </Button>
           )}
         </div>
@@ -1112,7 +1112,7 @@ export default function ExamensPage() {
                   <option value="">-- Sélectionner une consultation --</option>
                   {(consultations || []).map((c) => (
                     <option key={c.id} value={c.id}>
-                      #{c.id} — {c.patient_nom} {c.patient_prenom} ({c.motif}) du {new Date(c.date_consultation).toLocaleDateString("fr-FR")}
+                      {c.patient_nom} {c.patient_prenom} — {c.motif || "Consultation"} ({new Date(c.date_consultation).toLocaleDateString("fr-FR")}){c.medecin_nom ? ` [Dr. ${c.medecin_nom}]` : ""}
                     </option>
                   ))}
                 </select>
