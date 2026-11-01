@@ -920,4 +920,3 @@ def test_consultation_suivi_details_origine(api_client, setup_data):
     assert details['diagnostic'] == 'Angine bactérienne'
     assert details['observations'] == 'Amydales cryptiques, fièvre 39°C, tension 12/8'
     assert details['compte_rendu'] == 'Traitement amoxicilline 1g x2/j pendant 6 jours'
-

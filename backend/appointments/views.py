@@ -339,4 +339,3 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             'eligibilite_globale': eligibilite_globale,
             'consultations': consultations_suivi
         })
-

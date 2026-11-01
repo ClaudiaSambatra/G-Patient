@@ -843,4 +843,3 @@ def test_historique_suivi_endpoint(api_client, setup_data):
     assert item['suivi_recommande'] is True
     assert item['motif_suivi'] == 'Vérifier glycémie'
     assert item['medecin_id'] == setup_data['medecin1'].id
-
