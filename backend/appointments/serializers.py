@@ -27,6 +27,8 @@ class RendezVousSerializer(serializers.ModelSerializer):
         return obj.consultation.id if hasattr(obj, 'consultation') and obj.consultation else None
 
     def get_facture_id(self, obj):
+        if obj.type == RendezVous.Type.CONTROLE:
+            return None
         return obj.facture.id if hasattr(obj, 'facture') and obj.facture else None
 
     def validate(self, attrs):

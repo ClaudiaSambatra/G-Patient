@@ -825,3 +825,99 @@ def test_creer_rdv_jour_pour_retour_sans_rdv_option_a(api_client, setup_data):
     assert retour.rendez_vous_cree.type == RendezVous.Type.CONTROLE
     assert retour.rendez_vous_cree.consultation_origine == c_init
     assert retour.rendez_vous_cree.statut == 'CONFIRME'
+
+
+@pytest.mark.django_db
+def test_consultation_avec_recommandation_suivi(api_client, setup_data):
+    api_client.force_authenticate(user=setup_data['medecin_user'])
+    rdv = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(datetime.now()),
+        statut=RendezVous.Statut.CONFIRME,
+        type=RendezVous.Type.CONSULTATION
+    )
+
+    url = reverse('consultation-list')
+    payload = {
+        'patient': setup_data['patient'].id,
+        'rendez_vous': rdv.id,
+        'motif': 'Consultation gastro-entérologie',
+        'diagnostic': 'Gastrite aiguë',
+        'observations': 'Douleur épigastrique calmée par l\'alimentation',
+        'suivi_recommande': True,
+        'date_suivi_recommandee': '2026-11-06',
+        'motif_suivi': 'Contrôle après 1 semaine de traitement IPP'
+    }
+
+    res = api_client.post(url, payload)
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data['suivi_recommande'] is True
+    assert res.data['date_suivi_recommandee'] == '2026-11-06'
+    assert res.data['motif_suivi'] == 'Contrôle après 1 semaine de traitement IPP'
+
+    c = Consultation.objects.get(id=res.data['id'])
+    assert c.suivi_recommande is True
+    assert str(c.date_suivi_recommandee) == '2026-11-06'
+    assert c.motif_suivi == 'Contrôle après 1 semaine de traitement IPP'
+
+
+@pytest.mark.django_db
+def test_consultation_suivi_details_origine(api_client, setup_data):
+    # Consultation initiale
+    rdv_init = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin'],
+        date_heure=make_aware(datetime.now() - timedelta(days=6)),
+        statut=RendezVous.Statut.TERMINE,
+        type=RendezVous.Type.CONSULTATION
+    )
+    c_init = Consultation.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin_user'],
+        rendez_vous=rdv_init,
+        motif='Angine streptococcique',
+        diagnostic='Angine bactérienne',
+        observations='Amydales cryptiques, fièvre 39°C, tension 12/8',
+        compte_rendu='Traitement amoxicilline 1g x2/j pendant 6 jours'
+    )
+
+    # RDV de suivi avec un autre médecin
+    rdv_suivi = RendezVous.objects.create(
+        patient=setup_data['patient'],
+        medecin=setup_data['medecin2'],
+        date_heure=make_aware(datetime.now()),
+        statut=RendezVous.Statut.CONFIRME,
+        type=RendezVous.Type.CONTROLE,
+        consultation_origine=c_init
+    )
+
+    api_client.force_authenticate(user=setup_data['medecin2_user'])
+    url = reverse('consultation-list')
+    payload = {
+        'patient': setup_data['patient'].id,
+        'rendez_vous': rdv_suivi.id,
+        'motif': 'Suivi angine',
+        'diagnostic': 'Guérison clinique',
+        'observations': 'Apyrétique, examen ORL normal'
+    }
+    res = api_client.post(url, payload)
+    assert res.status_code == status.HTTP_201_CREATED
+
+    c_suivi = Consultation.objects.get(id=res.data['id'])
+    assert c_suivi.consultation_origine == c_init
+    assert c_suivi.medecin == setup_data['medecin2_user']
+
+    # Détails de la consultation d'origine dans le serializer
+    detail_url = reverse('consultation-detail', args=[c_suivi.id])
+    res_detail = api_client.get(detail_url)
+    assert res_detail.status_code == status.HTTP_200_OK
+    assert res_detail.data['consultation_origine'] == c_init.id
+    details = res_detail.data['consultation_origine_details']
+    assert details is not None
+    assert details['id'] == c_init.id
+    assert details['motif'] == 'Angine streptococcique'
+    assert details['diagnostic'] == 'Angine bactérienne'
+    assert details['observations'] == 'Amydales cryptiques, fièvre 39°C, tension 12/8'
+    assert details['compte_rendu'] == 'Traitement amoxicilline 1g x2/j pendant 6 jours'
+

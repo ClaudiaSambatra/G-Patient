@@ -44,6 +44,9 @@ class ConsultationSerializer(serializers.ModelSerializer):
     patient_antecedents = serializers.CharField(source='patient.antecedents', read_only=True)
     medecin_nom = serializers.SerializerMethodField(read_only=True)
     statut_paiement = serializers.SerializerMethodField(read_only=True)
+    consultation_origine_details = serializers.SerializerMethodField(read_only=True)
+    ordonnances = serializers.SerializerMethodField(read_only=True)
+    examens = serializers.SerializerMethodField(read_only=True)
 
     constantes = ConstantesVitalesSerializer(required=False, allow_null=True)
     historique = ConsultationHistoriqueSerializer(many=True, read_only=True)
@@ -60,6 +63,11 @@ class ConsultationSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[]
     )
+    consultation_origine = serializers.PrimaryKeyRelatedField(
+        queryset=Consultation.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Consultation
@@ -69,12 +77,71 @@ class ConsultationSerializer(serializers.ModelSerializer):
             'patient_allergies', 'patient_antecedents',
             'medecin', 'medecin_nom', 'rendez_vous',
             'date_consultation', 'motif', 'observations', 'diagnostic', 'compte_rendu',
+            'suivi_recommande', 'date_suivi_recommandee', 'motif_suivi',
+            'consultation_origine', 'consultation_origine_details',
             'date_controle_recommandee',
             'constantes', 'historique', 'motif_correction',
             'statut_paiement',
+            'ordonnances',
+            'examens',
             'date_creation', 'date_modification'
         ]
         read_only_fields = ['date_consultation', 'date_creation', 'date_modification']
+
+    def get_ordonnances(self, obj):
+        try:
+            from prescriptions.serializers import OrdonnanceSerializer
+            ords = obj.ordonnances.all().prefetch_related('lignes')
+            return OrdonnanceSerializer(ords, many=True).data
+        except Exception:
+            return []
+
+    def get_examens(self, obj):
+        try:
+            from examinations.serializers import DemandeExamenSerializer
+            demandes = obj.demandes_examens.all().prefetch_related('lignes')
+            return DemandeExamenSerializer(demandes, many=True).data
+        except Exception:
+            return []
+
+    def get_consultation_origine_details(self, obj):
+        orig = obj.consultation_origine
+        if not orig and obj.rendez_vous and getattr(obj.rendez_vous, 'consultation_origine', None):
+            orig = obj.rendez_vous.consultation_origine
+        if orig:
+            med_nom = f"Dr. {orig.medecin.last_name} {orig.medecin.first_name}".strip() if orig.medecin else "Praticien"
+            c_data = None
+            if hasattr(orig, 'constantes') and orig.constantes:
+                c_data = ConstantesVitalesSerializer(orig.constantes).data
+            ords_data = []
+            try:
+                from prescriptions.serializers import OrdonnanceSerializer
+                ords_data = OrdonnanceSerializer(orig.ordonnances.all().prefetch_related('lignes'), many=True).data
+            except Exception:
+                pass
+            examens_data = []
+            try:
+                from examinations.serializers import DemandeExamenSerializer
+                examens_data = DemandeExamenSerializer(orig.demandes_examens.all().prefetch_related('lignes'), many=True).data
+            except Exception:
+                pass
+            return {
+                'id': orig.id,
+                'date_consultation': orig.date_consultation.isoformat(),
+                'motif': orig.motif,
+                'observations': orig.observations,
+                'diagnostic': orig.diagnostic,
+                'compte_rendu': orig.compte_rendu,
+                'medecin_id': orig.medecin.id if orig.medecin else None,
+                'medecin_nom': med_nom,
+                'suivi_recommande': orig.suivi_recommande,
+                'date_suivi_recommandee': orig.date_suivi_recommandee.isoformat() if orig.date_suivi_recommandee else None,
+                'motif_suivi': orig.motif_suivi,
+                'constantes': c_data,
+                'ordonnances': ords_data,
+                'examens': examens_data,
+            }
+        return None
 
     def get_statut_paiement(self, obj):
         if obj.rendez_vous:
@@ -133,7 +200,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
             motif_correction = (attrs.get('motif_correction') or '').strip()
             # Identifier s'il y a un changement effectif sur les champs
             has_changes = False
-            for field in ['motif', 'observations', 'diagnostic', 'compte_rendu', 'date_controle_recommandee']:
+            for field in ['motif', 'observations', 'diagnostic', 'compte_rendu', 'date_controle_recommandee', 'suivi_recommande', 'date_suivi_recommandee', 'motif_suivi']:
                 if field in attrs and getattr(self.instance, field) != attrs[field]:
                     has_changes = True
                     break
@@ -171,7 +238,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
         anciennes_valeurs = {}
         nouvelles_valeurs = {}
 
-        for field in ['motif', 'observations', 'diagnostic', 'compte_rendu', 'date_controle_recommandee']:
+        for field in ['motif', 'observations', 'diagnostic', 'compte_rendu', 'date_controle_recommandee', 'suivi_recommande', 'date_suivi_recommandee', 'motif_suivi']:
             if field in validated_data:
                 old_val = getattr(instance, field)
                 new_val = validated_data[field]
