@@ -5,20 +5,20 @@ import { usePathname, useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import {
+  SquaresFour,
   Users,
-  Shield,
-  Stethoscope,
-  LogOut,
-  Activity,
-  UserCheck,
-  Building2,
-  Calendar as CalendarIcon,
-  FileText,
-  FileSignature,
-  FlaskConical,
+  CalendarDots,
+  ClipboardText,
+  Pill,
+  Flask,
   CreditCard,
-  LayoutDashboard,
-} from "lucide-react"
+  ShieldCheck,
+  SignOut,
+  Heartbeat,
+  Stethoscope,
+  UserCheck,
+  Buildings,
+} from "@phosphor-icons/react"
 
 export interface CurrentUser {
   id: number
@@ -69,7 +69,7 @@ export function Sidebar() {
           id="nav-brand-logo"
         >
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr bg-primary text-white shadow-md shadow-primary/20">
-            <Activity className="size-5 transition-transform group-hover:rotate-6" />
+            <Heartbeat size={22} weight="duotone" className="transition-transform group-hover:scale-110" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
@@ -79,7 +79,7 @@ export function Sidebar() {
               </span>
             </span>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Building2 className="size-2.5" /> Centre Médical
+              <Buildings size={12} weight="duotone" /> Centre Médical
             </span>
           </div>
         </Link>
@@ -95,7 +95,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <LayoutDashboard className="size-4.5" />
+          <SquaresFour size={20} weight="duotone" />
           Tableau de bord
         </Link>
 
@@ -108,7 +108,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <Users className="size-4.5" />
+          <Users size={20} weight="duotone" />
           Patients
         </Link>
 
@@ -121,7 +121,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <CalendarIcon className="size-4.5" />
+          <CalendarDots size={20} weight="duotone" />
           Rendez-vous
         </Link>
 
@@ -134,7 +134,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <FileText className="size-4.5" />
+          <ClipboardText size={20} weight="duotone" />
           Consultations
         </Link>
 
@@ -147,7 +147,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <FileSignature className="size-4.5" />
+          <Pill size={20} weight="duotone" />
           Ordonnances
         </Link>
 
@@ -160,7 +160,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <FlaskConical className="size-4.5" />
+          <Flask size={20} weight="duotone" />
           Examens médicaux
         </Link>
 
@@ -173,7 +173,7 @@ export function Sidebar() {
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <CreditCard className="size-4.5" />
+          <CreditCard size={20} weight="duotone" />
           Facturation
         </Link>
 
@@ -187,7 +187,7 @@ export function Sidebar() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            <Shield className="size-4.5 text-primary-foreground" />
+            <ShieldCheck size={20} weight="duotone" className="text-primary-foreground" />
             <span className="flex-1">Utilisateurs</span>
             <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
               Admin
@@ -224,17 +224,17 @@ export function Sidebar() {
               <span className="flex items-center gap-1 text-[10px] leading-tight font-medium text-muted-foreground mt-0.5">
                 {user.role === "ADMIN" && (
                   <span className="text-primary dark:text-primary/80 flex items-center gap-0.5">
-                    <Shield className="size-2.5" /> Admin
+                    <ShieldCheck size={14} weight="duotone" /> Admin
                   </span>
                 )}
                 {user.role === "MEDECIN" && (
                   <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                    <Stethoscope className="size-2.5" /> Médecin
+                    <Stethoscope size={14} weight="duotone" /> Médecin
                   </span>
                 )}
                 {user.role === "SECRETAIRE" && (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                    <UserCheck className="size-2.5" /> Secrétaire
+                    <UserCheck size={14} weight="duotone" /> Secrétaire
                   </span>
                 )}
                 {user.role === "PATIENT" && <span>Patient</span>}
@@ -249,7 +249,7 @@ export function Sidebar() {
           title="Se déconnecter"
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/80 bg-background px-3 py-2 text-sm font-medium text-muted-foreground shadow-xs transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
         >
-          <LogOut className="size-4" />
+          <SignOut size={18} weight="duotone" />
           <span>Déconnexion</span>
         </button>
       </div>
