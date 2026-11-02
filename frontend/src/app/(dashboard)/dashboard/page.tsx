@@ -10,23 +10,25 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   Users,
-  Calendar,
-  FileText,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
+  CalendarDots,
+  ClipboardText,
+  ClockCountdown,
+  WarningCircle,
+  CheckCircle,
   CreditCard,
   UserPlus,
   Stethoscope,
-  TrendingUp,
-  RefreshCw,
-  Activity,
-  AlertTriangle,
+  TrendUp,
+  ArrowClockwise,
+  Heartbeat,
+  Warning,
   UserCheck,
   CalendarCheck,
-  ChevronRight,
-  Eye
-} from "lucide-react"
+  CaretRight,
+  Eye,
+  Receipt,
+  ShieldCheck,
+} from "@phosphor-icons/react"
 
 // Types pour les tableaux de bord
 interface SecretaireDashboardData {
@@ -186,7 +188,7 @@ export default function DashboardPage() {
       const { data } = await apiClient.get<AnyDashboardData>("/accounts/dashboard-stats/")
       return data
     },
-    refetchInterval: 30000, // Rafraîchissement automatique toutes les 30s
+    refetchInterval: 30000,
   })
 
   // Mutation rapide pour confirmation présence par la secrétaire
@@ -215,7 +217,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Activity className="size-8 text-primary animate-pulse" />
+        <Heartbeat size={36} weight="duotone" className="text-primary animate-pulse" />
         <p className="text-sm font-medium text-muted-foreground">Chargement de votre tableau de bord...</p>
       </div>
     )
@@ -233,9 +235,9 @@ export default function DashboardPage() {
           }`}
         >
           {notification.type === "success" ? (
-            <CheckCircle2 className="size-5 shrink-0" />
+            <CheckCircle size={20} weight="duotone" className="shrink-0" />
           ) : (
-            <AlertCircle className="size-5 shrink-0" />
+            <WarningCircle size={20} weight="duotone" className="shrink-0" />
           )}
           <span className="text-sm font-medium">{notification.message}</span>
         </div>
@@ -257,7 +259,7 @@ export default function DashboardPage() {
               </h1>
               <Badge
                 variant="outline"
-                className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                className={`text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${
                   user?.role === "ADMIN" || user?.is_superuser
                     ? "border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300"
                     : user?.role === "MEDECIN"
@@ -265,11 +267,18 @@ export default function DashboardPage() {
                     : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                 }`}
               >
+                {user?.role === "ADMIN" || user?.is_superuser ? (
+                  <ShieldCheck size={14} weight="duotone" />
+                ) : user?.role === "MEDECIN" ? (
+                  <Stethoscope size={14} weight="duotone" />
+                ) : (
+                  <UserCheck size={14} weight="duotone" />
+                )}
                 {user?.role === "MEDECIN" ? "Médecin Praticien" : user?.role_display || user?.role}
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground capitalize flex items-center gap-1.5">
-              <Calendar className="size-3.5 text-muted-foreground" />
+              <CalendarDots size={16} weight="duotone" className="text-muted-foreground" />
               {todayFormatted}
             </p>
           </div>
@@ -283,7 +292,7 @@ export default function DashboardPage() {
               className="gap-2 text-xs h-9"
               title="Actualiser les données"
             >
-              <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin text-primary" : ""}`} />
+              <ArrowClockwise size={16} weight="bold" className={`${isRefetching ? "animate-spin text-primary" : ""}`} />
               Actualiser
             </Button>
           </div>
@@ -324,7 +333,7 @@ function SecretaireDashboardView({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      {/* 8 Cartes Statistiques Métier */}
+      {/* 8 Cartes Statistiques Métier avec icônes Phosphor Duotone */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 lg:grid-cols-4">
         {/* Total Patients */}
         <Card className="border-border/80 shadow-xs hover:border-primary/40 transition-colors">
@@ -335,8 +344,8 @@ function SecretaireDashboardView({
                 {stats.total_patients}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="size-5" />
+            <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <Users size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -350,8 +359,8 @@ function SecretaireDashboardView({
                 +{stats.nouveaux_patients_jour}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <UserPlus className="size-5" />
+            <div className="size-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs">
+              <UserPlus size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -365,8 +374,8 @@ function SecretaireDashboardView({
                 {stats.rdv_du_jour}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <Calendar className="size-5" />
+            <div className="size-11 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xs">
+              <CalendarDots size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -387,8 +396,8 @@ function SecretaireDashboardView({
                 {stats.patients_en_attente}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <Clock className="size-5" />
+            <div className="size-11 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs">
+              <ClockCountdown size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -402,8 +411,8 @@ function SecretaireDashboardView({
                 {stats.rdv_a_confirmer}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
-              <AlertCircle className="size-5" />
+            <div className="size-11 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
+              <WarningCircle size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -417,8 +426,8 @@ function SecretaireDashboardView({
                 {stats.consultations_realisees_jour}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <CheckCircle2 className="size-5" />
+            <div className="size-11 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+              <ClipboardText size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -432,8 +441,8 @@ function SecretaireDashboardView({
                 {stats.factures_du_jour}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-muted flex items-center justify-center text-foreground">
-              <FileText className="size-5" />
+            <div className="size-11 rounded-xl bg-muted flex items-center justify-center text-foreground shadow-xs">
+              <Receipt size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -447,8 +456,8 @@ function SecretaireDashboardView({
                 {stats.paiements_du_jour.toLocaleString("fr-FR")} Ar
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <CreditCard className="size-5" />
+            <div className="size-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs">
+              <CreditCard size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -461,46 +470,46 @@ function SecretaireDashboardView({
         </span>
         <Link href="/patients">
           <Button size="sm" className="gap-2 h-9 text-xs">
-            <UserPlus className="size-3.5" />
+            <UserPlus size={16} weight="duotone" />
             Nouveau Patient
           </Button>
         </Link>
         <Link href="/rendezvous">
           <Button size="sm" variant="outline" className="gap-2 h-9 text-xs">
-            <Calendar className="size-3.5" />
+            <CalendarDots size={16} weight="duotone" />
             Gérer les Rendez-vous
           </Button>
         </Link>
         <Link href="/factures">
           <Button size="sm" variant="outline" className="gap-2 h-9 text-xs">
-            <CreditCard className="size-3.5" />
+            <CreditCard size={16} weight="duotone" />
             Caisse & Règlements
           </Button>
         </Link>
       </div>
 
-      {/* 2 Colonnes : Liste des RDV du jour (large) & Nouveaux patients (tiers) */}
+      {/* 2 Colonnes : Liste des RDV du jour & Nouveaux patients */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Liste chronologique des RDV du jour */}
         <Card className="lg:col-span-2 border-border/80 shadow-xs">
           <CardHeader className="pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Calendar className="size-4.5 text-primary" />
+                <CalendarDots size={20} weight="duotone" className="text-primary" />
                 Rendez-vous du jour
                 <span className="text-xs font-normal text-muted-foreground">
                   ({stats.rdv_jour_liste.length})
                 </span>
               </CardTitle>
               <Link href="/rendezvous" className="text-xs text-primary hover:underline flex items-center gap-1">
-                Voir tout le planning <ChevronRight className="size-3" />
+                Voir tout le planning <CaretRight size={14} weight="bold" />
               </Link>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {stats.rdv_jour_liste.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                <CalendarCheck className="size-8 mx-auto mb-2 text-muted-foreground/60" />
+              <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center">
+                <CalendarCheck size={40} weight="duotone" className="mb-2 text-muted-foreground/60" />
                 Aucun rendez-vous prévu pour aujourd&apos;hui.
               </div>
             ) : (
@@ -573,13 +582,13 @@ function SecretaireDashboardView({
                               variant="outline"
                               onClick={() => onConfirmPresence(rdv.id)}
                               disabled={confirmingId === rdv.id}
-                              className="h-7 text-xs border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400"
+                              className="h-7 text-xs border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 gap-1"
                               title="Valider l'arrivée du patient indépendamment du paiement"
                             >
                               {confirmingId === rdv.id ? (
-                                <RefreshCw className="size-3 animate-spin mr-1" />
+                                <ArrowClockwise size={12} className="animate-spin" />
                               ) : (
-                                <UserCheck className="size-3 mr-1" />
+                                <UserCheck size={14} weight="duotone" />
                               )}
                               Confirmer présence
                             </Button>
@@ -588,9 +597,9 @@ function SecretaireDashboardView({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs border-rose-500/50 text-rose-700 hover:bg-rose-50 dark:text-rose-400"
+                                className="h-7 text-xs border-rose-500/50 text-rose-700 hover:bg-rose-50 dark:text-rose-400 gap-1"
                               >
-                                <CreditCard className="size-3 mr-1" />
+                                <CreditCard size={14} weight="duotone" />
                                 Encaisser
                               </Button>
                             </Link>
@@ -612,7 +621,7 @@ function SecretaireDashboardView({
           <CardHeader className="pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Users className="size-4.5 text-primary" />
+                <Users size={20} weight="duotone" className="text-primary" />
                 Derniers inscrits
               </CardTitle>
               <Link href="/patients" className="text-xs text-primary hover:underline">
@@ -646,7 +655,7 @@ function SecretaireDashboardView({
                         </span>
                       )}
                     </div>
-                    <ChevronRight className="size-4 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    <CaretRight size={16} weight="bold" className="text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </Link>
                 ))}
               </div>
@@ -664,15 +673,15 @@ function SecretaireDashboardView({
 function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
   return (
     <div className="flex flex-col gap-6">
-      {/* 6 Cartes Indicateurs Praticien */}
+      {/* 6 Cartes Indicateurs Praticien avec Phosphor Duotone */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
         {/* Mes RDV du jour */}
         <Card className="border-border/80 shadow-xs hover:border-blue-500/40 transition-colors">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">RDV du jour</span>
-              <div className="size-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
-                <Calendar className="size-4" />
+              <div className="size-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 shadow-xs">
+                <CalendarDots size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
@@ -693,8 +702,8 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
                   <span className="size-2 rounded-full bg-amber-500 animate-ping inline-block" />
                 )}
               </span>
-              <div className="size-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600">
-                <Clock className="size-4" />
+              <div className="size-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 shadow-xs">
+                <ClockCountdown size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
@@ -708,8 +717,8 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Consultés ajd.</span>
-              <div className="size-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                <Stethoscope className="size-4" />
+              <div className="size-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-xs">
+                <Stethoscope size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
@@ -723,8 +732,8 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground">Total actes</span>
-              <div className="size-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                <FileText className="size-4" />
+              <div className="size-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-xs">
+                <ClipboardText size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-foreground">
@@ -733,15 +742,15 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           </CardContent>
         </Card>
 
-        {/* Suivis recommandés actifs (en attente retour sans rdv pris) */}
+        {/* Suivis recommandés actifs */}
         <Card className="border-border/80 shadow-xs hover:border-purple-500/40 transition-colors">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-muted-foreground" title="Recommandations de suivi en attente de retour patient">
                 Suivis recommandés
               </span>
-              <div className="size-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-600">
-                <Activity className="size-4" />
+              <div className="size-9 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 shadow-xs">
+                <Heartbeat size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-purple-600 dark:text-purple-400">
@@ -757,8 +766,8 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
               <span className="text-xs font-medium text-muted-foreground" title="Visites de contrôle déjà planifiées dans l'agenda">
                 Contrôles à venir
               </span>
-              <div className="size-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-600">
-                <CalendarCheck className="size-4" />
+              <div className="size-9 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 shadow-xs">
+                <CalendarCheck size={20} weight="duotone" />
               </div>
             </div>
             <span className="text-2xl font-bold tracking-tight text-cyan-600 dark:text-cyan-400">
@@ -774,21 +783,21 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           <CardHeader className="pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Stethoscope className="size-4.5 text-primary" />
+                <Stethoscope size={20} weight="duotone" className="text-primary" />
                 File active des patients du jour
                 <span className="text-xs font-normal text-muted-foreground">
                   ({stats.patients_a_recevoir.length})
                 </span>
               </CardTitle>
               <Link href="/consultations" className="text-xs text-primary hover:underline flex items-center gap-1">
-                Historique des consultations <ChevronRight className="size-3" />
+                Historique des consultations <CaretRight size={14} weight="bold" />
               </Link>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {stats.patients_a_recevoir.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                <CalendarCheck className="size-8 mx-auto mb-2 text-muted-foreground/60" />
+              <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center">
+                <CalendarCheck size={40} weight="duotone" className="mb-2 text-muted-foreground/60" />
                 Aucun patient à recevoir aujourd&apos;hui.
               </div>
             ) : (
@@ -841,7 +850,7 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                       <Link href={`/patients/${item.patient_id}`}>
                         <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" title="Consulter le dossier médical">
-                          <Eye className="size-3.5" />
+                          <Eye size={14} weight="duotone" />
                           Dossier
                         </Button>
                       </Link>
@@ -849,14 +858,14 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
                       {item.consultation_terminee ? (
                         <Link href="/consultations">
                           <Button size="sm" variant="secondary" className="h-8 text-xs gap-1.5 text-muted-foreground">
-                            <CheckCircle2 className="size-3.5 text-emerald-500" />
+                            <CheckCircle size={14} weight="duotone" className="text-emerald-500" />
                             Voir acte
                           </Button>
                         </Link>
                       ) : (
                         <Link href={`/rendezvous?search=${encodeURIComponent(item.patient_nom)}`}>
                           <Button size="sm" className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground shadow-xs">
-                            <Stethoscope className="size-3.5" />
+                            <Stethoscope size={14} weight="duotone" />
                             Démarrer consultation
                           </Button>
                         </Link>
@@ -875,7 +884,7 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           <Card className="border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <CalendarCheck className="size-4 text-cyan-600" />
+                <CalendarCheck size={18} weight="duotone" className="text-cyan-600" />
                 Contrôles programmés à venir
               </CardTitle>
             </CardHeader>
@@ -913,7 +922,7 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
           <Card className="border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Clock className="size-4 text-purple-600" />
+                <ClockCountdown size={18} weight="duotone" className="text-purple-600" />
                 Suivis recommandés actifs
               </CardTitle>
             </CardHeader>
@@ -958,12 +967,11 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
 // 3. VUE TABLEAU DE BORD ADMINISTRATEUR (Vue clinique globale & finances)
 // =========================================================================
 function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
-  // Calcul max pour le graphique SVG des consultations
   const maxCons = Math.max(1, ...stats.evolution_consultations.map((d) => d.total))
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 8 Indicateurs Globaux Clinique & Finances */}
+      {/* 8 Indicateurs Globaux Clinique & Finances avec Phosphor Duotone */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 lg:grid-cols-4">
         {/* Total Patients */}
         <Card className="border-border/80 shadow-xs">
@@ -974,8 +982,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.total_patients}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="size-5" />
+            <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <Users size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -989,8 +997,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.total_consultations}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-              <FileText className="size-5" />
+            <div className="size-11 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-xs">
+              <ClipboardText size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1004,8 +1012,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.total_encaisse.toLocaleString("fr-FR")} Ar
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-              <CreditCard className="size-5" />
+            <div className="size-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-xs">
+              <CreditCard size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1019,8 +1027,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.total_impaye.toLocaleString("fr-FR")} Ar
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600">
-              <AlertTriangle className="size-5" />
+            <div className="size-11 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 shadow-xs">
+              <Warning size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1050,8 +1058,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.total_rdv}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">
-              <Calendar className="size-5" />
+            <div className="size-11 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 shadow-xs">
+              <CalendarDots size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1065,8 +1073,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.factures_impayees}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600">
-              <FileText className="size-5" />
+            <div className="size-11 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 shadow-xs">
+              <Receipt size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1080,8 +1088,8 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                 {stats.medecins_presents_jour} / {stats.medecins_actifs}
               </span>
             </div>
-            <div className="size-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">
-              <UserCheck className="size-5" />
+            <div className="size-11 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 shadow-xs">
+              <UserCheck size={24} weight="duotone" />
             </div>
           </CardContent>
         </Card>
@@ -1094,7 +1102,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
           <CardHeader className="pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <TrendingUp className="size-4.5 text-primary" />
+                <TrendUp size={20} weight="duotone" className="text-primary" />
                 Évolution des consultations (14 derniers jours)
               </CardTitle>
             </div>
@@ -1127,7 +1135,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
         <Card className="border-border/80 shadow-xs">
           <CardHeader className="pb-3 border-b border-border/60">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Calendar className="size-4.5 text-primary" />
+              <CalendarDots size={20} weight="duotone" className="text-primary" />
               Répartition des rendez-vous
             </CardTitle>
           </CardHeader>
@@ -1167,7 +1175,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
           <CardHeader className="pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Stethoscope className="size-4.5 text-primary" />
+                <Stethoscope size={20} weight="duotone" className="text-primary" />
                 Corps Médical & Activité
               </CardTitle>
               <Link href="/utilisateurs" className="text-xs text-primary hover:underline">
@@ -1213,7 +1221,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
         <Card className="border-border/80 shadow-xs">
           <CardHeader className="pb-3 border-b border-border/60">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Activity className="size-4.5 text-primary" />
+              <Heartbeat size={20} weight="duotone" className="text-primary" />
               Activités récentes de l&apos;établissement
             </CardTitle>
           </CardHeader>
@@ -1232,7 +1240,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        className={`size-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-xs ${
                           act.type === "CONSULTATION"
                             ? "bg-indigo-500/10 text-indigo-600"
                             : act.type === "PAIEMENT"
@@ -1241,11 +1249,11 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                         }`}
                       >
                         {act.type === "CONSULTATION" ? (
-                          <Stethoscope className="size-4" />
+                          <Stethoscope size={18} weight="duotone" />
                         ) : act.type === "PAIEMENT" ? (
-                          <CreditCard className="size-4" />
+                          <CreditCard size={18} weight="duotone" />
                         ) : (
-                          <UserPlus className="size-4" />
+                          <UserPlus size={18} weight="duotone" />
                         )}
                       </div>
                       <div className="flex flex-col">
@@ -1255,7 +1263,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
                         <span className="text-[11px] text-muted-foreground">{act.description}</span>
                       </div>
                     </div>
-                    <ChevronRight className="size-4 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                    <CaretRight size={16} weight="bold" className="text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                   </Link>
                 ))}
               </div>
