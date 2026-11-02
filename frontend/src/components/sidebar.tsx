@@ -19,6 +19,7 @@ import {
   CreditCard,
   BarChart3,
   UserCircle,
+  LayoutDashboard,
 } from "lucide-react"
 
 export interface CurrentUser {
@@ -65,7 +66,7 @@ export function Sidebar() {
     <aside className="w-64 h-full border-r border-border/60 bg-background/85 backdrop-blur-md transition-all flex flex-col">
       <div className="flex h-16 shrink-0 items-center px-6 border-b border-border/60">
         <Link
-          href="/patients"
+          href="/dashboard"
           className="group flex items-center gap-2.5 transition-transform hover:scale-[1.02]"
           id="nav-brand-logo"
         >
@@ -87,6 +88,19 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2">
+        <Link
+          href="/dashboard"
+          id="nav-link-dashboard"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/dashboard"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <LayoutDashboard className="size-4.5" />
+          Tableau de bord
+        </Link>
+
         <Link
           href="/patients"
           id="nav-link-patients"

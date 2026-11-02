@@ -550,3 +550,309 @@ class TestMonProfil:
         assert anon_client.patch("/api/accounts/me/", {"first_name": "Test"}).status_code == status.HTTP_401_UNAUTHORIZED
         assert anon_client.delete("/api/accounts/me/photo/").status_code == status.HTTP_401_UNAUTHORIZED
         assert anon_client.post("/api/accounts/me/change-password/", {}).status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestDashboardStats:
+    def setup_method(self):
+        from patients.models import Patient
+
+        self.client = APIClient()
+
+        # Utilisateur ADMIN
+        self.admin = Utilisateur.objects.create_user(
+            username="admin_dash",
+            password="password123",
+            role=Utilisateur.Role.ADMIN,
+            is_staff=True,
+            is_superuser=True
+        )
+
+        # Secrétaire
+        self.secretaire = Utilisateur.objects.create_user(
+            username="sec_dash",
+            password="password123",
+            role=Utilisateur.Role.SECRETAIRE
+        )
+
+        # Médecins
+        self.user_medecin_a = Utilisateur.objects.create_user(
+            username="dr_martin",
+            password="password123",
+            role=Utilisateur.Role.MEDECIN,
+            first_name="Paul",
+            last_name="Martin"
+        )
+        self.medecin_a = self.user_medecin_a.medecin_profile
+        self.medecin_a.specialite = "Cardiologie"
+        self.medecin_a.save()
+
+        self.user_medecin_b = Utilisateur.objects.create_user(
+            username="dr_durand",
+            password="password123",
+            role=Utilisateur.Role.MEDECIN,
+            first_name="Claire",
+            last_name="Durand"
+        )
+        self.medecin_b = self.user_medecin_b.medecin_profile
+        self.medecin_b.specialite = "Pédiatrie"
+        self.medecin_b.save()
+
+        # Patients
+        self.p1 = Patient.objects.create(
+            nom="Rakoto",
+            prenom="Jean",
+            date_naissance="1990-01-01",
+            contact="0340000001"
+        )
+        self.p2 = Patient.objects.create(
+            nom="Rabe",
+            prenom="Soa",
+            date_naissance="1985-05-15",
+            contact="0340000002"
+        )
+
+    def test_dashboard_stats_non_authentifie(self):
+        res = self.client.get("/api/accounts/dashboard-stats/")
+        assert res.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_dashboard_stats_secretaire(self):
+        from decimal import Decimal
+        from django.utils import timezone
+        from appointments.models import RendezVous
+        from consultations.models import Consultation
+        from billing.models import Facture
+
+        today = timezone.localdate()
+        now = timezone.now()
+
+        # RDV 1: PLANIFIE (à confirmer)
+        rdv1 = RendezVous.objects.create(
+            patient=self.p1,
+            medecin=self.medecin_a,
+            date_heure=now.replace(hour=9, minute=0),
+            statut=RendezVous.Statut.PLANIFIE
+        )
+        # RDV 2: CONFIRME sans consultation (en attente)
+        rdv2 = RendezVous.objects.create(
+            patient=self.p2,
+            medecin=self.medecin_a,
+            date_heure=now.replace(hour=10, minute=0),
+            statut=RendezVous.Statut.CONFIRME
+        )
+        # RDV 3: avec consultation réalisée (type CONTROLE donc pas de facture auto)
+        rdv3 = RendezVous.objects.create(
+            patient=self.p1,
+            medecin=self.medecin_b,
+            date_heure=now.replace(hour=11, minute=0),
+            statut=RendezVous.Statut.TERMINE,
+            type=RendezVous.Type.CONTROLE
+        )
+        Consultation.objects.create(
+            patient=self.p1,
+            medecin=self.user_medecin_b,
+            rendez_vous=rdv3,
+            date_consultation=now,
+            motif="Contrôle annuel",
+            observations="Rien à signaler",
+            diagnostic="Bonne santé"
+        )
+
+        # Facture 1 (générée par le signal pour rdv1): Marquer payée aujourd'hui
+        facture1 = rdv1.facture
+        facture1.statut = Facture.StatutPaiement.PAYEE
+        facture1.date_paiement = now
+        facture1.montant = Decimal("25000.00")
+        facture1.save()
+
+        # Facture 2 (générée par le signal pour rdv2): Reste IMPAYEE à 20 000
+        facture2 = rdv2.facture
+        assert facture2.statut == Facture.StatutPaiement.IMPAYEE
+
+        self.client.force_authenticate(user=self.secretaire)
+        res = self.client.get("/api/accounts/dashboard-stats/")
+        assert res.status_code == status.HTTP_200_OK
+
+        data = res.data
+        assert data["role"] == Utilisateur.Role.SECRETAIRE
+        assert data["total_patients"] >= 2
+        assert data["nouveaux_patients_jour"] >= 2
+        assert data["rdv_du_jour"] == 3
+        assert data["patients_en_attente"] == 1  # rdv2
+        assert data["rdv_a_confirmer"] == 1      # rdv1
+        assert data["consultations_realisees_jour"] == 1
+        assert data["factures_du_jour"] == 2
+        assert data["paiements_du_jour"] == 25000.0
+
+        # Vérifier listes
+        assert len(data["rdv_jour_liste"]) == 3
+        assert len(data["derniers_patients"]) <= 5
+        # Les listes contiennent les infos utiles
+        assert any(r["id"] == rdv1.id and r["statut"] == "PLANIFIE" for r in data["rdv_jour_liste"])
+
+    def test_dashboard_stats_medecin_confidentialite_et_suivis(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from appointments.models import RendezVous
+        from consultations.models import Consultation
+
+        now = timezone.now()
+        today = timezone.localdate()
+
+        # RDV pour Dr. Martin (A)
+        rdv_a1 = RendezVous.objects.create(
+            patient=self.p1,
+            medecin=self.medecin_a,
+            date_heure=now.replace(hour=8, minute=30),
+            statut=RendezVous.Statut.CONFIRME
+        )
+        rdv_a2 = RendezVous.objects.create(
+            patient=self.p2,
+            medecin=self.medecin_a,
+            date_heure=now.replace(hour=9, minute=30),
+            statut=RendezVous.Statut.PLANIFIE
+        )
+
+        # RDV pour Dr. Durand (B) - Ne doit JAMAIS apparaître pour Dr. Martin
+        RendezVous.objects.create(
+            patient=self.p1,
+            medecin=self.medecin_b,
+            date_heure=now.replace(hour=14, minute=0),
+            statut=RendezVous.Statut.CONFIRME
+        )
+
+        # Consultation pour Dr. A aujourd'hui
+        c_a1 = Consultation.objects.create(
+            patient=self.p1,
+            medecin=self.user_medecin_a,
+            rendez_vous=rdv_a1,
+            date_consultation=now,
+            motif="Douleur thoracique",
+            observations="ECG normal",
+            diagnostic="Stress passager",
+            suivi_recommande=True,
+            date_suivi_recommandee=today + timedelta(days=7),
+            motif_suivi="Contrôle tensionnel"
+        )
+
+        # Consultation pour Dr. B aujourd'hui (confidentialité)
+        Consultation.objects.create(
+            patient=self.p2,
+            medecin=self.user_medecin_b,
+            date_consultation=now,
+            motif="Fièvre enfant",
+            observations="Angine",
+            diagnostic="Angine virale"
+        )
+
+        # RDV futur de contrôle pour Dr. A (suivi programmé)
+        RendezVous.objects.create(
+            patient=self.p2,
+            medecin=self.medecin_a,
+            type=RendezVous.Type.CONTROLE,
+            date_heure=now + timedelta(days=2),
+            statut=RendezVous.Statut.PLANIFIE,
+            motif="Contrôle suite consultation"
+        )
+
+        # Test d'accès Dr. Martin
+        self.client.force_authenticate(user=self.user_medecin_a)
+        res = self.client.get("/api/accounts/dashboard-stats/")
+        assert res.status_code == status.HTTP_200_OK
+
+        data = res.data
+        assert data["role"] == Utilisateur.Role.MEDECIN
+        # Isolation stricte : seulement les RDV de Dr. Martin
+        assert data["rdv_du_jour"] == 2
+        # rdv_a1 a maintenant une consultation associée, rdv_a2 est PLANIFIE -> patients_en_attente == 0
+        assert data["patients_en_attente"] == 0
+        assert data["consultations_jour"] == 1
+        assert data["total_consultations"] == 1
+
+        # Suivis disjoints
+        assert data["suivis_recommandes_actifs"] == 1  # c_a1 sans RDV de contrôle lié
+        assert data["suivis_programmes_a_venir"] == 1  # RDV futur de contrôle
+        assert data["suivis_realises"] == 0
+
+        # Vérifier liste patients à recevoir
+        patient_ids = [p["patient_id"] for p in data["patients_a_recevoir"]]
+        assert self.p1.id in patient_ids
+        assert self.p2.id in patient_ids
+
+        # Vérifier que les consultations ou RDVs de Dr. Durand (B) ne sont PAS là
+        for rdv in data["patients_a_recevoir"]:
+            assert rdv["rdv_id"] != rdv_a1.id or rdv["consultation_terminee"] is True
+
+        # Suivis actifs en attente
+        assert len(data["suivis_en_attente_retour"]) == 1
+        assert data["suivis_en_attente_retour"][0]["consultation_id"] == c_a1.id
+
+    def test_dashboard_stats_admin(self):
+        from decimal import Decimal
+        from django.utils import timezone
+        from appointments.models import RendezVous
+        from consultations.models import Consultation
+        from billing.models import Facture
+
+        now = timezone.now()
+
+        # RDV de consultation (génère automatiquement une facture de 20 000 IMPAYEE via signal)
+        rdv = RendezVous.objects.create(
+            patient=self.p2,
+            medecin=self.medecin_a,
+            date_heure=now,
+            statut=RendezVous.Statut.CONFIRME
+        )
+
+        # Consultation
+        Consultation.objects.create(
+            patient=self.p1,
+            medecin=self.user_medecin_a,
+            date_consultation=now,
+            motif="Bilan",
+            observations="RAS",
+            diagnostic="Bonne forme"
+        )
+
+        # Facture supplémentaire Payée (Médicaments) de 50 000
+        Facture.objects.create(
+            patient=self.p1,
+            type=Facture.Type.MEDICAMENTS,
+            montant=Decimal("50000.00"),
+            statut=Facture.StatutPaiement.PAYEE,
+            date_paiement=now
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.get("/api/accounts/dashboard-stats/")
+        assert res.status_code == status.HTTP_200_OK
+
+        data = res.data
+        assert data["role"] == Utilisateur.Role.ADMIN
+        assert data["total_patients"] >= 2
+        assert data["total_rdv"] >= 1
+        assert data["total_consultations"] >= 1
+        assert data["total_factures"] >= 2
+        assert data["total_encaisse"] == 50000.0
+        assert data["total_impaye"] == 20000.0
+        assert data["taux_recouvrement"] == 71.4  # 50000 / 70000 * 100
+        assert data["medecins_actifs"] >= 2
+        assert data["medecins_presents_jour"] >= 2
+
+        # Évolution consultations sur 14 jours
+        assert len(data["evolution_consultations"]) == 14
+        assert data["evolution_consultations"][-1]["total"] >= 1
+
+        # Répartition RDV
+        statuts = [s["statut"] for s in data["repartition_rdv"]]
+        assert "CONFIRME" in statuts
+        assert "PLANIFIE" in statuts
+
+        # Activité médecins
+        assert len(data["activite_medecins"]) >= 2
+        assert any(m["id"] == self.medecin_a.id for m in data["activite_medecins"])
+
+        # Dernières activités
+        assert len(data["dernieres_activites"]) > 0
+        activite_types = [a["type"] for a in data["dernieres_activites"]]
+        assert "CONSULTATION" in activite_types or "PATIENT" in activite_types
