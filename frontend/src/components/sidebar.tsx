@@ -198,25 +198,27 @@ export function Sidebar() {
 
       <div className="p-4 border-t border-border/60">
         {user && (
-          <div
-            className="flex items-center gap-3 mb-4 px-2 py-1.5 rounded-lg bg-muted/30"
+          <Link
+            href="/profil"
+            className="flex items-center gap-3 mb-4 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-colors group cursor-pointer"
             id="nav-user-badge"
+            title="Accéder à mon profil"
           >
             {user.photo ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={user.photo}
                 alt={user.full_name || user.username}
-                className="size-9 shrink-0 rounded-full object-cover shadow-xs border border-border"
+                className="size-9 shrink-0 rounded-full object-cover shadow-xs border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all"
               />
             ) : (
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br bg-accent text-xs font-bold text-white shadow-xs">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br bg-accent text-xs font-bold text-white shadow-xs group-hover:scale-105 transition-transform">
                 {(user.first_name?.[0] || user.username[0] || "U").toUpperCase()}
                 {(user.last_name?.[0] || "").toUpperCase()}
               </div>
             )}
-            <div className="flex flex-col text-left overflow-hidden">
-              <span className="text-xs font-semibold text-foreground leading-tight truncate w-full">
+            <div className="flex flex-col text-left overflow-hidden flex-1">
+              <span className="text-xs font-semibold text-foreground leading-tight truncate w-full group-hover:text-primary transition-colors">
                 {user.full_name || user.username}
               </span>
               <span className="flex items-center gap-1 text-[10px] leading-tight font-medium text-muted-foreground mt-0.5">
@@ -238,7 +240,7 @@ export function Sidebar() {
                 {user.role === "PATIENT" && <span>Patient</span>}
               </span>
             </div>
-          </div>
+          </Link>
         )}
 
         <button
