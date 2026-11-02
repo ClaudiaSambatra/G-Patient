@@ -12,6 +12,7 @@ import {
   Pill,
   Flask,
   CreditCard,
+  UserGear,
   ShieldCheck,
   SignOut,
   Heartbeat,
@@ -183,13 +184,19 @@ export function Sidebar() {
             id="nav-link-utilisateurs"
             className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
               pathname === "/utilisateurs"
-                ? "bg-primary text-white shadow-sm shadow-primary/25"
+                ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            <ShieldCheck size={20} weight="duotone" className="text-primary-foreground" />
+            <UserGear size={20} weight="duotone" />
             <span className="flex-1">Utilisateurs</span>
-            <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+            <span
+              className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                pathname === "/utilisateurs"
+                  ? "bg-white/20 text-white"
+                  : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground"
+              }`}
+            >
               Admin
             </span>
           </Link>
