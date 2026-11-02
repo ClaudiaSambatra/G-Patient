@@ -41,18 +41,8 @@ export default function LoginPage() {
       window.localStorage.setItem("access_token", data.access)
       window.localStorage.setItem("refresh_token", data.refresh)
 
-      try {
-        const meRes = await axios.get(`${baseURL}/accounts/me/`, {
-          headers: { Authorization: `Bearer ${data.access}` },
-        })
-        if (meRes.data?.role === "ADMIN" || meRes.data?.is_superuser) {
-          router.push("/utilisateurs")
-          return
-        }
-      } catch {
-        // Ignorer et rediriger vers /patients
-      }
-      router.push("/patients")
+      // Redirection automatique vers le tableau de bord dynamique selon le rôle
+      router.push("/dashboard")
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         if (!err.response) {
