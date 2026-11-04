@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, Fragment } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -212,7 +212,7 @@ export default function ExamensPage() {
     },
   })
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["demandes-examens", search, filterStatut, filterCategorie],
     queryFn: async () => {
       const params = new URLSearchParams()
@@ -809,10 +809,10 @@ export default function ExamensPage() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isFetching}
+            disabled={isRefetching}
             className="rounded-xl gap-2 hover:bg-muted text-muted-foreground h-9"
           >
-            <ArrowClockwise size={16} weight="duotone" className={isFetching ? "animate-spin text-primary" : ""} />
+            <ArrowClockwise size={16} weight="duotone" className={isRefetching ? "animate-spin text-primary" : ""} />
             Actualiser
           </Button>
 
@@ -1102,9 +1102,8 @@ export default function ExamensPage() {
                       (isAdmin || (isDoctor && currentUser?.id === demande.medecin_id)) && demande.statut !== "ANNULEE"
 
                     return (
-                      <>
+                      <Fragment key={demande.id}>
                         <tr
-                          key={demande.id}
                           onClick={() => setExpandedExamId(isExpanded ? null : demande.id)}
                           className={`hover:bg-muted/30 transition-colors cursor-pointer select-none ${
                             isExpanded ? "bg-muted/20" : ""
@@ -1399,7 +1398,7 @@ export default function ExamensPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tbody>
