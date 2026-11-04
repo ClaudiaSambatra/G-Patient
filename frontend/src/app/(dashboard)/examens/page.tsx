@@ -796,12 +796,12 @@ export default function ExamensPage() {
             </span>
             Demandes d&apos;examens médicaux
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+          <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
             <span>Prescription structurée d&apos;analyses de biologie médicale et d&apos;imagerie externe.</span>
             <Badge variant="outline" className="text-[11px] font-normal border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
               Sans facturation interne
             </Badge>
-          </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2.5">
