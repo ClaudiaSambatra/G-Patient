@@ -277,7 +277,7 @@ export default function DashboardPage() {
                 {user?.role === "MEDECIN" ? "Médecin Praticien" : user?.role_display || user?.role}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground capitalize flex items-center gap-1.5">
+            <p className="text-xs sm:text-sm text-muted-foreground capitalize flex items-center gap-1.5" suppressHydrationWarning>
               <CalendarDots size={16} weight="duotone" className="text-muted-foreground" />
               {todayFormatted}
             </p>
