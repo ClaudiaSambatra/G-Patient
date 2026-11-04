@@ -463,31 +463,6 @@ function SecretaireDashboardView({
         </Card>
       </div>
 
-      {/* Barre d'accès rapide Secrétariat */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-1">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0">
-          Accès rapide :
-        </span>
-        <Link href="/patients">
-          <Button size="sm" className="gap-2 h-9 text-xs">
-            <UserPlus size={16} weight="duotone" />
-            Nouveau Patient
-          </Button>
-        </Link>
-        <Link href="/rendezvous">
-          <Button size="sm" variant="outline" className="gap-2 h-9 text-xs">
-            <CalendarDots size={16} weight="duotone" />
-            Gérer les Rendez-vous
-          </Button>
-        </Link>
-        <Link href="/factures">
-          <Button size="sm" variant="outline" className="gap-2 h-9 text-xs">
-            <CreditCard size={16} weight="duotone" />
-            Caisse & Règlements
-          </Button>
-        </Link>
-      </div>
-
       {/* 2 Colonnes : Liste des RDV du jour & Nouveaux patients */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Liste chronologique des RDV du jour */}
