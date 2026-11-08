@@ -23,7 +23,6 @@ import {
   MagnifyingGlass,
   ArrowClockwise,
   Plus,
-  Funnel,
   User,
   CalendarDots,
   Stethoscope,
@@ -32,7 +31,6 @@ import {
   CaretUp,
   ClockCounterClockwise,
   Info,
-  Sparkle,
   X,
 } from "@phosphor-icons/react"
 
@@ -93,24 +91,6 @@ const CATEGORIES_EXAMEN = [
   { value: "IMAGERIE", label: "Imagerie médicale / Radiologie", icon: "🩻" },
   { value: "AUTRE", label: "Autre examen / Exploration", icon: "📋" },
 ] as const
-
-// Presets fréquents pour gain de productivité des praticiens
-const PRESETS_EXAMENS = [
-  { nom: "NFS / Hémogramme", categorie: "BIOLOGIE" as const, instructions: "À jeun recommandé" },
-  { nom: "CRP (Protéine C-Réactive)", categorie: "BIOLOGIE" as const, instructions: "" },
-  { nom: "Glycémie à jeun", categorie: "BIOLOGIE" as const, instructions: "Strictement à jeun depuis 12h" },
-  { nom: "Ionogramme sanguin", categorie: "BIOLOGIE" as const, instructions: "Na+, K+, Cl-" },
-  { nom: "Créatininémie + Urée", categorie: "BIOLOGIE" as const, instructions: "Calcul de clairance DFG" },
-  { nom: "Bilan lipidique (EAL)", categorie: "BIOLOGIE" as const, instructions: "À jeun depuis 12h" },
-  { nom: "Bilan hépatique (ASAT/ALAT/GGT/PAL)", categorie: "BIOLOGIE" as const, instructions: "" },
-  { nom: "ECBU", categorie: "BIOLOGIE" as const, instructions: "Milieu de jet après désinfection" },
-  { nom: "Test de grossesse (bêta-hCG)", categorie: "BIOLOGIE" as const, instructions: "Dosage quantitatif" },
-  { nom: "Radiographie pulmonaire", categorie: "IMAGERIE" as const, instructions: "Cliché thorax face debout" },
-  { nom: "Échographie abdomino-pelvienne", categorie: "IMAGERIE" as const, instructions: "À jeun et vessie pleine" },
-  { nom: "Échographie obstétricale", categorie: "IMAGERIE" as const, instructions: "Datation / Morphologique" },
-  { nom: "Scanner cérébral sans injection", categorie: "IMAGERIE" as const, instructions: "Éliminer processus expansif" },
-  { nom: "ECG de repos (12 dérivations)", categorie: "AUTRE" as const, instructions: "Recherche troubles du rythme" },
-]
 
 function getAge(dateNaissanceStr?: string): string {
   if (!dateNaissanceStr) return ""
@@ -212,15 +192,11 @@ export default function ExamensPage() {
     },
   })
 
-  const { data, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ["demandes-examens", search, filterStatut, filterCategorie],
+  const { data: rawData, isLoading } = useQuery({
+    queryKey: ["demandes-examens"],
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (search.trim()) params.append("search", search.trim())
-      if (filterStatut && filterStatut !== "ALL") params.append("statut", filterStatut)
-      if (filterCategorie && filterCategorie !== "ALL") params.append("categorie", filterCategorie)
       const { data } = await apiClient.get<{ results: DemandeExamen[] } | DemandeExamen[]>(
-        `/examinations/?${params.toString()}`
+        `/examinations/?page_size=200`
       )
       return Array.isArray(data) ? data : ((data.results || []) as DemandeExamen[])
     },
@@ -245,20 +221,6 @@ export default function ExamensPage() {
         instructions: "",
       },
     ])
-  }
-
-  const addPreset = (preset: { nom: string; categorie: "BIOLOGIE" | "IMAGERIE" | "AUTRE"; instructions: string }) => {
-    // Si la première ligne est vide, on la remplace
-    setFormLignes((prev) => {
-      if (prev.length === 1 && !prev[0].nom_examen.trim()) {
-        return [{ nom_examen: preset.nom, categorie: preset.categorie, instructions: preset.instructions }]
-      }
-      // Vérifier si pas déjà présent
-      if (prev.some((l) => l.nom_examen.toLowerCase() === preset.nom.toLowerCase())) {
-        return prev
-      }
-      return [...prev, { nom_examen: preset.nom, categorie: preset.categorie, instructions: preset.instructions }]
-    })
   }
 
   const updateLine = (index: number, field: keyof LigneDemandeExamen, value: string) => {
@@ -676,7 +638,7 @@ export default function ExamensPage() {
                 <div class="value" style="font-size: 1.05em;">${demande.patient_nom} ${demande.patient_prenom}</div>
                 <div style="font-size: 0.85em; color: #475569; margin-top: 2px;">
                   ${age ? `Âge : ${age} • ` : ""}
-                  ${demande.patient_date_naissance ? `Né(e) le ${new Date(demande.patient_date_naissance).toLocaleDateString("fr-FR")} • ` : ""}
+                  ${demande.patient_date_naissance ? `Né le ${new Date(demande.patient_date_naissance).toLocaleDateString("fr-FR")} • ` : ""}
                   ${demande.patient_contact ? `Tél : ${demande.patient_contact}` : ""}
                 </div>
               </td>
@@ -736,19 +698,31 @@ export default function ExamensPage() {
   const isDoctor = currentUser?.role === "MEDECIN"
   const isAdmin = currentUser?.role === "ADMIN"
   const canPrescribe = isDoctor || isAdmin
-  const demandesList = useMemo(() => data || [], [data])
+  const allDemandes = useMemo(() => rawData || [], [rawData])
 
-  // Stats calculées
+  // Stats calculées globalement sur l'ensemble des demandes
   const stats = useMemo(() => {
-    const total = demandesList.length
-    const actives = demandesList.filter((d) => d.statut === "ACTIVE").length
-    const modifiees = demandesList.filter((d) => d.statut === "MODIFIEE").length
-    const annulees = demandesList.filter((d) => d.statut === "ANNULEE").length
+    const total = allDemandes.length
+    const actives = allDemandes.filter((d) => d.statut === "ACTIVE").length
+    const modifiees = allDemandes.filter((d) => d.statut === "MODIFIEE").length
+    const annulees = allDemandes.filter((d) => d.statut === "ANNULEE").length
 
     let countBio = 0
     let countImg = 0
     let countAutre = 0
-    demandesList.forEach((d) => {
+    let countDemandesBio = 0
+    let countDemandesImg = 0
+    let countDemandesAutre = 0
+
+    allDemandes.forEach((d) => {
+      const hasBio = d.lignes?.some((l) => l.categorie === "BIOLOGIE")
+      const hasImg = d.lignes?.some((l) => l.categorie === "IMAGERIE")
+      const hasAutre = d.lignes?.some((l) => l.categorie === "AUTRE")
+
+      if (hasBio) countDemandesBio++
+      if (hasImg) countDemandesImg++
+      if (hasAutre) countDemandesAutre++
+
       d.lignes?.forEach((l) => {
         if (l.categorie === "BIOLOGIE") countBio++
         else if (l.categorie === "IMAGERIE") countImg++
@@ -756,8 +730,45 @@ export default function ExamensPage() {
       })
     })
 
-    return { total, actives, modifiees, annulees, countBio, countImg, countAutre }
-  }, [demandesList])
+    return {
+      total,
+      actives,
+      modifiees,
+      annulees,
+      countBio,
+      countImg,
+      countAutre,
+      countDemandesBio,
+      countDemandesImg,
+      countDemandesAutre,
+    }
+  }, [allDemandes])
+
+  // Filtrage local instantané
+  const demandesList = useMemo(() => {
+    return allDemandes.filter((demande) => {
+      if (filterStatut !== "ALL" && demande.statut !== filterStatut) return false
+      if (filterCategorie !== "ALL") {
+        const hasCategory = demande.lignes?.some((l) => l.categorie === filterCategorie)
+        if (!hasCategory) return false
+      }
+      if (search.trim()) {
+        const q = search.toLowerCase().trim()
+        const matchNum = demande.numero?.toLowerCase().includes(q)
+        const matchPatientNom = demande.patient_nom?.toLowerCase().includes(q)
+        const matchPatientPrenom = demande.patient_prenom?.toLowerCase().includes(q)
+        const matchMedecin = demande.medecin_nom?.toLowerCase().includes(q)
+        const matchLignes = demande.lignes?.some((l) =>
+          l.nom_examen.toLowerCase().includes(q) || l.instructions?.toLowerCase().includes(q)
+        )
+        const matchRenseignements = demande.renseignements_cliniques?.toLowerCase().includes(q)
+        if (!matchNum && !matchPatientNom && !matchPatientPrenom && !matchMedecin && !matchLignes && !matchRenseignements) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [allDemandes, filterStatut, filterCategorie, search])
 
   const hasActiveFilters = Boolean(search.trim() || filterStatut !== "ALL" || filterCategorie !== "ALL")
 
@@ -768,54 +779,45 @@ export default function ExamensPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex-1 flex flex-col min-h-screen">
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`flex items-center gap-3 p-4 rounded-2xl shadow-lg border animate-in slide-in-from-top-4 ${
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl border text-sm font-medium animate-in slide-in-from-top-2 duration-200 ${
             notification.type === "success"
               ? "bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-800"
               : "bg-red-50 text-red-900 border-red-200 dark:bg-red-950/60 dark:text-red-200 dark:border-red-800"
           }`}
         >
           {notification.type === "success" ? (
-            <CheckCircle size={22} weight="duotone" className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <CheckCircle size={20} weight="duotone" className="shrink-0 text-emerald-600 dark:text-emerald-400" />
           ) : (
-            <WarningCircle size={22} weight="duotone" className="shrink-0 text-red-600 dark:text-red-400" />
+            <WarningCircle size={20} weight="duotone" className="shrink-0 text-red-600 dark:text-red-400" />
           )}
-          <span className="text-sm font-medium">{notification.message}</span>
+          <span>{notification.message}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-6">
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+
+      {/* Header compact */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-              <Flask size={28} weight="duotone" />
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <Flask size={24} weight="duotone" />
             </span>
-            Demandes d&apos;examens médicaux
+            Demandes d&apos;examens médicaux & Laboratoire
           </h1>
-          <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-            <span>Prescription structurée d&apos;analyses de biologie médicale et d&apos;imagerie externe.</span>
-            <Badge variant="outline" className="text-[11px] font-normal border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
+          <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Prescription et suivi des analyses biologiques et examens radiologiques.</span>
+            <Badge variant="outline" className="text-[10px] py-0 px-2 font-normal border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
               Sans facturation interne
             </Badge>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="rounded-xl gap-2 hover:bg-muted text-muted-foreground h-9"
-          >
-            <ArrowClockwise size={16} weight="duotone" className={isRefetching ? "animate-spin text-primary" : ""} />
-            Actualiser
-          </Button>
-
+        <div className="flex items-center gap-2">
           {canPrescribe && (
             <Button
               onClick={() => {
@@ -830,228 +832,197 @@ export default function ExamensPage() {
                 ])
                 setIsCreateOpen(true)
               }}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs gap-2 h-9"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs gap-1.5 h-8.5 px-3.5 text-xs sm:text-sm"
             >
-              <Plus size={18} weight="bold" />
+              <Plus size={16} weight="bold" />
               Prescrire un examen
             </Button>
           )}
         </div>
       </div>
 
-      {/* Cartes KPI modernes avec duotone */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total */}
-        <Card className="rounded-2xl border-border/80 shadow-xs hover:border-cyan-500/40 transition-colors">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total demandes</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-foreground mt-1 tracking-tight">{stats.total}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {stats.countBio} bio • {stats.countImg} imagerie
-              </p>
-            </div>
-            <div className="size-12 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shadow-xs">
-              <Flask size={26} weight="duotone" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Barre unifiée compacte : Catégories + Recherche + Statuts */}
+      <Card className="rounded-xl border-border/80 shadow-2xs">
+        <CardContent className="p-2 sm:p-2.5 space-y-2">
+          {/* Ligne 1 : Onglets Catégories rapides */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={() => setFilterCategorie("ALL")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 ${
+                  filterCategorie === "ALL"
+                    ? "bg-primary text-primary-foreground shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted font-medium"
+                }`}
+              >
+                <Flask size={14} weight="duotone" />
+                <span>Toutes</span>
+                <span className="text-[10px] opacity-80 font-mono">({stats.total})</span>
+              </button>
 
-        {/* Actives */}
-        <Card className="rounded-2xl border-border/80 shadow-xs hover:border-emerald-500/40 transition-colors">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actives</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
-                {stats.actives}
-              </p>
-              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1">Valables en laboratoire</p>
-            </div>
-            <div className="size-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
-              <CheckCircle size={26} weight="duotone" />
-            </div>
-          </CardContent>
-        </Card>
+              <button
+                type="button"
+                onClick={() => setFilterCategorie("BIOLOGIE")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 ${
+                  filterCategorie === "BIOLOGIE"
+                    ? "bg-cyan-500 text-white shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-cyan-700 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 font-medium"
+                }`}
+              >
+                <Microscope size={14} weight="duotone" />
+                <span>Laboratoire & Biologie</span>
+                <span className="text-[10px] opacity-90 font-mono font-bold">({stats.countDemandesBio})</span>
+              </button>
 
-        {/* Modifiées */}
-        <Card className="rounded-2xl border-border/80 shadow-xs hover:border-amber-500/40 transition-colors">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Modifiées</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1 tracking-tight">
-                {stats.modifiees}
-              </p>
-              <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-1">Audit médico-légal tracé</p>
-            </div>
-            <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
-              <ClockCounterClockwise size={26} weight="duotone" />
-            </div>
-          </CardContent>
-        </Card>
+              <button
+                type="button"
+                onClick={() => setFilterCategorie("IMAGERIE")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 ${
+                  filterCategorie === "IMAGERIE"
+                    ? "bg-blue-600 text-white shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-medium"
+                }`}
+              >
+                <span className="text-xs">🩻</span>
+                <span>Radiologie</span>
+                <span className="text-[10px] opacity-80 font-mono">({stats.countDemandesImg})</span>
+              </button>
 
-        {/* Annulées */}
-        <Card className="rounded-2xl border-border/80 shadow-xs hover:border-red-500/40 transition-colors">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Annulées</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1 tracking-tight">
-                {stats.annulees}
-              </p>
-              <p className="text-[11px] text-red-700/80 dark:text-red-400/80 mt-1">Avec motif motivé consigné</p>
+              <button
+                type="button"
+                onClick={() => setFilterCategorie("AUTRE")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 ${
+                  filterCategorie === "AUTRE"
+                    ? "bg-slate-700 text-white shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted font-medium"
+                }`}
+              >
+                <span className="text-xs">📋</span>
+                <span>Autres</span>
+                <span className="text-[10px] opacity-80 font-mono">({stats.countDemandesAutre})</span>
+              </button>
             </div>
-            <div className="size-12 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center shadow-xs">
-              <Prohibit size={26} weight="duotone" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Barre de Recherche et Filtres */}
-      <Card className="rounded-2xl border-border/80 shadow-xs">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row items-center gap-3">
-            {/* Input Recherche */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="h-7 px-2 rounded-lg text-[11px] text-muted-foreground hover:text-foreground gap-1 shrink-0"
+                title="Réinitialiser tous les critères"
+              >
+                <X size={12} weight="bold" />
+                Effacer
+              </Button>
+            )}
+          </div>
+
+          {/* Ligne 2 : Recherche compacte + Filtres de statuts */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 pt-1.5 border-t border-border/50">
             <div className="relative flex-1 w-full">
               <MagnifyingGlass
-                size={18}
+                size={15}
                 weight="duotone"
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
               />
               <Input
-                placeholder="Rechercher par n° (EXAM-...), nom du patient, praticien, nom d'examen..."
+                placeholder="Rechercher par n°, patient, médecin prescripteur, analyse..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-9 rounded-xl bg-muted/40 border-border/60 text-sm h-10"
+                className="pl-8 pr-7 rounded-lg bg-muted/30 border-border/70 text-xs h-8"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
                 >
-                  <X size={14} weight="bold" />
+                  <X size={12} weight="bold" />
                 </button>
               )}
             </div>
 
-            {/* Sélecteurs de filtre */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              {/* Statut */}
-              <div className="relative">
-                <select
-                  value={filterStatut}
-                  onChange={(e) => setFilterStatut(e.target.value)}
-                  className="h-10 rounded-xl border border-input bg-background pl-3 pr-8 py-2 text-xs font-medium shadow-xs focus:outline-none focus:ring-1 focus:ring-ring appearance-none cursor-pointer"
+            <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setFilterStatut("ALL")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                  filterStatut === "ALL"
+                    ? "bg-muted text-foreground font-semibold border border-border/80 shadow-2xs"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+              >
+                Tous ({stats.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterStatut("ACTIVE")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                  filterStatut === "ACTIVE"
+                    ? "bg-emerald-600 text-white font-semibold shadow-2xs"
+                    : "bg-emerald-50/70 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 hover:bg-emerald-100"
+                }`}
+              >
+                <CheckCircle size={12} weight="duotone" />
+                Actives ({stats.actives})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterStatut("MODIFIEE")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                  filterStatut === "MODIFIEE"
+                    ? "bg-amber-600 text-white font-semibold shadow-2xs"
+                    : "bg-amber-50/70 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-100"
+                }`}
+              >
+                <ClockCounterClockwise size={12} weight="duotone" />
+                Modifiées ({stats.modifiees})
+              </button>
+              {stats.annulees > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterStatut("ANNULEE")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                    filterStatut === "ANNULEE"
+                      ? "bg-red-600 text-white font-semibold shadow-2xs"
+                      : "bg-red-50/70 text-red-800 dark:bg-red-950/40 dark:text-red-300 hover:bg-red-100"
+                  }`}
                 >
-                  <option value="ALL">Tous statuts ({stats.total})</option>
-                  <option value="ACTIVE">Actives ({stats.actives})</option>
-                  <option value="MODIFIEE">Modifiées ({stats.modifiees})</option>
-                  <option value="ANNULEE">Annulées ({stats.annulees})</option>
-                </select>
-                <CaretDown size={14} weight="bold" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              </div>
-
-              {/* Catégorie */}
-              <div className="relative">
-                <select
-                  value={filterCategorie}
-                  onChange={(e) => setFilterCategorie(e.target.value)}
-                  className="h-10 rounded-xl border border-input bg-background pl-3 pr-8 py-2 text-xs font-medium shadow-xs focus:outline-none focus:ring-1 focus:ring-ring appearance-none cursor-pointer"
-                >
-                  <option value="ALL">Toutes catégories</option>
-                  <option value="BIOLOGIE">🔬 Biologie médicale</option>
-                  <option value="IMAGERIE">🩻 Imagerie / Radiologie</option>
-                  <option value="AUTRE">📋 Autres explorations</option>
-                </select>
-                <CaretDown size={14} weight="bold" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              </div>
-
-              {/* Reset shortcut */}
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetFilters}
-                  className="h-10 px-2.5 rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                  title="Réinitialiser les critères"
-                >
-                  <X size={14} weight="bold" />
-                  Effacer
-                </Button>
+                  <Prohibit size={12} weight="duotone" />
+                  Annulées ({stats.annulees})
+                </button>
               )}
             </div>
-          </div>
-
-          {/* Quick Filter Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs">
-            <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
-              <Funnel size={13} weight="duotone" />
-              Filtre rapide :
-            </span>
-            <button
-              type="button"
-              onClick={() => setFilterStatut("ALL")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterStatut === "ALL"
-                  ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              Toutes ({stats.total})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatut("ACTIVE")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                filterStatut === "ACTIVE"
-                  ? "bg-emerald-600 text-white font-semibold shadow-xs"
-                  : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 hover:bg-emerald-100"
-              }`}
-            >
-              <CheckCircle size={13} weight="duotone" />
-              Actives ({stats.actives})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatut("MODIFIEE")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                filterStatut === "MODIFIEE"
-                  ? "bg-amber-600 text-white font-semibold shadow-xs"
-                  : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-100"
-              }`}
-            >
-              <ClockCounterClockwise size={13} weight="duotone" />
-              Modifiées ({stats.modifiees})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatut("ANNULEE")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                filterStatut === "ANNULEE"
-                  ? "bg-red-600 text-white font-semibold shadow-xs"
-                  : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 hover:bg-red-100"
-              }`}
-            >
-              <Prohibit size={13} weight="duotone" />
-              Annulées ({stats.annulees})
-            </button>
           </div>
         </CardContent>
       </Card>
 
       {/* Tableau du Registre */}
-      <Card className="rounded-2xl border-border/80 shadow-xs overflow-hidden">
-        <CardHeader className="p-4 sm:p-5 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Flask size={20} weight="duotone" className="text-primary" />
-              Registre des Demandes d&apos;examens
-              <Badge variant="secondary" className="text-xs font-normal">
+      <Card className="rounded-xl border-border/80 shadow-xs overflow-hidden">
+        <CardHeader className="p-3 sm:px-4 sm:py-3 border-b border-border/60 bg-muted/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
+              {filterCategorie === "BIOLOGIE" ? (
+                <Microscope size={18} weight="duotone" className="text-cyan-600 dark:text-cyan-400" />
+              ) : (
+                <Flask size={18} weight="duotone" className="text-primary" />
+              )}
+              <span>
+                {filterCategorie === "BIOLOGIE"
+                  ? "Analyses de laboratoire prescrites"
+                  : filterCategorie === "IMAGERIE"
+                  ? "Examens radiologiques prescrits"
+                  : filterCategorie === "AUTRE"
+                  ? "Autres explorations médicales"
+                  : "Registre des demandes d'examens"}
+              </span>
+              <Badge variant="secondary" className="text-xs font-semibold">
                 {demandesList.length}
               </Badge>
             </CardTitle>
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              Cliquez sur une ligne pour afficher les détails complets et instructions
+              Cliquez sur une ligne pour afficher les détails et instructions
             </span>
           </div>
         </CardHeader>
@@ -1065,9 +1036,17 @@ export default function ExamensPage() {
           ) : demandesList.length === 0 ? (
             <div className="py-16 px-4 text-center text-muted-foreground text-sm flex flex-col items-center justify-center">
               <div className="size-14 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-3">
-                <Flask size={32} weight="duotone" />
+                {filterCategorie === "BIOLOGIE" ? (
+                  <Microscope size={32} weight="duotone" />
+                ) : (
+                  <Flask size={32} weight="duotone" />
+                )}
               </div>
-              <p className="font-semibold text-foreground text-base">Aucune demande d&apos;examens trouvée</p>
+              <p className="font-semibold text-foreground text-base">
+                {filterCategorie === "BIOLOGIE"
+                  ? "Aucune analyse de laboratoire trouvée"
+                  : "Aucune demande d&apos;examens trouvée"}
+              </p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                 {hasActiveFilters
                   ? "Aucun résultat ne correspond à vos filtres de recherche. Essayez d'élargir vos critères."
@@ -1090,7 +1069,7 @@ export default function ExamensPage() {
                     <th className="py-3 px-4">Statut</th>
                     <th className="py-3 px-4">Patient</th>
                     <th className="py-3 px-4">Médecin prescripteur</th>
-                    <th className="py-3 px-4">Examens prescrits</th>
+                    <th className="py-3 px-4">{filterCategorie === "BIOLOGIE" ? "Analyses prescrites" : "Examens prescrits"}</th>
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
@@ -1147,12 +1126,22 @@ export default function ExamensPage() {
 
                           {/* Patient */}
                           <td className="py-3.5 px-4">
-                            <div className="font-semibold text-foreground">
-                              {demande.patient_nom} {demande.patient_prenom}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {getAge(demande.patient_date_naissance)}{" "}
-                              {demande.patient_contact && `• ${demande.patient_contact}`}
+                            <div className="flex items-center gap-2.5">
+                              <div className="size-8 rounded-xl bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 flex items-center justify-center font-bold text-xs shrink-0">
+                                {demande.patient_nom?.[0]?.toUpperCase() || "P"}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-foreground">
+                                  {demande.patient_nom} {demande.patient_prenom}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {getAge(demande.patient_date_naissance) && (
+                                    <span>{getAge(demande.patient_date_naissance)}</span>
+                                  )}
+                                  {demande.patient_date_naissance && demande.patient_contact && " • "}
+                                  {demande.patient_contact && <span>{demande.patient_contact}</span>}
+                                </div>
+                              </div>
                             </div>
                           </td>
 
@@ -1172,25 +1161,32 @@ export default function ExamensPage() {
                           {/* Examens prescrits (Aperçu) */}
                           <td className="py-3.5 px-4 max-w-xs">
                             {demande.lignes && demande.lignes.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {demande.lignes.slice(0, 2).map((l, idx) => (
-                                  <span
-                                    key={idx}
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
-                                      l.categorie === "BIOLOGIE"
-                                        ? "bg-cyan-500/10 text-cyan-800 dark:text-cyan-300 border border-cyan-500/20"
-                                        : l.categorie === "IMAGERIE"
-                                        ? "bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-500/20"
-                                        : "bg-slate-500/10 text-slate-800 dark:text-slate-300 border border-slate-500/20"
-                                    }`}
-                                  >
-                                    {l.categorie === "BIOLOGIE" ? "🔬" : l.categorie === "IMAGERIE" ? "🩻" : "📋"}
-                                    {l.nom_examen}
-                                  </span>
-                                ))}
-                                {demande.lignes.length > 2 && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                                    +{demande.lignes.length - 2} autre(s)
+                              <div className="flex flex-wrap gap-1.5">
+                                {(filterCategorie === "BIOLOGIE"
+                                  ? demande.lignes.filter((l) => l.categorie === "BIOLOGIE")
+                                  : filterCategorie === "IMAGERIE"
+                                  ? demande.lignes.filter((l) => l.categorie === "IMAGERIE")
+                                  : demande.lignes
+                                )
+                                  .slice(0, 3)
+                                  .map((l, idx) => (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                                        l.categorie === "BIOLOGIE"
+                                          ? "bg-cyan-500/10 text-cyan-800 dark:text-cyan-300 border border-cyan-500/25"
+                                          : l.categorie === "IMAGERIE"
+                                          ? "bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-500/25"
+                                          : "bg-slate-500/10 text-slate-800 dark:text-slate-300 border border-slate-500/25"
+                                      }`}
+                                    >
+                                      <span>{l.categorie === "BIOLOGIE" ? "🔬" : l.categorie === "IMAGERIE" ? "🩻" : "📋"}</span>
+                                      <span>{l.nom_examen}</span>
+                                    </span>
+                                  ))}
+                                {demande.lignes.length > 3 && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 font-normal">
+                                    +{demande.lignes.length - 3} autre(s)
                                   </Badge>
                                 )}
                               </div>
@@ -1231,7 +1227,7 @@ export default function ExamensPage() {
                                 size="sm"
                                 onClick={() => handlePrint(demande)}
                                 className="size-8 p-0 rounded-lg text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40"
-                                title="Imprimer la demande (A4)"
+                                title="Imprimer la demande"
                               >
                                 <Printer size={17} weight="duotone" />
                               </Button>
@@ -1407,6 +1403,7 @@ export default function ExamensPage() {
           )}
         </CardContent>
       </Card>
+      </main>
 
       {/* MODAL APERÇU OFFICIEL (VUE DOCUMENT) */}
       {previewDemande && (
@@ -1422,9 +1419,6 @@ export default function ExamensPage() {
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                     Aperçu officiel — Demande {previewDemande.numero}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Document de prescription pour laboratoire / radiologie externe
-                  </p>
                 </div>
               </div>
               <button
@@ -1562,10 +1556,10 @@ export default function ExamensPage() {
         </div>
       )}
 
-      {/* MODAL CRÉATION DE DEMANDE D'EXAMENS AVEC PRESETS RAPIDES */}
+      {/* MODAL CRÉATION DE DEMANDE D'EXAMENS */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-3">
@@ -1576,9 +1570,6 @@ export default function ExamensPage() {
                   <h3 className="text-base font-bold text-foreground">
                     Nouvelle demande d&apos;examens médicaux
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Prescription pour laboratoire ou centre de radiologie externe
-                  </p>
                 </div>
               </div>
               <button
@@ -1595,19 +1586,19 @@ export default function ExamensPage() {
                 e.preventDefault()
                 createMutation.mutate()
               }}
-              className="space-y-5"
+              className="space-y-4"
             >
               {/* Consultation Selector */}
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="exam-consultation" className="font-semibold text-xs text-foreground">
-                  Consultation médicale associée *
+                  Consultation *
                 </Label>
                 <select
                   id="exam-consultation"
                   required
                   value={formConsultation}
                   onChange={(e) => setFormConsultation(e.target.value)}
-                  className="mt-1.5 flex w-full rounded-xl border border-input bg-background px-3 py-2 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-xs sm:text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">-- Sélectionner une consultation du patient --</option>
                   {(consultations || []).map((c) => (
@@ -1616,55 +1607,54 @@ export default function ExamensPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                  <Info size={13} weight="duotone" className="text-primary" />
-                  Le patient et le médecin prescripteur sont automatiquement liés à la consultation.
-                </p>
+
+                {/* Recap de la consultation sélectionnée */}
+                {(() => {
+                  const selectedC = consultations?.find((c) => String(c.id) === String(formConsultation))
+                  if (!selectedC) return null
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-muted/40 border border-border/70 text-xs mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="size-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                          <User size={15} weight="duotone" />
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground">
+                            {selectedC.patient_nom} {selectedC.patient_prenom}
+                          </span>
+                          <span className="text-muted-foreground ml-2">
+                            • Consultation du {new Date(selectedC.date_consultation).toLocaleDateString("fr-FR")}
+                          </span>
+                        </div>
+                      </div>
+                      {selectedC.medecin_nom && (
+                        <div className="text-muted-foreground flex items-center gap-1.5 font-medium">
+                          <Stethoscope size={14} weight="duotone" className="text-primary" />
+                          Dr. {selectedC.medecin_nom}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Renseignements cliniques */}
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="exam-renseignements" className="font-semibold text-xs text-foreground">
-                  Renseignements cliniques / Diagnostic d&apos;orientation (pour le biologiste / radiologue)
+                  Renseignements cliniques
                 </Label>
                 <Textarea
                   id="exam-renseignements"
                   rows={2}
-                  placeholder="Ex : Suspicion de pneumopathie alvéolaire, fièvre persistante à J+5, bilan préopératoire..."
+                  placeholder="Ex : Bilan préopératoire, suspicion de pneumopathie, fièvre inexpliquée..."
                   value={formRenseignements}
                   onChange={(e) => setFormRenseignements(e.target.value)}
-                  className="mt-1.5 rounded-xl text-xs"
+                  className="rounded-xl text-xs sm:text-sm min-h-[64px]"
                 />
               </div>
 
-              {/* Presets rapides (Gain de temps pour le médecin) */}
-              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/70 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-foreground flex items-center gap-1.5">
-                    <Sparkle size={15} weight="duotone" className="text-amber-500" />
-                    Prescriptions fréquentes (Ajout en un clic) :
-                  </span>
-                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                    Cliquez sur un examen pour l&apos;ajouter
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                  {PRESETS_EXAMENS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => addPreset(preset)}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-background border border-border/80 text-foreground hover:bg-primary/10 hover:border-primary/40 transition-colors flex items-center gap-1 shadow-2xs"
-                    >
-                      <span>{preset.categorie === "BIOLOGIE" ? "🔬" : preset.categorie === "IMAGERIE" ? "🩻" : "📋"}</span>
-                      {preset.nom}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Lignes d'examens dynamiques */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
                   <Label className="font-semibold text-xs flex items-center gap-1.5">
                     <Microscope size={16} weight="duotone" className="text-primary" />
@@ -1678,55 +1668,58 @@ export default function ExamensPage() {
                     className="h-8 text-xs rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
                   >
                     <Plus size={14} weight="bold" />
-                    Ajouter une ligne
+                    Ajouter un examen
                   </Button>
                 </div>
 
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                   {formLignes.map((ligne, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-3 relative group shadow-2xs"
+                      className="p-3 rounded-xl border border-border/80 bg-muted/20 space-y-2.5 relative shadow-2xs hover:border-border transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                          <span className="size-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px]">
+                      <div className="flex items-center justify-between pb-1 border-b border-border/40">
+                        <div className="flex items-center gap-2">
+                          <span className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
                             {idx + 1}
                           </span>
-                          Examen #{idx + 1}
-                        </span>
+                          <span className="text-xs font-bold text-foreground">
+                            Examen n°{idx + 1}
+                          </span>
+                        </div>
                         {formLignes.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeLine(idx)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-lg transition-colors"
+                            className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
                             title="Supprimer cette ligne"
                           >
-                            <Trash size={15} weight="duotone" />
+                            <Trash size={14} weight="duotone" />
+                            <span>Supprimer</span>
                           </button>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="md:col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2 space-y-1">
                           <Label className="text-xs font-medium">Nom de l&apos;examen *</Label>
                           <Input
                             required
                             placeholder="Ex : NFS + CRP, Radiographie pulmonaire..."
                             value={ligne.nom_examen}
                             onChange={(e) => updateLine(idx, "nom_examen", e.target.value)}
-                            className="mt-1 h-9 rounded-xl text-xs"
+                            className="h-9 rounded-xl text-xs sm:text-sm"
                           />
                         </div>
 
-                        <div>
+                        <div className="space-y-1">
                           <Label className="text-xs font-medium">Catégorie *</Label>
                           <select
                             value={ligne.categorie}
                             onChange={(e) =>
                               updateLine(idx, "categorie", e.target.value as "BIOLOGIE" | "IMAGERIE" | "AUTRE")
                             }
-                            className="mt-1 flex w-full h-9 rounded-xl border border-input bg-background px-2.5 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                            className="flex w-full h-9 rounded-xl border border-input bg-background px-2.5 text-xs sm:text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             {CATEGORIES_EXAMEN.map((cat) => (
                               <option key={cat.value} value={cat.value}>
@@ -1737,13 +1730,13 @@ export default function ExamensPage() {
                         </div>
                       </div>
 
-                      <div>
-                        <Label className="text-xs font-medium">Instructions cliniques / Précautions pour le patient</Label>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">Instructions / Précautions</Label>
                         <Input
                           placeholder="Ex : À jeun le matin, vessie pleine, face et profil..."
                           value={ligne.instructions || ""}
                           onChange={(e) => updateLine(idx, "instructions", e.target.value)}
-                          className="mt-1 h-9 rounded-xl text-xs"
+                          className="h-9 rounded-xl text-xs sm:text-sm"
                         />
                       </div>
                     </div>
@@ -1764,8 +1757,9 @@ export default function ExamensPage() {
                 <Button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs gap-1.5"
                 >
+                  <Flask size={16} weight="duotone" />
                   {createMutation.isPending ? "Création en cours..." : "Valider la prescription"}
                 </Button>
               </div>
@@ -1773,11 +1767,10 @@ export default function ExamensPage() {
           </div>
         </div>
       )}
-
       {/* MODAL MODIFICATION AVEC MOTIF OBLIGATOIRE */}
       {editModal.isOpen && editModal.demande && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-4">
               <div className="flex items-center gap-3">
                 <div className="size-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -1787,9 +1780,6 @@ export default function ExamensPage() {
                   <h3 className="text-base font-bold text-foreground">
                     Modifier la demande {editModal.demande.numero}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Toute modification est tracée dans l&apos;audit trail médico-légal
-                  </p>
                 </div>
               </div>
               <button
@@ -1814,7 +1804,7 @@ export default function ExamensPage() {
                 e.preventDefault()
                 editMutation.mutate()
               }}
-              className="mt-5 space-y-4"
+              className="space-y-4"
             >
               {/* Motif de correction obligatoire */}
               <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-2">
@@ -1829,17 +1819,17 @@ export default function ExamensPage() {
                   id="edit-motif"
                   required
                   rows={2}
-                  placeholder="Ex : Précision du cliché radiologique suite à l'aggravation clinique, ajout de la créatininémie..."
+                  placeholder="Ex : Précision du cliché radiologique, ajout d'un bilan complémentaire..."
                   value={editModal.motif_correction}
                   onChange={(e) => setEditModal((prev) => ({ ...prev, motif_correction: e.target.value }))}
-                  className="bg-background text-xs rounded-xl"
+                  className="bg-background text-xs sm:text-sm rounded-xl"
                 />
               </div>
 
               {/* Renseignements cliniques */}
-              <div>
-                <Label htmlFor="edit-renseignements" className="font-semibold text-xs">
-                  Renseignements cliniques indicatifs
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-renseignements" className="font-semibold text-xs text-foreground">
+                  Renseignements cliniques
                 </Label>
                 <Textarea
                   id="edit-renseignements"
@@ -1848,14 +1838,17 @@ export default function ExamensPage() {
                   onChange={(e) =>
                     setEditModal((prev) => ({ ...prev, renseignements_cliniques: e.target.value }))
                   }
-                  className="mt-1.5 rounded-xl text-xs"
+                  className="rounded-xl text-xs sm:text-sm min-h-[64px]"
                 />
               </div>
 
               {/* Lignes d'examens */}
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
-                  <Label className="font-semibold text-xs">Examens prescrits ({editModal.lignes.length})</Label>
+                  <Label className="font-semibold text-xs flex items-center gap-1.5">
+                    <Microscope size={16} weight="duotone" className="text-primary" />
+                    Examens prescrits ({editModal.lignes.length})
+                  </Label>
                   <Button
                     type="button"
                     size="sm"
@@ -1866,20 +1859,25 @@ export default function ExamensPage() {
                         lignes: [...prev.lignes, { nom_examen: "", categorie: "BIOLOGIE", instructions: "" }],
                       }))
                     }}
-                    className="h-7 text-xs rounded-lg gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                    className="h-8 text-xs rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
                   >
-                    <Plus size={13} weight="bold" /> Ajouter un examen
+                    <Plus size={14} weight="bold" /> Ajouter un examen
                   </Button>
                 </div>
 
-                <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
                   {editModal.lignes.map((ligne, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl border border-border/80 bg-muted/20 space-y-2 relative"
+                      className="p-3 rounded-xl border border-border/80 bg-muted/20 space-y-2.5 relative shadow-2xs hover:border-border transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-muted-foreground">Examen #{idx + 1}</span>
+                      <div className="flex items-center justify-between pb-1 border-b border-border/40">
+                        <div className="flex items-center gap-2">
+                          <span className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-foreground">Examen n°{idx + 1}</span>
+                        </div>
                         {editModal.lignes.length > 1 && (
                           <button
                             type="button"
@@ -1889,15 +1887,17 @@ export default function ExamensPage() {
                                 lignes: prev.lignes.filter((_, i) => i !== idx),
                               }))
                             }}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
                           >
                             <Trash size={14} weight="duotone" />
+                            <span>Supprimer</span>
                           </button>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div className="md:col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2 space-y-1">
+                          <Label className="text-xs font-medium">Nom de l&apos;examen *</Label>
                           <Input
                             required
                             placeholder="Nom de l'examen"
@@ -1910,10 +1910,11 @@ export default function ExamensPage() {
                                 return { ...prev, lignes: next }
                               })
                             }}
-                            className="h-8 rounded-lg text-xs"
+                            className="h-9 rounded-xl text-xs sm:text-sm"
                           />
                         </div>
-                        <div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">Catégorie *</Label>
                           <select
                             value={ligne.categorie}
                             onChange={(e) => {
@@ -1924,30 +1925,33 @@ export default function ExamensPage() {
                                 return { ...prev, lignes: next }
                               })
                             }}
-                            className="flex w-full h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                            className="flex w-full h-9 rounded-xl border border-input bg-background px-2.5 text-xs sm:text-sm shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                           >
                             {CATEGORIES_EXAMEN.map((cat) => (
                               <option key={cat.value} value={cat.value}>
-                                {cat.label}
+                                {cat.icon} {cat.label}
                               </option>
                             ))}
                           </select>
                         </div>
                       </div>
 
-                      <Input
-                        placeholder="Instructions / Précautions"
-                        value={ligne.instructions || ""}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setEditModal((prev) => {
-                            const next = [...prev.lignes]
-                            next[idx] = { ...next[idx], instructions: val }
-                            return { ...prev, lignes: next }
-                          })
-                        }}
-                        className="h-8 rounded-lg text-xs"
-                      />
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">Instructions / Précautions</Label>
+                        <Input
+                          placeholder="Instructions / Précautions"
+                          value={ligne.instructions || ""}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setEditModal((prev) => {
+                              const next = [...prev.lignes]
+                              next[idx] = { ...next[idx], instructions: val }
+                              return { ...prev, lignes: next }
+                            })
+                          }}
+                          className="h-9 rounded-xl text-xs sm:text-sm"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1973,8 +1977,9 @@ export default function ExamensPage() {
                 <Button
                   type="submit"
                   disabled={editMutation.isPending}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-xs gap-1.5"
                 >
+                  <PencilSimple size={16} weight="duotone" />
                   {editMutation.isPending ? "Modification..." : "Valider les modifications"}
                 </Button>
               </div>

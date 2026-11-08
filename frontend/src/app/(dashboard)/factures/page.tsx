@@ -272,13 +272,6 @@ export default function FacturesPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button 
-              onClick={() => refetch()} 
-              title="Rafraîchir" 
-              className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className="size-4" />
-            </button>
             {isSecretaireOrAdmin && (
               <button 
                 onClick={handleOpenCreateModal} 
@@ -467,7 +460,7 @@ export default function FacturesPage() {
               {form.patient && patientRdvs && patientRdvs.length > 0 && (
                 <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/5 p-3">
                   <Label className="text-xs font-semibold text-foreground">
-                    Rattacher à un rendez-vous planifié (optionnel)
+                    Rattacher à un rendez-vous planifié
                   </Label>
                   <select
                     value={form.rendez_vous}

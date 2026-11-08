@@ -21,7 +21,7 @@ export function PatientCard() {
           <div>
             <CardTitle className="text-xl">Jean Dupont</CardTitle>
             <CardDescription className="text-sm mt-1">
-              ID Patient: #PT-84920 • Né(e) le 14/05/1982
+              ID Patient: #PT-84920 • Né le 14/05/1982
             </CardDescription>
           </div>
         </div>
@@ -36,7 +36,7 @@ export function PatientCard() {
             <h4 className="label-ihm flex items-center gap-2 mb-1.5">
               <Activity size={14} /> Groupe Sanguin
             </h4>
-            <p className="text-base font-medium">O Positif (O+)</p>
+            <p className="text-base font-medium">O Positif</p>
           </div>
           
           <div>
@@ -52,7 +52,7 @@ export function PatientCard() {
             <h4 className="label-ihm flex items-center gap-2 mb-3">
               <Calendar size={14} /> Prochaine Consultation
             </h4>
-            <p className="font-medium text-base mb-1">Dr. Martin (Cardiologie)</p>
+            <p className="font-medium text-base mb-1">Dr. Martin</p>
             <p className="text-[14px] text-muted-foreground mb-4">
               Mardi 12 Octobre 2023 - 14h30
             </p>

@@ -515,7 +515,7 @@ function SecretaireDashboardView({
                           </Link>
                           {rdv.type === "CONTROLE" && (
                             <span className="block text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">
-                              Visite de contrôle
+                              Visite de suivi
                             </span>
                           )}
                         </td>
@@ -738,8 +738,8 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
         <Card className="border-border/80 shadow-xs hover:border-cyan-500/40 transition-colors">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted-foreground" title="Visites de contrôle déjà planifiées dans l'agenda">
-                Contrôles à venir
+              <span className="text-xs font-medium text-muted-foreground" title="Visites de suivi déjà planifiées dans l'agenda">
+                Suivis à venir
               </span>
               <div className="size-9 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 shadow-xs">
                 <CalendarCheck size={20} weight="duotone" />
@@ -860,13 +860,13 @@ function MedecinDashboardView({ stats }: { stats: MedecinDashboardData }) {
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CalendarCheck size={18} weight="duotone" className="text-cyan-600" />
-                Contrôles programmés à venir
+                Suivis programmés à venir
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {stats.prochains_suivis.length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  Aucune visite de contrôle planifiée prochainement.
+                  Aucune visite de suivi planifiée prochainement.
                 </div>
               ) : (
                 <div className="divide-y divide-border/40">
@@ -1078,7 +1078,7 @@ function AdminDashboardView({ stats }: { stats: AdminDashboardData }) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <TrendUp size={20} weight="duotone" className="text-primary" />
-                Évolution des consultations (14 derniers jours)
+                Évolution des consultations
               </CardTitle>
             </div>
           </CardHeader>

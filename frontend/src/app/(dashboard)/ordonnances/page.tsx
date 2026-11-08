@@ -18,7 +18,6 @@ import {
   Stethoscope, 
   Plus, 
   Printer, 
-  CreditCard,
   XCircle,
   CheckCircle2,
   AlertCircle,
@@ -95,14 +94,14 @@ interface Consultation {
 }
 
 const VOIES_ADMINISTRATION = [
-  { value: "ORALE", label: "Orale (par la bouche)" },
+  { value: "ORALE", label: "Orale" },
   { value: "SUBLINGUALE", label: "Sublinguale" },
-  { value: "INJECTABLE_IV", label: "Intraveineuse (IV)" },
-  { value: "INJECTABLE_IM", label: "Intramusculaire (IM)" },
-  { value: "INJECTABLE_SC", label: "Sous-cutanée (SC)" },
+  { value: "INJECTABLE_IV", label: "Intraveineuse" },
+  { value: "INJECTABLE_IM", label: "Intramusculaire" },
+  { value: "INJECTABLE_SC", label: "Sous-cutanée" },
   { value: "CUTANEE", label: "Cutanée / Locale" },
   { value: "INHALATION", label: "Inhalation" },
-  { value: "OCULAIRE", label: "Oculaire (collyre)" },
+  { value: "OCULAIRE", label: "Oculaire" },
   { value: "AURICULAIRE", label: "Auriculaire" },
   { value: "NASALE", label: "Nasale" },
   { value: "RECTALE", label: "Rectale" },
@@ -154,19 +153,6 @@ export default function OrdonnancesPage() {
     motif: ""
   })
   const [expandedOrdId, setExpandedOrdId] = useState<number | null>(null)
-
-  // Facture Médicaments Modal
-  const [factureModal, setFactureModal] = useState<{
-    isOpen: boolean
-    ordonnance: Ordonnance | null
-    designation: string
-    montant: string
-  }>({
-    isOpen: false,
-    ordonnance: null,
-    designation: "",
-    montant: ""
-  })
 
   // Dynamic lines state for creation & edition
   const [formConsultation, setFormConsultation] = useState("")
@@ -314,31 +300,6 @@ export default function OrdonnancesPage() {
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.detail || "Erreur lors de l'annulation de l'ordonnance."
-      showNotification("error", String(msg))
-    }
-  })
-
-  // Facture Médicaments Mutation
-  const createFactureMedicamentsMutation = useMutation({
-    mutationFn: async () => {
-      if (!factureModal.ordonnance) return
-      return apiClient.post("/billing/", {
-        ordonnance: factureModal.ordonnance.id,
-        patient: factureModal.ordonnance.patient_id || factureModal.ordonnance.patient,
-        type: "MEDICAMENTS",
-        designation: factureModal.designation,
-        actes: factureModal.designation,
-        montant: Number(factureModal.montant)
-      })
-    },
-    onSuccess: () => {
-      setFactureModal({ isOpen: false, ordonnance: null, designation: "", montant: "" })
-      queryClient.invalidateQueries({ queryKey: ["factures"] })
-      queryClient.invalidateQueries({ queryKey: ["ordonnances"] })
-      showNotification("success", "Facture des médicaments délivrés créée avec succès.")
-    },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.ordonnance?.[0] || err?.response?.data?.detail || "Erreur lors de la facturation des médicaments."
       showNotification("error", String(msg))
     }
   })
@@ -537,7 +498,7 @@ export default function OrdonnancesPage() {
           <table class="meta-grid">
             <tr>
               <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
-                <div class="label">Patient(e)</div>
+                <div class="label">Patient</div>
                 <div class="value">${ord.patient_nom} ${ord.patient_prenom}</div>
                 ${patientAge ? `<div style="font-size: 0.85em; color: #475569; margin-top: 2px;">Âge : ${patientAge}</div>` : ""}
                 ${ord.patient_allergies ? `<div style="font-size: 0.8em; color: #dc2626; font-weight: 600; margin-top: 3px;">Allergies signalées : ${ord.patient_allergies}</div>` : ""}
@@ -657,13 +618,6 @@ export default function OrdonnancesPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button 
-              onClick={() => refetch()} 
-              title="Rafraîchir" 
-              className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className="size-4" />
-            </button>
             {(isDoctor || currentUser?.role === "ADMIN") && (
               <button 
                 onClick={() => {
@@ -698,7 +652,7 @@ export default function OrdonnancesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Rechercher par numéro (ORD-...), patient, médicament..."
+                placeholder="Rechercher par numéro, patient, médicament..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
@@ -730,7 +684,7 @@ export default function OrdonnancesPage() {
         <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden">
           <CardHeader className="border-b border-border/60 bg-muted/20 py-3.5 px-6 flex flex-row items-center justify-between">
             <CardTitle className="text-base font-semibold">Registre officiel des ordonnances</CardTitle>
-            <span className="text-xs text-muted-foreground">{filteredOrdonnances.length} ordonnance(s)</span>
+            <span className="text-xs text-muted-foreground">{filteredOrdonnances.length} ordonnances</span>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
@@ -754,7 +708,6 @@ export default function OrdonnancesPage() {
                       <th className="py-3 px-4">Patient</th>
                       <th className="py-3 px-4">Médecin Prescripteur</th>
                       <th className="py-3 px-4">Prescription</th>
-                      <th className="py-3 px-4">Statut & Facture</th>
                       <th className="py-3 px-6 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -821,7 +774,7 @@ export default function OrdonnancesPage() {
                                       </span>
                                     ))}
                                     {ord.lignes.length > 2 && (
-                                      <span className="text-[10px] text-muted-foreground">+{ord.lignes.length - 2} autre(s)</span>
+                                      <span className="text-[10px] text-muted-foreground">+{ord.lignes.length - 2} autres</span>
                                     )}
                                   </div>
                                   <button
@@ -860,47 +813,6 @@ export default function OrdonnancesPage() {
                             </div>
                           </td>
 
-                          {/* Statuts & Facturation */}
-                          <td className="py-3 px-4">
-                            <div className="space-y-1">
-                              {/* Statut Ordonnance */}
-                              <div>
-                                {ord.statut === "ACTIVE" && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                                    Active
-                                  </span>
-                                )}
-                                {ord.statut === "MODIFIEE" && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                                    Modifiée
-                                  </span>
-                                )}
-                                {ord.statut === "ANNULEE" && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">
-                                    Annulée
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Statut Facture Option A */}
-                              <div>
-                                {ord.facture_statut === "PAYEE" ? (
-                                  <span className="inline-block text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                                    ✓ Facture payée
-                                  </span>
-                                ) : ord.facture_statut === "IMPAYEE" ? (
-                                  <span className="inline-block text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                    ⏳ Facture impayée
-                                  </span>
-                                ) : (
-                                  <span className="inline-block text-[10px] text-muted-foreground">
-                                    Non facturée
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
                           {/* Actions */}
                           <td className="py-3 px-6 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -934,7 +846,7 @@ export default function OrdonnancesPage() {
                                   size="sm" 
                                   variant="outline" 
                                   onClick={() => openEditModal(ord)} 
-                                  title="Corriger l'ordonnance (avec motif d'audit)"
+                                  title="Corriger l'ordonnance"
                                   className="h-8 w-8 p-0 border-border bg-card hover:bg-muted text-foreground"
                                 >
                                   <Pencil className="size-3.5 text-blue-600" />
@@ -951,24 +863,6 @@ export default function OrdonnancesPage() {
                                   className="h-8 w-8 p-0 border-border bg-card hover:bg-red-50 dark:hover:bg-red-950/30 text-destructive"
                                 >
                                   <Ban className="size-3.5" />
-                                </Button>
-                              )}
-
-                              {/* Facturer médicaments (Secrétaire / Admin) */}
-                              {isSecretaireOrAdmin && !ord.facture_id && ord.statut !== "ANNULEE" && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => setFactureModal({
-                                    isOpen: true,
-                                    ordonnance: ord,
-                                    designation: `Médicaments ordonnance ${ord.numero}`,
-                                    montant: ""
-                                  })}
-                                  className="h-8 gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white font-medium"
-                                  title="Facturer si délivré en interne"
-                                >
-                                  <CreditCard className="size-3.5" />
-                                  <span className="hidden sm:inline">Facturer médicaments</span>
                                 </Button>
                               )}
                             </div>
@@ -995,11 +889,8 @@ export default function OrdonnancesPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
-                    Créer une ordonnance médicale
+                    Créer une ordonnance
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Numérotation automatique unique et prescription de médicaments structurés
-                  </p>
                 </div>
               </div>
               <button 
@@ -1009,16 +900,10 @@ export default function OrdonnancesPage() {
                 <XCircle className="size-5" />
               </button>
             </div>
-
-            {!isDoctor && (
-              <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-                <strong>Information :</strong> La signature d&apos;une ordonnance médicale est un acte médical réservé au profil Médecin. Si vous êtes connecté en tant qu&apos;administrateur, utilisez un compte médecin (ex: <code>dr.voahangy</code> / <code>admin123</code>) pour signer et enregistrer une ordonnance.
-              </div>
-            )}
             
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="mt-5 flex flex-col gap-5">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Consultation médicale liée *</Label>
+                <Label className="text-xs font-semibold">Consultation *</Label>
                 <select 
                   required 
                   value={formConsultation} 
@@ -1507,75 +1392,6 @@ export default function OrdonnancesPage() {
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold rounded-xl text-xs"
                 >
                   {cancelMutation.isPending ? "Annulation..." : "Confirmer l'annulation"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL FACTURER LES MÉDICAMENTS (OPTION A) */}
-      {factureModal.isOpen && factureModal.ordonnance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <CreditCard className="size-5 text-primary" /> Facturer les médicaments (Délivrance interne)
-              </h3>
-              <button 
-                onClick={() => setFactureModal({ isOpen: false, ordonnance: null, designation: "", montant: "" })} 
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <XCircle className="size-5" />
-              </button>
-            </div>
-
-            <form onSubmit={(e) => { e.preventDefault(); createFactureMedicamentsMutation.mutate(); }} className="mt-5 flex flex-col gap-4">
-              <div className="rounded-xl bg-muted/40 p-3 text-xs space-y-1.5 border border-border/60">
-                <p><strong>Patient :</strong> {factureModal.ordonnance.patient_nom} {factureModal.ordonnance.patient_prenom}</p>
-                <p><strong>Prescription :</strong> Ordonnance n°{factureModal.ordonnance.numero}</p>
-                <p className="text-muted-foreground truncate"><strong>Contenu :</strong> {factureModal.ordonnance.medicaments}</p>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Désignation de la facture *</Label>
-                <Input
-                  required
-                  value={factureModal.designation}
-                  onChange={(e) => setFactureModal({ ...factureModal, designation: e.target.value })}
-                  className="rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Montant total (Ar) *</Label>
-                <Input
-                  type="number"
-                  step="100"
-                  min="0"
-                  required
-                  placeholder="Ex : 25000"
-                  value={factureModal.montant}
-                  onChange={(e) => setFactureModal({ ...factureModal, montant: e.target.value })}
-                  className="rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setFactureModal({ isOpen: false, ordonnance: null, designation: "", montant: "" })}
-                  className="rounded-xl text-xs"
-                >
-                  Annuler
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createFactureMedicamentsMutation.isPending || !factureModal.montant}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl text-xs"
-                >
-                  {createFactureMedicamentsMutation.isPending ? "Création..." : "Générer la facture"}
                 </Button>
               </div>
             </form>

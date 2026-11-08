@@ -226,12 +226,7 @@ export default function ConsultationsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.count / pageSize)) : 1
 
-  // Statistiques calculées pour l'en-tête
-  const todayStr = new Date().toISOString().split("T")[0]
   const consultationsList = data?.results || []
-  const todayCount = consultationsList.filter(c => c.date_consultation.startsWith(todayStr)).length
-  const withVitalsCount = consultationsList.filter(c => c.constantes && (c.constantes.temperature || c.constantes.tension_arterielle || c.constantes.poids)).length
-  const withControlCount = consultationsList.filter(c => c.date_controle_recommandee).length
 
   // Mutation modification de consultation
   const updateMutation = useMutation({
@@ -417,7 +412,7 @@ export default function ConsultationsPage() {
           <table class="meta-grid">
             <tr>
               <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
-                <div class="label">Patient(e)</div>
+                <div class="label">Patient</div>
                 <div class="value">${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}</div>
               </td>
               <td class="meta-cell" style="width: 50%;">
@@ -532,7 +527,7 @@ export default function ConsultationsPage() {
           <table class="meta-grid">
             <tr>
               <td class="meta-cell" style="width: 50%; border-right: 1px solid #cbd5e1;">
-                <div class="label">Patient(e)</div>
+                <div class="label">Patient</div>
                 <div class="value">${selectedConsultation?.patient_nom} ${selectedConsultation?.patient_prenom}</div>
               </td>
               <td class="meta-cell" style="width: 50%;">
@@ -670,72 +665,6 @@ export default function ConsultationsPage() {
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => refetch()}
-              title="Rafraîchir les consultations"
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className={`size-4 ${isLoading ? "animate-spin text-primary" : ""}`} />
-              <span className="hidden sm:inline">Actualiser</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Cartes KPI Statistiques */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="rounded-2xl border-border/80 shadow-xs hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
-                <FileText className="size-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Consultations</p>
-                <p className="text-2xl font-bold text-foreground mt-0.5">{data?.count ?? 0}</p>
-                <p className="text-[11px] text-muted-foreground truncate">Dossiers répertoriés</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-border/80 shadow-xs hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
-                <Calendar className="size-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Aujourd&apos;hui</p>
-                <p className="text-2xl font-bold text-foreground mt-0.5">{todayCount}</p>
-                <p className="text-[11px] text-muted-foreground truncate">Sur la page affichée</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-border/80 shadow-xs hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
-                <Activity className="size-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Constantes Vitales</p>
-                <p className="text-2xl font-bold text-foreground mt-0.5">{withVitalsCount}</p>
-                <p className="text-[11px] text-muted-foreground truncate">Mesures enregistrées</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-border/80 shadow-xs hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
-                <Clock className="size-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Suivis Recommandés</p>
-                <p className="text-2xl font-bold text-foreground mt-0.5">{withControlCount}</p>
-                <p className="text-[11px] text-muted-foreground truncate">Contrôles planifiés</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Barre de filtres et recherche */}
@@ -1048,7 +977,7 @@ export default function ConsultationsPage() {
                     )}
                     {(!selectedConsultation.statut_paiement || selectedConsultation.statut_paiement === "GRATUIT") && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-600/20 dark:bg-slate-800 dark:text-slate-300">
-                        Contrôle gratuit
+                        Suivi gratuit
                       </span>
                     )}
                   </div>
@@ -1072,7 +1001,7 @@ export default function ConsultationsPage() {
                       <>
                         <span>•</span>
                         <span>
-                          {computeAge(selectedConsultation.patient_date_naissance)} ans (né le {new Date(selectedConsultation.patient_date_naissance).toLocaleDateString("fr-FR")})
+                          {computeAge(selectedConsultation.patient_date_naissance)} ans • Né le {new Date(selectedConsultation.patient_date_naissance).toLocaleDateString("fr-FR")}
                         </span>
                       </>
                     )}
@@ -1159,7 +1088,7 @@ export default function ConsultationsPage() {
                     </Label>
                     {editBmi && (
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${editBmi.color}`}>
-                        IMC : {editBmi.val} kg/m² ({editBmi.label})
+                        IMC : {editBmi.val} kg/m² — {editBmi.label}
                       </span>
                     )}
                   </div>
@@ -1180,7 +1109,7 @@ export default function ConsultationsPage() {
                       />
                     </div>
                     <div>
-                      <span className="text-[11px] font-medium text-muted-foreground block mb-1">Tension (ex: 120/80)</span>
+                      <span className="text-[11px] font-medium text-muted-foreground block mb-1">Tension</span>
                       <Input
                         placeholder="120/80"
                         value={editForm.constantes.tension_arterielle}
@@ -1277,7 +1206,7 @@ export default function ConsultationsPage() {
                   {editForm.suivi_recommande && (
                     <div className="space-y-3 pt-2 border-t border-border/60 animate-in fade-in duration-200">
                       <div className="space-y-1">
-                        <Label className="text-xs font-semibold">Date de suivi recommandée (indicatif)</Label>
+                        <Label className="text-xs font-semibold">Date de suivi recommandée</Label>
                         <Input
                           type="date"
                           value={editForm.date_suivi_recommandee}
@@ -1334,7 +1263,7 @@ export default function ConsultationsPage() {
                         <RotateCcw className="size-4 text-emerald-600" /> Suivi rattaché à la consultation d&apos;origine #{selectedConsultation.consultation_origine_details.id}
                       </span>
                       <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-200/50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                        Parcours de suivi (non facturable)
+                        Parcours de suivi
                       </span>
                     </div>
 
@@ -1420,7 +1349,7 @@ export default function ConsultationsPage() {
                         const bmi = computeBMI(selectedConsultation.constantes.poids, selectedConsultation.constantes.taille)
                         return bmi ? (
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${bmi.color}`}>
-                            IMC : {bmi.val} kg/m² ({bmi.label})
+                            IMC : {bmi.val} kg/m² — {bmi.label}
                           </span>
                         ) : null
                       })()}
@@ -1495,7 +1424,7 @@ export default function ConsultationsPage() {
                         </div>
                         <div>
                           <span className="font-bold text-foreground text-sm block">
-                            Date de contrôle recommandée : {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee) ? new Date(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee!).toLocaleDateString("fr-FR", {
+                            Date de suivi recommandée : {(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee) ? new Date(selectedConsultation.date_suivi_recommandee || selectedConsultation.date_controle_recommandee!).toLocaleDateString("fr-FR", {
                               weekday: "long",
                               day: "numeric",
                               month: "long",
@@ -1806,7 +1735,7 @@ export default function ConsultationsPage() {
                           </div>
 
                           <div className="text-[10px] text-muted-foreground italic">
-                            Examens réalisés auprès d&apos;un prestataire externe agréé (non facturés en interne).
+                            Examens réalisés auprès d&apos;un prestataire externe agréé.
                           </div>
                         </div>
                       ))}

@@ -14,7 +14,7 @@ class RendezVous(models.Model):
 
     class Type(models.TextChoices):
         CONSULTATION = 'CONSULTATION', 'Consultation'
-        CONTROLE = 'CONTROLE', 'Contrôle'
+        CONTROLE = 'CONTROLE', 'Suivi'
 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='rendez_vous')
     medecin = models.ForeignKey(Medecin, on_delete=models.CASCADE, related_name='rendez_vous')

@@ -52,7 +52,7 @@ export default function Home() {
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
             <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-8 backdrop-blur-md">
               <span className="flex size-2 rounded-full bg-primary mr-2 animate-pulse"></span>
-              Système d'Information Hospitalier (SIH) de nouvelle génération
+              Système d'Information Hospitalier de nouvelle génération
             </div>
             
             <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl xl:text-7xl">

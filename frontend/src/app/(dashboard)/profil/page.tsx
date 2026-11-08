@@ -444,7 +444,7 @@ function InformationsPersonnellesCard({
                 htmlFor="profile-email"
                 className="text-xs font-semibold text-slate-500 dark:text-slate-400"
               >
-                Adresse e-mail (lecture seule)
+                Adresse e-mail
               </Label>
               <Input
                 id="profile-email"

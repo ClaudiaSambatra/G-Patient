@@ -270,13 +270,6 @@ export default function PatientsPage() {
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => refetch()}
-              title="Rafraîchir"
-              className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className="size-4" />
-            </button>
-            <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
@@ -495,7 +488,7 @@ export default function PatientsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Prénom *</Label>
-                      <Input required value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} placeholder="Prénom(s)" className="h-9 text-sm" />
+                      <Input required value={form.prenom} onChange={e => setForm({...form, prenom: e.target.value})} placeholder="Prénom" className="h-9 text-sm" />
                     </div>
                   </div>
 
@@ -518,8 +511,8 @@ export default function PatientsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs">Contact (Téléphone / Email)</Label>
-                    <Input value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} placeholder="Ex: 034 00 000 00 (optionnel)" className="h-9 text-sm" />
+                    <Label className="text-xs">Contact</Label>
+                    <Input value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} placeholder="Ex: 034 00 000 00" className="h-9 text-sm" />
                   </div>
 
                   <div className="space-y-1">
@@ -540,7 +533,7 @@ export default function PatientsPage() {
                       onChange={e => setForm({...form, groupe_sanguin: e.target.value})}
                       className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <option value="">Sélectionner (optionnel)</option>
+                      <option value="">Sélectionner</option>
                       {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
                     </select>
                   </div>
@@ -606,7 +599,7 @@ export default function PatientsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Prénom *</Label>
-                      <Input required value={editForm.prenom} onChange={e => setEditForm({...editForm, prenom: e.target.value})} placeholder="Prénom(s)" className="h-9 text-sm" />
+                      <Input required value={editForm.prenom} onChange={e => setEditForm({...editForm, prenom: e.target.value})} placeholder="Prénom" className="h-9 text-sm" />
                     </div>
                   </div>
 
@@ -629,8 +622,8 @@ export default function PatientsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs">Contact (Téléphone / Email)</Label>
-                    <Input value={editForm.contact} onChange={e => setEditForm({...editForm, contact: e.target.value})} placeholder="Ex: 034 00 000 00 (optionnel)" className="h-9 text-sm" />
+                    <Label className="text-xs">Contact</Label>
+                    <Input value={editForm.contact} onChange={e => setEditForm({...editForm, contact: e.target.value})} placeholder="Ex: 034 00 000 00" className="h-9 text-sm" />
                   </div>
 
                   <div className="space-y-1">
@@ -651,7 +644,7 @@ export default function PatientsPage() {
                       onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}
                       className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <option value="">Sélectionner (optionnel)</option>
+                      <option value="">Sélectionner</option>
                       {GroupesSanguins.map(gs => <option key={gs} value={gs}>{gs}</option>)}
                     </select>
                   </div>
@@ -894,7 +887,7 @@ export default function PatientsPage() {
               </div>
 
               <div className="space-y-1">
-                <Label>Observations (Constantes, examen clinique...)</Label>
+                <Label>Observations</Label>
                 <Textarea 
                   className="min-h-[100px]"
                   placeholder="Tension: 12/8, Température: 38°C..."

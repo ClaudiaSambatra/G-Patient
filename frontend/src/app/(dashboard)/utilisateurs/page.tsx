@@ -340,14 +340,6 @@ export default function UtilisateursPage() {
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => refreshAll()}
-              title="Rafraîchir"
-              id="btn-refresh-users"
-              className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className="size-4" />
-            </button>
-            <button
               onClick={() => {
                 setIsCreateOpen(true)
                 setCreateError(null)
@@ -891,7 +883,7 @@ export default function UtilisateursPage() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-medium text-foreground">
-                    Mot de passe initial * (min. 6 caractères)
+                    Mot de passe initial *
                   </label>
                   <button
                     type="button"
@@ -939,7 +931,7 @@ export default function UtilisateursPage() {
                   className="size-4 rounded-md border-border text-primary focus:ring-primary"
                 />
                 <label htmlFor="create-user-is-active" className="text-xs text-foreground cursor-pointer">
-                  Activer immédiatement le compte (l&apos;utilisateur pourra se connecter sans délai)
+                  Activer immédiatement le compte
                 </label>
               </div>
 
@@ -1020,7 +1012,7 @@ export default function UtilisateursPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-                    Rôle métier <span className="text-[11px] font-normal lowercase text-muted-foreground">(non modifiable)</span>
+                    Rôle métier
                   </label>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Lock className="size-3" />
@@ -1151,7 +1143,7 @@ export default function UtilisateursPage() {
                   className="size-4 rounded-md border-border text-primary focus:ring-primary"
                 />
                 <label htmlFor="edit-user-is-active" className="text-xs text-foreground cursor-pointer">
-                  Compte actif {editingUser.id === currentUser?.id && "(votre propre compte reste actif)"}
+                  Compte actif
                 </label>
               </div>
 

@@ -192,7 +192,7 @@ function ResetPasswordForm() {
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between ml-2 mr-2">
               <Label htmlFor="otp" className="text-xs font-semibold text-[var(--background-dark)]">
-                Code de vérification (6 chiffres)
+                Code de vérification
               </Label>
               <button
                 type="button"
