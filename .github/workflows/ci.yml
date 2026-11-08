@@ -176,3 +176,14 @@ jobs:
             docker image prune -f
             echo "🎉 Déploiement terminé avec succès !"
           EOF
+
+      - name: Déploiement continu sur Render (Optionnel)
+        if: always()
+        run: |
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            echo "🚀 Déclenchement du déploiement automatique sur Render..."
+            curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" && echo "✅ Déploiement Render déclenché avec succès !" || echo "⚠️ Avertissement : impossible de contacter le Deploy Hook Render."
+          else
+            echo "ℹ️ Secret RENDER_DEPLOY_HOOK non configuré (Render se déploie automatiquement via son intégration GitHub ou via ce hook si renseigné)."
+          fi
+

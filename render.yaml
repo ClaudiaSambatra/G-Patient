@@ -1,0 +1,57 @@
+# Blueprint Render pour le déploiement continu de Gestion de Patients
+# Documentation : https://render.com/docs/blueprint-spec
+version: "1"
+
+databases:
+  - name: gestion-patients-db
+    databaseName: gestion_patients
+    user: gestion_user
+    plan: free
+    region: frankfurt
+
+services:
+  # --- Service Backend (Django REST Framework) ------------------------------
+  - type: web
+    name: gestion-patients-backend
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: ./build.sh
+    startCommand: python manage.py migrate --noinput && python manage.py setup_admin && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gestion-patients-db
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:3000
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        sync: false
+
+  # --- Service Frontend (Next.js) --------------------------------------------
+  - type: web
+    name: gestion-patients-frontend
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
