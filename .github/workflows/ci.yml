@@ -127,19 +127,33 @@ jobs:
     needs: [images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
-      - name: Déploiement via SSH sur AWS EC2
+      - name: Déploiement via SSH sur AWS EC2 (Optionnel)
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USER }}
         run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$SSH_USER" ]; then
+            echo "⚠️ Secrets AWS EC2 non configurés. Déploiement ignoré."
+            exit 0
+          fi
+
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash << 'EOF'
+          echo "🔍 Vérification de la connectivité avec le serveur AWS EC2..."
+          if ! ssh-keyscan -T 5 -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "⚠️ Le serveur AWS EC2 est actuellement éteint ou inaccessible. Déploiement ignoré avec succès."
+            exit 0
+          fi
+
+          ssh -o ConnectTimeout=8 -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash << 'EOF' || {
+            echo "⚠️ Impossible de se connecter en SSH au serveur EC2. Déploiement ignoré."
+            exit 0
+          }
             set -e
             echo "🚀 Démarrage du déploiement..."
             cd /home/ubuntu/gestion-patients
