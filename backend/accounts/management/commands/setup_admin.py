@@ -17,8 +17,19 @@ class Command(BaseCommand):
             )
             return
 
-        if Utilisateur.objects.filter(username=username).exists():
-            self.stdout.write(f"L'utilisateur {username} existe déjà.")
+        user = Utilisateur.objects.filter(username=username).first()
+        if user:
+            user.set_password(password)
+            user.is_active = True
+            user.is_staff = True
+            user.is_superuser = True
+            user.role = Utilisateur.Role.ADMIN
+            user.save()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Mot de passe de '{username}' synchronisé avec succès !"
+                )
+            )
             return
 
         user = Utilisateur.objects.create_superuser(

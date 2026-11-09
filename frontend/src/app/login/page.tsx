@@ -27,7 +27,13 @@ export default function LoginPage() {
     }
   }, [router])
 
-  const baseURL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"
+  const defaultBaseURL =
+    process.env.NODE_ENV === "production"
+      ? "https://gestion-patients-backend.onrender.com/api"
+      : "http://localhost:8000/api"
+
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || defaultBaseURL
+
 
   async function handleLoginSubmit(e: React.FormEvent) {
     e.preventDefault()
