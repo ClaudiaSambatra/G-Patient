@@ -1,13 +1,6 @@
-# Blueprint Render pour le déploiement continu de Gestion de Patients
+# Blueprint Render pour le déploiement continu de Cabinet Médical
 # Documentation : https://render.com/docs/blueprint-spec
 version: "1"
-
-databases:
-  - name: gestion-patients-db
-    databaseName: gestion_patients
-    user: gestion_user
-    plan: free
-    region: frankfurt
 
 services:
   # --- Service Backend (Django REST Framework) ------------------------------
@@ -27,9 +20,7 @@ services:
       - key: DJANGO_SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: gestion-patients-db
-          property: connectionString
+        sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: http://localhost:3000
       - key: ADMIN_USERNAME
