@@ -11,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Cabinet Médical",
-  description: "Système de gestion médicale — Cabinet Médical",
+  title: "Système de gestion de patient",
+  description: "Système de gestion de patient — Cabinet Médical",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
