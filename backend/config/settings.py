@@ -151,6 +151,10 @@ if database_url:
                 query_params['sslmode'][0]
             )
 
+    # Si le nom de la base est manquant dans l'URL (ex: /neondb omis)
+    if not DATABASES['default'].get('NAME'):
+        DATABASES['default']['NAME'] = config('POSTGRES_DB', default='neondb')
+
 
 # --- Validation des mots de passe -------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
