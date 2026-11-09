@@ -12,7 +12,7 @@ databases:
 services:
   # --- Service Backend (Django REST Framework) ------------------------------
   - type: web
-    name: gestion-patients-backend
+    name: cabinet-medical-backend
     runtime: python
     region: frankfurt
     plan: free
@@ -41,7 +41,7 @@ services:
 
   # --- Service Frontend (Next.js) --------------------------------------------
   - type: web
-    name: gestion-patients-frontend
+    name: cabinet-medical
     runtime: node
     region: frankfurt
     plan: free
