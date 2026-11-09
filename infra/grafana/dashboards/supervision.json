@@ -182,7 +182,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/rootfs\"})) * 100",
+          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=~\"/rootfs|/\"} / node_filesystem_size_bytes{mountpoint=~\"/rootfs|/\"})) * 100",
           "refId": "A"
         }
       ],
@@ -236,7 +236,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "count(container_last_seen{id=~\"/system.slice/docker-.+\"})",
+          "expr": "count(container_last_seen{image!=\"\"}) or count(container_last_seen{id=~\"/system.slice/docker-.+\"})",
           "refId": "A"
         }
       ],
@@ -333,8 +333,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{id=~\"/system.slice/docker-.+\"}[1m]) * 100",
-          "legendFormat": "{{name}}",
+          "expr": "rate(container_cpu_usage_seconds_total{image!=\"\"}[1m]) * 100 or rate(container_cpu_usage_seconds_total{id=~\"/system.slice/docker-.+\"}[1m]) * 100",
+          "legendFormat": "{{name}}{{id}}",
           "refId": "A"
         }
       ],
@@ -419,8 +419,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "container_memory_usage_bytes{id=~\"/system.slice/docker-.+\"}",
-          "legendFormat": "{{name}}",
+          "expr": "container_memory_usage_bytes{image!=\"\"} or container_memory_usage_bytes{id=~\"/system.slice/docker-.+\"}",
+          "legendFormat": "{{name}}{{id}}",
           "refId": "A"
         }
       ],
@@ -517,8 +517,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rate(process_cpu_seconds_total{job=\"backend\"}[1m]) * 100",
-          "legendFormat": "CPU Backend Django",
+          "expr": "rate(process_cpu_seconds_total{job=~\"backend.*\"}[1m]) * 100",
+          "legendFormat": "CPU Django ({{job}})",
           "refId": "A"
         }
       ],
@@ -603,8 +603,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "process_resident_memory_bytes{job=\"backend\"}",
-          "legendFormat": "Mémoire Résidente Django",
+          "expr": "process_resident_memory_bytes{job=~\"backend.*\"}",
+          "legendFormat": "Mémoire Django ({{job}})",
           "refId": "A"
         }
       ],

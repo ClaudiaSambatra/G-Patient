@@ -72,12 +72,14 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
+    ports:
+      - "9090:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
     volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
       - prometheus_data:/prometheus
     depends_on:
       - backend
@@ -85,6 +87,7 @@ services:
   node_exporter:
     image: prom/node-exporter:v1.8.2
     restart: unless-stopped
+    pid: host
     command:
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
@@ -102,19 +105,20 @@ services:
     devices:
       - /dev/kmsg
     command:
-      - '--containerd=/run/containerd/containerd.sock'
-      - '--containerd-namespace=moby'
+      - '-docker='
+      - '-raw_cgroup_prefix_whitelist=/system.slice/docker'
+      - '-housekeeping_interval=10s'
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
       - /dev/disk/:/dev/disk:ro
 
   grafana:
     image: grafana/grafana:11.2.0
     restart: unless-stopped
+    ports:
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -125,8 +129,8 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro,z
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro,z
     depends_on:
       - prometheus
 

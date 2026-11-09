@@ -19,3 +19,9 @@ scrape_configs:
     metrics_path: '/api/metrics/'
     static_configs:
       - targets: ['backend:8000']
+
+  - job_name: 'backend-render'
+    scheme: https
+    metrics_path: '/api/metrics/'
+    static_configs:
+      - targets: ['gestion-patients-backend.onrender.com']
