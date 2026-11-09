@@ -11,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Gestion de Patients",
-  description: "Application de gestion de patients — Backend Django, Frontend Next.js",
+  title: "Cabinet Médical",
+  description: "Système de gestion médicale — Cabinet Médical",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
