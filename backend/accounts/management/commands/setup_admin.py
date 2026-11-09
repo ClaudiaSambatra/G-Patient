@@ -9,7 +9,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = config("ADMIN_USERNAME", default="admin")
         email = config("ADMIN_EMAIL", default="admin@example.com")
-        password = config("ADMIN_PASSWORD", default="")
+        password = config("ADMIN_PASSWORD", default="Admin1234!")
 
         if not password:
             self.stdout.write(
