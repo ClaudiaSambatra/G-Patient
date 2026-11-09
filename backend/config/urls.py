@@ -12,6 +12,15 @@ from django.http import HttpResponse, JsonResponse
 import prometheus_client
 
 
+def root_view(request):
+    return JsonResponse({
+        'name': 'API Cabinet Médical',
+        'status': 'online',
+        'health': '/api/health/',
+        'admin': '/admin/',
+    })
+
+
 def health(request):
     return JsonResponse({'status': 'ok'})
 
@@ -24,6 +33,7 @@ def metrics(request):
 
 
 urlpatterns = [
+    path('', root_view, name='root'),
     path('admin/', admin.site.urls),
     path('api/health/', health, name='health'),
     path('api/metrics/', metrics, name='metrics'),
