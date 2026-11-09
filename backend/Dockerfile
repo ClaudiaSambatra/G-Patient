@@ -22,9 +22,11 @@ ENV PATH=/home/django/.local/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN mkdir -p /app/staticfiles /app/media && chown -R django:django /app
+RUN mkdir -p /app/staticfiles /app/media && chown -R django:django /app && chmod +x /app/entrypoint.sh
 USER django
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3"]
+
