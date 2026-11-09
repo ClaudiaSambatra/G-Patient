@@ -1,9 +1,14 @@
 import axios from "axios"
 
+const defaultBaseURL =
+  process.env.NODE_ENV === "production"
+    ? "https://gestion-patients-backend.onrender.com/api"
+    : "http://localhost:8000/api"
+
 // Client Axios pour l'API Django REST Framework.
 // L'URL de base vient d'une variable d'environnement (voir .env.example).
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || defaultBaseURL,
 })
 
 // Attache automatiquement le token JWT (stocké après connexion) à chaque requête.

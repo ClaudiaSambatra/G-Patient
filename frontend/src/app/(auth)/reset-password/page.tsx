@@ -25,7 +25,13 @@ function ResetPasswordForm() {
   const [resendSuccess, setResendSuccess] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0)
 
-  const baseURL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"
+  const defaultBaseURL =
+    process.env.NODE_ENV === "production"
+      ? "https://gestion-patients-backend.onrender.com/api"
+      : "http://localhost:8000/api"
+
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || defaultBaseURL
+
 
   useEffect(() => {
     const emailParam = searchParams.get("email")
