@@ -5,3 +5,4 @@ config.bat
 node_modules
 .env.backup
 *.pem
+CANEVAS L3-M2.pdf
