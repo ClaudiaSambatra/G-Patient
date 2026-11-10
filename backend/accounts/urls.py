@@ -5,8 +5,8 @@ from .views import (
     MePhotoView,
     ChangePasswordView,
     UtilisateurViewSet,
-    DashboardStatsView,
 )
+from .dashboard_views import DashboardStatsView
 
 router = DefaultRouter()
 router.register(r'utilisateurs', UtilisateurViewSet, basename='utilisateur')
