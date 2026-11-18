@@ -33,13 +33,6 @@ export function ResetPasswordForm() {
   const baseURL = process.env.NEXT_PUBLIC_API_URL || defaultBaseURL
 
   useEffect(() => {
-    const emailParam = searchParams.get("email")
-    const codeParam = searchParams.get("code") || searchParams.get("otp") || searchParams.get("token")
-    if (emailParam && !email) setEmail(emailParam)
-    if (codeParam && !otp) setOtp(codeParam)
-  }, [searchParams, email, otp])
-
-  useEffect(() => {
     if (cooldown > 0) {
       const timer = setTimeout(() => setCooldown((c) => c - 1), 1000)
       return () => clearTimeout(timer)
