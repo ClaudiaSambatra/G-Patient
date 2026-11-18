@@ -7,6 +7,8 @@ export interface Utilisateur {
   role: "ADMIN" | "MEDECIN" | "SECRETAIRE" | "PATIENT"
   telephone: string
   photo: string | null
+  specialite: string
+  numero_ordre: string
   is_active: boolean
   is_staff: boolean
   is_superuser: boolean

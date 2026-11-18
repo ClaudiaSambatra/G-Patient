@@ -116,6 +116,9 @@ export function UsersTable({
                           Médecin
                         </span>
                       )}
+                      {u.role === "MEDECIN" && u.specialite && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">{u.specialite}</div>
+                      )}
                       {u.role === "SECRETAIRE" && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-300">
                           <Briefcase className="size-3 text-amber-500" />

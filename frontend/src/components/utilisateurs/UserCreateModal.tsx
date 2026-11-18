@@ -9,6 +9,8 @@ interface CreateUserFormData {
   telephone: string
   password: string
   is_active: boolean
+  specialite: string
+  numero_ordre: string
 }
 
 interface UserCreateModalProps {
@@ -196,6 +198,36 @@ export function UserCreateModal({
               className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
             />
           </div>
+
+          {/* Profil médecin : spécialité & numéro d'ordre */}
+          {form.role === "MEDECIN" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Spécialité</label>
+                <input
+                  type="text"
+                  id="create-user-specialite"
+                  maxLength={100}
+                  value={form.specialite}
+                  onChange={(e) => setForm({ ...form, specialite: e.target.value })}
+                  placeholder="ex: Médecine générale"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">N° d&apos;ordre</label>
+                <input
+                  type="text"
+                  id="create-user-numero-ordre"
+                  maxLength={50}
+                  value={form.numero_ordre}
+                  onChange={(e) => setForm({ ...form, numero_ordre: e.target.value })}
+                  placeholder="Inscription à l'Ordre des Médecins"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Mot de passe initial avec générateur */}
           <div>

@@ -26,6 +26,25 @@ class TestAuthentification:
         })
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_mot_de_passe_courant_ne_remplace_pas_le_vrai(self):
+        for mdp in ["admin", "123456", "password", "secretaire1"]:
+            response = self.client.post("/api/auth/token/", {
+                "username": "secretaire1", "password": mdp
+            })
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        self.user.refresh_from_db()
+        assert self.user.check_password("motdepasse123")
+
+    def test_compte_desactive_ne_peut_pas_se_connecter(self):
+        self.user.is_active = False
+        self.user.save()
+        response = self.client.post("/api/auth/token/", {
+            "username": "secretaire1", "password": "motdepasse123"
+        })
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        self.user.refresh_from_db()
+        assert not self.user.is_active
+
     def test_role_correctement_assigne(self):
         assert self.user.role == Utilisateur.Role.SECRETAIRE
         assert self.user.role != Utilisateur.Role.ADMIN
@@ -133,6 +152,44 @@ class TestGestionUtilisateursAdmin:
         self.medecin.refresh_from_db()
         assert self.medecin.first_name == "Jean-Paul"
         assert self.medecin.telephone == "0349988776"
+
+    def test_admin_cree_medecin_avec_specialite_et_numero_ordre(self):
+        payload = {
+            "username": "dr_rabe",
+            "email": "rabe@hopital.local",
+            "role": Utilisateur.Role.MEDECIN,
+            "password": "Pediatrie2026!",
+            "specialite": "Pédiatrie",
+            "numero_ordre": "ONM-12345",
+        }
+        response = self.client.post("/api/accounts/utilisateurs/", payload)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        profil = Utilisateur.objects.get(username="dr_rabe").medecin_profile
+        assert profil.specialite == "Pédiatrie"
+        assert profil.numero_ordre == "ONM-12345"
+
+        liste = self.client.get("/api/accounts/utilisateurs/?search=dr_rabe")
+        assert liste.data["results"][0]["specialite"] == "Pédiatrie"
+        assert liste.data["results"][0]["numero_ordre"] == "ONM-12345"
+
+    def test_admin_modifie_specialite_medecin(self):
+        payload = {"specialite": "Cardiologie", "numero_ordre": "ONM-999"}
+        response = self.client.patch(f"/api/accounts/utilisateurs/{self.medecin.id}/", payload)
+        assert response.status_code == status.HTTP_200_OK
+        self.medecin.medecin_profile.refresh_from_db()
+        assert self.medecin.medecin_profile.specialite == "Cardiologie"
+        assert self.medecin.medecin_profile.numero_ordre == "ONM-999"
+
+    def test_specialite_ignoree_pour_non_medecin(self):
+        payload = {"specialite": "Cardiologie"}
+        response = self.client.patch(f"/api/accounts/utilisateurs/{self.secretaire.id}/", payload)
+        assert response.status_code == status.HTTP_200_OK
+        from .models import Medecin
+        assert not Medecin.objects.filter(utilisateur=self.secretaire).exists()
+
+        liste = self.client.get("/api/accounts/utilisateurs/?search=sec_marie")
+        assert liste.data["results"][0]["specialite"] == ""
 
     def test_admin_bascule_statut_actif(self):
         # Désactiver

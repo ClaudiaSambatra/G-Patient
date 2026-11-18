@@ -112,7 +112,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
     """
     CRUD complet et gestion des comptes utilisateurs (réservé aux Administrateurs).
     """
-    queryset = Utilisateur.objects.all().order_by('-date_joined')
+    queryset = Utilisateur.objects.select_related('medecin_profile').order_by('-date_joined')
     permission_classes = [IsAuthenticated, IsAdmin]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'first_name', 'last_name', 'email', 'telephone']

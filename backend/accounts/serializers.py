@@ -1,6 +1,7 @@
 from PIL import Image
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -10,7 +11,6 @@ from .models import Utilisateur, Medecin
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         raw_username = (attrs.get('username') or '').strip()
-        raw_password = attrs.get('password') or ''
 
         user = None
         if raw_username:
@@ -20,15 +20,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             if user:
                 attrs['username'] = user.username
-                # En environnement de dev: accepter les mots de passe courants s'ils sont saisis
-                dev_passwords = {'admin', 'admin123', 'passer123', 'password', '123456', user.username.lower(), 'tambatra'}
-                if raw_password in dev_passwords and not user.check_password(raw_password):
-                    user.set_password(raw_password)
-                    user.is_active = True
-                    user.save()
-                elif not user.is_active:
-                    user.is_active = True
-                    user.save()
 
         print(f"[AUTH] Tentative: '{raw_username}' -> user: {user.username if user else 'NON TROUVE'}")
         return super().validate(attrs)
@@ -51,6 +42,8 @@ class UtilisateurSerializer(serializers.ModelSerializer):
     Sérialiseur complet pour l'affichage et la gestion des utilisateurs.
     """
     photo = serializers.SerializerMethodField()
+    specialite = serializers.SerializerMethodField()
+    numero_ordre = serializers.SerializerMethodField()
 
     class Meta:
         model = Utilisateur
@@ -63,6 +56,8 @@ class UtilisateurSerializer(serializers.ModelSerializer):
             'role',
             'telephone',
             'photo',
+            'specialite',
+            'numero_ordre',
             'is_active',
             'is_staff',
             'is_superuser',
@@ -71,6 +66,17 @@ class UtilisateurSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'is_staff', 'is_superuser', 'date_joined', 'last_login']
 
+    def _medecin_profile(self, obj):
+        return getattr(obj, 'medecin_profile', None) if obj.role == Utilisateur.Role.MEDECIN else None
+
+    def get_specialite(self, obj):
+        profile = self._medecin_profile(obj)
+        return profile.specialite if profile else ''
+
+    def get_numero_ordre(self, obj):
+        profile = self._medecin_profile(obj)
+        return profile.numero_ordre if profile else ''
+
     def get_photo(self, obj):
         if obj.photo:
             request = self.context.get('request')
@@ -78,6 +84,25 @@ class UtilisateurSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.photo.url)
             return obj.photo.url
         return None
+
+
+PROFIL_MEDECIN_FIELDS = ('specialite', 'numero_ordre')
+
+
+def pop_profil_medecin(validated_data):
+    """Extrait les champs du profil médecin des données validées de l'utilisateur."""
+    return {
+        field: validated_data.pop(field).strip()
+        for field in PROFIL_MEDECIN_FIELDS
+        if field in validated_data
+    }
+
+
+def enregistrer_profil_medecin(user, profil_medecin):
+    """Enregistre spécialité et numéro d'ordre dans le profil Medecin (rôle MEDECIN uniquement)."""
+    if user.role != Utilisateur.Role.MEDECIN or not profil_medecin:
+        return
+    Medecin.objects.update_or_create(utilisateur=user, defaults=profil_medecin)
 
 
 class UtilisateurCreateSerializer(serializers.ModelSerializer):
@@ -92,6 +117,8 @@ class UtilisateurCreateSerializer(serializers.ModelSerializer):
         min_length=6,
         help_text="Mot de passe d'au moins 6 caractères"
     )
+    specialite = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=100)
+    numero_ordre = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=50)
 
     class Meta:
         model = Utilisateur
@@ -105,12 +132,17 @@ class UtilisateurCreateSerializer(serializers.ModelSerializer):
             'telephone',
             'password',
             'is_active',
+            'specialite',
+            'numero_ordre',
         ]
         read_only_fields = ['id']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = Utilisateur.objects.create_user(password=password, **validated_data)
+        profil_medecin = pop_profil_medecin(validated_data)
+        with transaction.atomic():
+            user = Utilisateur.objects.create_user(password=password, **validated_data)
+            enregistrer_profil_medecin(user, profil_medecin)
         return user
 
 
@@ -118,6 +150,9 @@ class UtilisateurUpdateSerializer(serializers.ModelSerializer):
     """
     Sérialiseur pour la mise à jour des informations d'un utilisateur existant.
     """
+    specialite = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=100)
+    numero_ordre = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=50)
+
     class Meta:
         model = Utilisateur
         fields = [
@@ -129,8 +164,17 @@ class UtilisateurUpdateSerializer(serializers.ModelSerializer):
             'role',
             'telephone',
             'is_active',
+            'specialite',
+            'numero_ordre',
         ]
         read_only_fields = ['id', 'role']
+
+    def update(self, instance, validated_data):
+        profil_medecin = pop_profil_medecin(validated_data)
+        with transaction.atomic():
+            user = super().update(instance, validated_data)
+            enregistrer_profil_medecin(user, profil_medecin)
+        return user
 
 
 class ResetPasswordSerializer(serializers.Serializer):

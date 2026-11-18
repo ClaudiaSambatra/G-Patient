@@ -20,6 +20,8 @@ export function useUserMutations(
     telephone: "",
     password: "",
     is_active: true,
+    specialite: "",
+    numero_ordre: "",
   })
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -31,6 +33,8 @@ export function useUserMutations(
     role: "MEDECIN" as "ADMIN" | "MEDECIN" | "SECRETAIRE",
     telephone: "",
     is_active: true,
+    specialite: "",
+    numero_ordre: "",
   })
   const [editError, setEditError] = useState<string | null>(null)
   const [copiedPassword, setCopiedPassword] = useState(false)
@@ -51,6 +55,8 @@ export function useUserMutations(
         telephone: "",
         password: "",
         is_active: true,
+        specialite: "",
+        numero_ordre: "",
       })
       setCreateError(null)
       refreshAll()
@@ -148,6 +154,8 @@ export function useUserMutations(
       role: user.role as "ADMIN" | "MEDECIN" | "SECRETAIRE",
       telephone: user.telephone,
       is_active: user.is_active,
+      specialite: user.specialite ?? "",
+      numero_ordre: user.numero_ordre ?? "",
     })
     setEditError(null)
   }
