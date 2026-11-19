@@ -188,7 +188,7 @@ jobs:
           python manage.py spectacular --file ../zap/openapi.yml
           TOKEN=$(curl -sf -X POST http://localhost:8000/api/auth/token/ \
             -H 'Content-Type: application/json' \
-            -d "{\"username\": \"$ADMIN_USERNAME\", \"password\": \"$ADMIN_PASSWORD\"}" | python -c "import json,sys; print(json.load(sys.stdin)['access'])")
+            -d "{\"username\": \"$ADMIN_USERNAME\", \"password\": \"$ADMIN_PASSWORD\"}" | jq -r '.access')
           echo "::add-mask::$TOKEN"
           # Ajoute l'en-tête Authorization à chaque requête envoyée par ZAP, et borne la durée
           # du scan actif (20 min au total, 3 min par règle) pour rester sous le timeout du job
