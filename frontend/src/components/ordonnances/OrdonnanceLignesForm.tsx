@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Plus, Trash2 } from "lucide-react"
 import { LigneOrdonnance, FORMES_PHARMACEUTIQUES, VOIES_ADMINISTRATION } from "./types"
 import { StockMedicament, formatAriary } from "@/components/stocks/types"
+import { MedicamentCombobox } from "./MedicamentCombobox"
 
 interface OrdonnanceLignesFormProps {
   lignes: LigneOrdonnance[]
@@ -31,15 +32,12 @@ export function OrdonnanceLignesForm({
     },
   })
 
-  const choisirDansLeStock = (idx: number, id: string) => {
-    onUpdateLine(idx, "medicament_stock", id)
-    const med = catalogue.find((m) => String(m.id) === id)
-    if (med) {
-      onUpdateLine(idx, "medicament", med.nom)
-      onUpdateLine(idx, "dosage", med.dosage)
-      if (med.forme) onUpdateLine(idx, "forme", med.forme)
-      if (!lignes[idx].quantite) onUpdateLine(idx, "quantite", "1")
-    }
+  const choisirDansLeStock = (idx: number, med: StockMedicament) => {
+    onUpdateLine(idx, "medicament_stock", String(med.id))
+    onUpdateLine(idx, "medicament", med.nom)
+    onUpdateLine(idx, "dosage", med.dosage)
+    if (med.forme) onUpdateLine(idx, "forme", med.forme)
+    if (!lignes[idx].quantite) onUpdateLine(idx, "quantite", "1")
   }
 
   return (
@@ -85,66 +83,61 @@ export function OrdonnanceLignesForm({
               const med = catalogue.find((m) => String(m.id) === stockId)
               const quantite = Number(ligne.quantite || 1)
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md bg-background/60 p-2.5">
-                  <div className="sm:col-span-2 space-y-1">
-                    <Label className="text-xs">Délivré par le cabinet ?</Label>
-                    <select
-                      value={stockId}
-                      onChange={(e) => choisirDansLeStock(idx, e.target.value)}
-                      className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="">Non : pharmacie extérieure (texte libre)</option>
-                      {catalogue.map((m) => (
-                        <option key={m.id} value={m.id} disabled={m.quantite === 0 && String(m.id) !== stockId}>
-                          {m.libelle} · {m.quantite} en stock · {formatAriary(m.prix_unitaire)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {stockId && (
-                    <div className="space-y-1">
-                      <Label className="text-xs">Quantité à délivrer ({med?.unite || "unité"})</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        required
-                        value={ligne.quantite ?? "1"}
-                        onChange={(e) => onUpdateLine(idx, "quantite", e.target.value)}
-                        className="rounded-xl h-9"
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2 space-y-1">
+                      <Label htmlFor={`ligne-${idx}-medicament`} className="text-xs">
+                        Médicament *
+                      </Label>
+                      <MedicamentCombobox
+                        id={`ligne-${idx}-medicament`}
+                        value={ligne.medicament}
+                        stockId={stockId}
+                        catalogue={catalogue}
+                        onChoisirStock={(m) => choisirDansLeStock(idx, m)}
+                        onTexteLibre={(texte) => {
+                          onUpdateLine(idx, "medicament", texte)
+                          if (stockId) onUpdateLine(idx, "medicament_stock", "")
+                        }}
                       />
-                      {med && quantite > med.quantite && (
-                        <p className="text-[11px] text-amber-700">Seulement {med.quantite} en stock.</p>
-                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Dosage / Concentration</Label>
+                      <Input
+                        readOnly={Boolean(stockId)}
+                        placeholder="Ex : 500 mg, 1 g"
+                        value={ligne.dosage || ""}
+                        onChange={(e) => onUpdateLine(idx, "dosage", e.target.value)}
+                        className="rounded-xl h-9 read-only:bg-muted/60 read-only:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+
+                  {med && (
+                    <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantité à délivrer ({med.unite})</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          required
+                          value={ligne.quantite ?? "1"}
+                          onChange={(e) => onUpdateLine(idx, "quantite", e.target.value)}
+                          className="rounded-xl h-9 w-28"
+                        />
+                      </div>
+                      <p className="pb-2 text-xs text-muted-foreground">
+                        Délivré par le cabinet · {med.quantite} en stock ·{" "}
+                        {formatAriary(Number(med.prix_unitaire) * quantite)}
+                        {quantite > med.quantite && (
+                          <span className="ml-1 font-medium text-amber-700">· stock insuffisant</span>
+                        )}
+                      </p>
                     </div>
                   )}
-                </div>
+                </>
               )
             })()}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2 space-y-1">
-                <Label className="text-xs">Nom du médicament *</Label>
-                <Input
-                  required
-                  readOnly={Boolean(ligne.medicament_stock)}
-                  title={ligne.medicament_stock ? "Repris du stock du cabinet" : undefined}
-                  placeholder="Ex : Amoxicilline"
-                  value={ligne.medicament}
-                  onChange={(e) => onUpdateLine(idx, "medicament", e.target.value)}
-                  className="rounded-xl h-9 read-only:bg-muted/60 read-only:text-muted-foreground"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Dosage / Concentration</Label>
-                <Input
-                  readOnly={Boolean(ligne.medicament_stock)}
-                  placeholder="Ex : 500 mg, 1 g"
-                  value={ligne.dosage || ""}
-                  onChange={(e) => onUpdateLine(idx, "dosage", e.target.value)}
-                  className="rounded-xl h-9 read-only:bg-muted/60 read-only:text-muted-foreground"
-                />
-              </div>
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -222,6 +215,15 @@ export function OrdonnanceLignesForm({
           </div>
         ))}
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onAddLine}
+        className="w-full gap-1.5 border-dashed text-xs text-primary hover:bg-primary/10 rounded-lg"
+      >
+        <Plus className="size-3.5" /> Ajouter un autre médicament
+      </Button>
     </div>
   )
 }
