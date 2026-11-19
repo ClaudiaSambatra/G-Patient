@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { StockAlertesCard } from "./StockAlertesCard"
 import {
   CalendarDots,
   ArrowClockwise,
@@ -27,6 +28,8 @@ export function SecretaireDashboardView({
     <div className="flex flex-col gap-6">
       {/* Cartes Statistiques Métier */}
       <SecretaireStatsCards stats={stats} />
+
+      <StockAlertesCard alertes={stats.stock_alertes} />
 
       {/* Planning des RDV du Jour & Derniers Patients */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

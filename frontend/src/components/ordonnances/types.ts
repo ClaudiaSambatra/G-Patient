@@ -1,6 +1,12 @@
 export interface LigneOrdonnance {
   id?: number
   medicament: string
+  // Pharmacie du cabinet : vide = médicament acheté en pharmacie extérieure
+  medicament_stock?: number | string | null
+  quantite?: number | string
+  medicament_stock_prix?: string | null
+  medicament_stock_disponible?: number | null
+  medicament_stock_unite?: string | null
   dosage?: string
   forme?: string
   dose_par_prise?: string

@@ -13,6 +13,7 @@ from accounts.permissions import (
     IsSecretaireOuMedecinOuAdmin,
 )
 from appointments.models import RendezVous
+from pharmacie.services import StockInsuffisant, sortir_medicaments_facture
 from .models import Facture
 from .serializers import FactureSerializer
 from .pdf import generate_recu_pdf
@@ -117,32 +118,42 @@ class FactureViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with transaction.atomic():
-            instance.statut = Facture.StatutPaiement.PAYEE
-            instance.date_paiement = timezone.now()
-            instance.encaisse_par = request.user
-            instance.save(update_fields=['statut', 'date_paiement', 'encaisse_par'])
-
-            # Si facture de CONSULTATION, confirmer automatiquement le rendez-vous
-            if instance.type == Facture.Type.CONSULTATION:
-                if not instance.rendez_vous:
-                    unlinked_rdv = RendezVous.objects.filter(
-                        patient=instance.patient,
-                        type=RendezVous.Type.CONSULTATION,
-                        facture__isnull=True
-                    ).order_by('-date_heure').first()
-                    if unlinked_rdv:
-                        instance.rendez_vous = unlinked_rdv
-                        instance.save(update_fields=['rendez_vous'])
-
-                if instance.rendez_vous:
-                    rdv = instance.rendez_vous
-                    if rdv.statut == RendezVous.Statut.PLANIFIE:
-                        rdv.statut = RendezVous.Statut.CONFIRME
-                        rdv.save(update_fields=['statut', 'date_modification'])
+        try:
+            with transaction.atomic():
+                self._encaisser(instance, request.user)
+        except StockInsuffisant as err:
+            return Response({"detail": str(err)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _encaisser(self, instance, user):
+        instance.statut = Facture.StatutPaiement.PAYEE
+        instance.date_paiement = timezone.now()
+        instance.encaisse_par = user
+        instance.save(update_fields=['statut', 'date_paiement', 'encaisse_par'])
+
+        # Facture de MEDICAMENTS : sortie de stock des médicaments délivrés par le cabinet
+        if instance.type == Facture.Type.MEDICAMENTS:
+            sortir_medicaments_facture(instance, user)
+
+        # Si facture de CONSULTATION, confirmer automatiquement le rendez-vous
+        if instance.type == Facture.Type.CONSULTATION:
+            if not instance.rendez_vous:
+                unlinked_rdv = RendezVous.objects.filter(
+                    patient=instance.patient,
+                    type=RendezVous.Type.CONSULTATION,
+                    facture__isnull=True
+                ).order_by('-date_heure').first()
+                if unlinked_rdv:
+                    instance.rendez_vous = unlinked_rdv
+                    instance.save(update_fields=['rendez_vous'])
+
+            if instance.rendez_vous:
+                rdv = instance.rendez_vous
+                if rdv.statut == RendezVous.Statut.PLANIFIE:
+                    rdv.statut = RendezVous.Statut.CONFIRME
+                    rdv.save(update_fields=['statut', 'date_modification'])
 
     @action(detail=True, methods=['get'], url_path='recu')
     def recu(self, request, pk=None):

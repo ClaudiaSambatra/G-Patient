@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react"
 import { AdminDashboardData } from "./types"
 import { AdminStatsCards } from "./AdminStatsCards"
+import { StockAlertesCard } from "./StockAlertesCard"
 
 interface AdminDashboardViewProps {
   stats: AdminDashboardData
@@ -24,6 +25,8 @@ export function AdminDashboardView({ stats }: AdminDashboardViewProps) {
     <div className="flex flex-col gap-6">
       {/* 8 Indicateurs Globaux Clinique & Finances */}
       <AdminStatsCards stats={stats} />
+
+      <StockAlertesCard alertes={stats.stock_alertes} />
 
       {/* Graphiques visuels d'analyse */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,4 +1,13 @@
+export interface StockAlerte {
+  id: number
+  libelle: string
+  quantite: number
+  seuil_alerte: number
+  unite: string
+}
+
 export interface SecretaireDashboardData {
+  stock_alertes?: StockAlerte[]
   role: "SECRETAIRE"
   total_patients: number
   nouveaux_patients_jour: number
@@ -80,6 +89,7 @@ export interface MedecinDashboardData {
 }
 
 export interface AdminDashboardData {
+  stock_alertes?: StockAlerte[]
   role: "ADMIN"
   total_patients: number
   total_rdv: number

@@ -5,6 +5,7 @@ from appointments.models import RendezVous
 from consultations.models import Consultation
 from billing.models import Facture
 from .models import Utilisateur, Medecin
+from .dashboard_services import medicaments_en_alerte
 
 
 def get_admin_dashboard_data(today):
@@ -123,4 +124,5 @@ def get_admin_dashboard_data(today):
         "repartition_rdv": repartition_rdv,
         "activite_medecins": activite_medecins,
         "dernieres_activites": dernieres_activites,
+        "stock_alertes": medicaments_en_alerte(),
     }

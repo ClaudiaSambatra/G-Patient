@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/prescriptions/', include('prescriptions.urls')),
     path('api/examinations/', include('examinations.urls')),
     path('api/billing/', include('billing.urls')),
+    path('api/stocks/', include('pharmacie.urls')),
 ]
 
 from django.conf import settings

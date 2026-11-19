@@ -16,6 +16,7 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
         <td style="padding: 10px 8px;">
           <div style="font-weight: bold; font-size: 1.05em; color: #0f172a;">${l.medicament} ${l.dosage || ""}</div>
           ${l.forme ? `<div style="font-size: 0.85em; color: #64748b;">Forme : ${l.forme}</div>` : ""}
+          ${l.medicament_stock ? `<div style="font-size: 0.85em; color: #3B38E0; font-weight: 600;">Quantité : ${l.quantite} ${l.medicament_stock_unite || "unité"}(s) — délivré par le cabinet</div>` : ""}
         </td>
         <td style="padding: 10px 8px;">
           <div style="font-weight: 500;">${l.dose_par_prise || ""}${l.frequence ? ` — ${l.frequence}` : ""}</div>

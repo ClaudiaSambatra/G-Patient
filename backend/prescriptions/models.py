@@ -93,6 +93,16 @@ class LigneOrdonnance(models.Model):
         related_name='lignes'
     )
     medicament = models.CharField(max_length=255, verbose_name="Nom du médicament")
+    # Lien optionnel vers la pharmacie du cabinet : vide = médicament acheté en pharmacie extérieure
+    medicament_stock = models.ForeignKey(
+        'pharmacie.StockMedicament',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lignes_ordonnance',
+        verbose_name="Médicament du stock"
+    )
+    quantite = models.PositiveIntegerField(default=1, verbose_name="Quantité à délivrer")
     dosage = models.CharField(max_length=100, blank=True, default='', verbose_name="Dosage / Concentration")
     forme = models.CharField(max_length=100, blank=True, default='', verbose_name="Forme pharmaceutique")
     dose_par_prise = models.CharField(max_length=100, blank=True, default='', verbose_name="Dose par prise")

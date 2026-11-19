@@ -1,16 +1,45 @@
 from rest_framework import serializers
+from pharmacie.services import montant_pharmacie
 from .models import Ordonnance, LigneOrdonnance, OrdonnanceHistorique
 
 
 class LigneOrdonnanceSerializer(serializers.ModelSerializer):
+    medicament_stock_prix = serializers.DecimalField(
+        source='medicament_stock.prix_unitaire', max_digits=10, decimal_places=2, read_only=True
+    )
+    medicament_stock_disponible = serializers.IntegerField(source='medicament_stock.quantite', read_only=True)
+    medicament_stock_unite = serializers.CharField(source='medicament_stock.unite', read_only=True)
+
     class Meta:
         model = LigneOrdonnance
         fields = [
-            'id', 'medicament', 'dosage', 'forme',
+            'id', 'medicament', 'medicament_stock', 'quantite',
+            'medicament_stock_prix', 'medicament_stock_disponible', 'medicament_stock_unite',
+            'dosage', 'forme',
             'dose_par_prise', 'voie_administration',
             'frequence', 'duree', 'instructions', 'ordre'
         ]
         read_only_fields = ['id']
+
+    def validate_medicament_stock(self, value):
+        if value and not value.actif:
+            raise serializers.ValidationError(f"{value} n'est plus proposé par la pharmacie du cabinet.")
+        return value
+
+    def validate_quantite(self, value):
+        if value < 1:
+            raise serializers.ValidationError("La quantité à délivrer doit être d'au moins 1.")
+        return value
+
+    def validate(self, attrs):
+        # Médicament délivré par le cabinet : nom, dosage et forme viennent du catalogue,
+        # pour que l'ordonnance imprimée corresponde à ce qui est facturé et sorti du stock.
+        stock = attrs.get('medicament_stock')
+        if stock:
+            attrs['medicament'] = stock.nom
+            attrs['dosage'] = stock.dosage
+            attrs['forme'] = stock.forme or attrs.get('forme', '')
+        return attrs
 
 
 class OrdonnanceHistoriqueSerializer(serializers.ModelSerializer):
@@ -54,6 +83,7 @@ class OrdonnanceSerializer(serializers.ModelSerializer):
 
     facture_id = serializers.SerializerMethodField(read_only=True)
     facture_statut = serializers.SerializerMethodField(read_only=True)
+    montant_pharmacie = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Ordonnance
@@ -63,7 +93,7 @@ class OrdonnanceSerializer(serializers.ModelSerializer):
             'patient_date_naissance', 'patient_contact',
             'patient_allergies', 'patient_antecedents',
             'medecin_id', 'medecin_nom', 'medecin_specialite', 'medecin_numero_ordre',
-            'lignes', 'historique', 'motif_correction',
+            'lignes', 'montant_pharmacie', 'historique', 'motif_correction',
             'medicaments', 'posologie', 'duree',
             'date_creation', 'date_modification',
             'facture_id', 'facture_statut'
@@ -98,6 +128,10 @@ class OrdonnanceSerializer(serializers.ModelSerializer):
             if profile and profile.numero_ordre:
                 return profile.numero_ordre
         return ""
+
+    def get_montant_pharmacie(self, obj):
+        """Total des médicaments délivrés par le cabinet (pré-remplit la facture médicaments)."""
+        return montant_pharmacie(obj)
 
     def get_facture_id(self, obj):
         if hasattr(obj, 'facture') and obj.facture:

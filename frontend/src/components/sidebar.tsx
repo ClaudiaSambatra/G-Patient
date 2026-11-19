@@ -12,6 +12,7 @@ import {
   Pill,
   Flask,
   CreditCard,
+  Package,
   UserGear,
   ShieldCheck,
   SignOut,
@@ -166,6 +167,19 @@ export function Sidebar() {
         >
           <CreditCard size={20} weight="duotone" />
           Facturation
+        </Link>
+
+        <Link
+          href="/stocks"
+          id="nav-link-stocks"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/stocks"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <Package size={20} weight="duotone" />
+          Pharmacie &amp; stocks
         </Link>
 
         {isAdmin && (

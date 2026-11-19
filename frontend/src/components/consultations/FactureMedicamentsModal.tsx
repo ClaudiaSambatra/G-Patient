@@ -67,7 +67,7 @@ export function FactureMedicamentsModal({
               type="number"
               required
               min="0"
-              step="500"
+              step="any"
               value={modalState.montant}
               onChange={(e) =>
                 setModalState((prev) =>
@@ -77,6 +77,9 @@ export function FactureMedicamentsModal({
               placeholder="Ex: 35000"
               className="mt-1 rounded-xl"
             />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Calculé à partir des médicaments délivrés par le cabinet. Le stock sera déduit à l&apos;encaissement.
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">

@@ -1,11 +1,24 @@
 from datetime import timedelta
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.utils import timezone
 from patients.models import Patient
 from appointments.models import RendezVous
 from consultations.models import Consultation
 from billing.models import Facture
+from pharmacie.models import StockMedicament
 from .models import Utilisateur
+
+
+def medicaments_en_alerte():
+    """Médicaments actifs à ou sous leur seuil d'alerte (module 11), les plus critiques d'abord."""
+    medicaments = StockMedicament.objects.filter(actif=True, quantite__lte=F('seuil_alerte')).order_by('quantite', 'nom')
+    return [{
+        'id': m.id,
+        'libelle': str(m),
+        'quantite': m.quantite,
+        'seuil_alerte': m.seuil_alerte,
+        'unite': m.unite,
+    } for m in medicaments[:10]]
 
 
 def get_secretaire_dashboard_data(today):
@@ -79,6 +92,7 @@ def get_secretaire_dashboard_data(today):
         "paiements_du_jour": paiements_du_jour,
         "rdv_jour_liste": rdv_jour_liste,
         "derniers_patients": derniers_patients,
+        "stock_alertes": medicaments_en_alerte(),
     }
 
 

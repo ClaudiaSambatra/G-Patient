@@ -260,7 +260,8 @@ export default function ConsultationsPage() {
             ordonnanceId: ord.id,
             patientId: selectedConsultation.patient,
             designation: `Médicaments ordonnance ${ord.numero || ord.id}`,
-            montant: "",
+            // Pré-rempli depuis la pharmacie du cabinet (quantité × prix unitaire)
+            montant: Number(ord.montant_pharmacie) > 0 ? String(Number(ord.montant_pharmacie)) : "",
           })
         }}
         onStartEditing={handleStartEditing}

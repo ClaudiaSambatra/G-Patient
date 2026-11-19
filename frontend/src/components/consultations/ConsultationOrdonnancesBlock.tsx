@@ -134,6 +134,11 @@ export function ConsultationOrdonnancesBlock({
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-foreground text-xs">
                           {idx + 1}. {l.medicament} {l.dosage ? `(${l.dosage})` : ""}
+                          {l.medicament_stock && (
+                            <span className="ml-1.5 font-normal text-primary">
+                              × {l.quantite} {l.medicament_stock_unite || "unité"}(s), cabinet
+                            </span>
+                          )}
                         </span>
                         {l.forme && (
                           <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">

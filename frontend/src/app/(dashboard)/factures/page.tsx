@@ -133,6 +133,7 @@ export default function FacturesPage() {
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["factures"] })
+      queryClient.invalidateQueries({ queryKey: ["stocks"] })
       queryClient.invalidateQueries({ queryKey: ["rendezvous"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       refetch()
