@@ -273,3 +273,50 @@ def test_metrique_prometheus_medicaments_sous_seuil(test_data):
     valeurs = {m.name: m.samples[0].value for m in CollecteurStock().collect()}
     assert valeurs['pharmacie_medicaments_sous_seuil'] == 2
     assert valeurs['pharmacie_medicaments_en_rupture'] == 1
+
+
+# ==============================================================================
+# NOTIFICATION DE SEUIL PAR E-MAIL
+# ==============================================================================
+
+@pytest.mark.django_db(transaction=True)
+def test_email_envoye_une_seule_fois_au_franchissement_du_seuil(api_client, test_data, mailoutbox):
+    test_data['secretaire'].email = 'secretaire@cabinet.mg'
+    test_data['secretaire'].save()
+    test_data['admin_user'].email = 'admin@cabinet.mg'
+    test_data['admin_user'].save()
+    api_client.force_authenticate(user=test_data['secretaire'])
+    med = test_data['amoxicilline']  # 20 en stock, seuil 5
+    url = reverse('stock-medicament-ajustement', args=[med.id])
+
+    api_client.post(url, {'quantite_reelle': 6, 'motif': 'Inventaire'}, format='json')
+    assert len(mailoutbox) == 0  # encore au-dessus du seuil
+
+    api_client.post(url, {'quantite_reelle': 4, 'motif': 'Casse'}, format='json')
+    assert len(mailoutbox) == 1
+    mail = mailoutbox[0]
+    assert 'Stock bas' in mail.subject and 'Amoxicilline' in mail.subject
+    assert sorted(mail.to) == ['admin@cabinet.mg', 'secretaire@cabinet.mg']
+    assert '4 boîte(s)' in mail.body
+
+    api_client.post(url, {'quantite_reelle': 3, 'motif': 'Casse'}, format='json')
+    assert len(mailoutbox) == 1  # déjà sous le seuil : pas de nouvel e-mail
+
+
+@pytest.mark.django_db(transaction=True)
+def test_aucun_email_si_encaissement_annule(api_client, test_data, mailoutbox):
+    test_data['secretaire'].email = 'secretaire@cabinet.mg'
+    test_data['secretaire'].save()
+    # 20 en stock, seuil 5 : sortir 16 franchirait le seuil, mais le paracétamol bloque l'encaissement
+    ordonnance = creer_ordonnance(api_client, test_data, [
+        {**LIGNE_BASE, 'medicament': 'Amoxicilline', 'medicament_stock': test_data['amoxicilline'].id, 'quantite': 16},
+        {**LIGNE_BASE, 'medicament': 'Paracétamol', 'medicament_stock': test_data['paracetamol'].id, 'quantite': 9},
+    ])
+    facture = Facture.objects.create(
+        patient=test_data['patient'], type=Facture.Type.MEDICAMENTS,
+        ordonnance_id=ordonnance['id'], designation='Médicaments', montant=Decimal('150500'),
+    )
+    api_client.force_authenticate(user=test_data['secretaire'])
+    response = api_client.post(reverse('facture-encaisser', args=[facture.id]))
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert len(mailoutbox) == 0

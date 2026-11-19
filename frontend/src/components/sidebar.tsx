@@ -59,6 +59,19 @@ export function Sidebar() {
   }
 
   const isAdmin = user?.role === "ADMIN" || user?.is_superuser
+  const gereLeStock = isAdmin || user?.role === "SECRETAIRE"
+
+  // Badge « à commander » : médicaments actifs à ou sous leur seuil d'alerte (rafraîchi chaque minute
+  // et après chaque réception, inventaire ou encaissement, qui invalident les requêtes « stocks »)
+  const { data: nbAlertesStock = 0 } = useQuery({
+    queryKey: ["stocks", "alertes-compteur"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ count: number }>("/stocks/medicaments/?alerte=1&actif=1&page_size=1")
+      return data.count
+    },
+    enabled: Boolean(gereLeStock),
+    refetchInterval: 60_000,
+  })
 
   return (
     <aside className="w-64 h-full border-r border-border/60 bg-background/85 backdrop-blur-md transition-all flex flex-col">
@@ -180,6 +193,14 @@ export function Sidebar() {
         >
           <Package size={20} weight="duotone" />
           Pharmacie &amp; stocks
+          {gereLeStock && nbAlertesStock > 0 && (
+            <span
+              title={`${nbAlertesStock} médicament(s) à commander`}
+              className="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+            >
+              {nbAlertesStock}
+            </span>
+          )}
         </Link>
 
         {isAdmin && (

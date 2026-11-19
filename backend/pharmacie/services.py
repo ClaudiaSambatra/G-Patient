@@ -20,8 +20,16 @@ def enregistrer_mouvement(medicament, type_mouvement, variation, auteur, motif='
             raise StockInsuffisant(
                 f"Stock insuffisant pour {med} : {med.quantite} {med.unite}(s) disponible(s), {-variation} demandé(s)."
             )
+        ancienne_quantite = med.quantite
         med.quantite = nouvelle_quantite
         med.save(update_fields=['quantite', 'date_modification'])
+
+        # Franchissement du seuil (et seulement à ce moment-là) : e-mail aux gestionnaires du stock,
+        # envoyé après validation de la transaction pour ne rien envoyer si l'opération est annulée.
+        if med.actif and ancienne_quantite > med.seuil_alerte >= nouvelle_quantite:
+            from .notifications import notifier_seuil_atteint
+            transaction.on_commit(lambda: notifier_seuil_atteint(med.pk))
+
         return MouvementStock.objects.create(
             medicament=med,
             type=type_mouvement,
