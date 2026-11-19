@@ -932,3 +932,24 @@ class TestDashboardStats:
         assert len(data["dernieres_activites"]) > 0
         activite_types = [a["type"] for a in data["dernieres_activites"]]
         assert "CONSULTATION" in activite_types or "PATIENT" in activite_types
+
+
+@pytest.mark.django_db
+def test_mots_de_passe_haches_en_argon2_et_anciens_pbkdf2_convertis(settings):
+    from django.conf import settings as conf
+    from django.contrib.auth.hashers import make_password
+    # On rétablit le réglage de production (le conftest accélère les tests avec MD5)
+    settings.PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.Argon2PasswordHasher',
+        'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    ]
+    assert conf.PASSWORD_HASHERS[0].endswith('Argon2PasswordHasher')
+    user = Utilisateur.objects.create_user(username='argon', password='MotDePasse-Solide-2026', role='SECRETAIRE')
+    assert user.password.startswith('argon2')
+
+    ancien = Utilisateur.objects.create(username='ancien', role='SECRETAIRE',
+                                        password=make_password('Ancien-Pass-2026', hasher='pbkdf2_sha256'))
+    assert ancien.password.startswith('pbkdf2_sha256')
+    assert ancien.check_password('Ancien-Pass-2026')  # vérifie et convertit
+    ancien.refresh_from_db()
+    assert ancien.password.startswith('argon2')

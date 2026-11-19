@@ -9,9 +9,11 @@ medecin_router = DefaultRouter()
 medecin_router.register(r'', MedecinViewSet, basename='medecin')
 
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_safe
 import prometheus_client
 
 
+@require_safe
 def root_view(request):
     return JsonResponse({
         'name': 'API Cabinet Médical',
@@ -40,10 +42,12 @@ handler404 = erreur_404
 handler500 = erreur_500
 
 
+@require_safe
 def health(request):
     return JsonResponse({'status': 'ok'})
 
 
+@require_safe
 def metrics(request):
     return HttpResponse(
         prometheus_client.generate_latest(),

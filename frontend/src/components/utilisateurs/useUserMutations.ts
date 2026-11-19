@@ -145,7 +145,7 @@ export function useUserMutations(
   function handleGeneratePasswordForCreate() {
     const pwd = generateStrongPassword()
     setCreateForm((f) => ({ ...f, password: pwd }))
-    navigator.clipboard?.writeText(pwd)
+    navigator.clipboard?.writeText(pwd).catch(() => {})
     setCopiedPassword(true)
     setTimeout(() => setCopiedPassword(false), 2000)
   }

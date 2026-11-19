@@ -160,6 +160,13 @@ if database_url:
 
 
 # --- Validation des mots de passe -------------------------------------------
+# Hachage des mots de passe : Argon2 (exigence 4.4 du cahier des charges).
+# PBKDF2 reste accepté pour les comptes existants, convertis en Argon2 à leur prochaine connexion.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -240,10 +247,3 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # Tarif de consultation (par défaut 20 000 Ar)
 TARIF_CONSULTATION = config('TARIF_CONSULTATION', default=20000, cast=int)
-
-# Accélération des tests unitaires (hasher rapide pour éviter la lenteur PBKDF2 en CI/tests)
-import sys
-if 'pytest' in sys.modules or any('pytest' in arg for arg in sys.argv) or 'test' in sys.argv:
-    PASSWORD_HASHERS = [
-        'django.contrib.auth.hashers.MD5PasswordHasher',
-    ]

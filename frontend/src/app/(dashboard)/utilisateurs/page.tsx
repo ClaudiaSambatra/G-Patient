@@ -209,7 +209,7 @@ export default function UtilisateursPage() {
         copiedPassword={copiedPassword}
         onGeneratePassword={handleGeneratePasswordForCreate}
         onCopyPassword={() => {
-          navigator.clipboard?.writeText(createForm.password)
+          navigator.clipboard?.writeText(createForm.password).catch(() => {})
           setCopiedPassword(true)
           setTimeout(() => setCopiedPassword(false), 2000)
         }}
