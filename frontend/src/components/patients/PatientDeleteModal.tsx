@@ -19,7 +19,7 @@ export function PatientDeleteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-destructive bg-card p-6 shadow-2xl text-center">
+      <div className="w-full max-w-md rounded-lg border border-destructive bg-card p-6 shadow-2xl text-center">
         <Trash2 className="mx-auto size-12 text-destructive/80 mb-4" />
         <h3 className="text-xl font-bold text-foreground mb-2">Confirmer la suppression</h3>
         <p className="text-sm text-muted-foreground mb-6">

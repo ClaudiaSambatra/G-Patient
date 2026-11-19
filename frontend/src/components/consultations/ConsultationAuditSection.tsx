@@ -11,7 +11,7 @@ export function ConsultationAuditSection({
   if (!historique || historique.length === 0) return null
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-muted/15 p-4 space-y-3">
+    <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3">
       <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
         <History className="size-4 text-amber-600" />
         Historique des modifications &amp; Traçabilité ({historique.length})

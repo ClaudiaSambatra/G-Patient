@@ -23,7 +23,7 @@ export function ConsultationEditForm({
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-5 text-sm">
       {/* Avertissement Traçabilité Médicale */}
-      <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
         <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-bold">
           <ShieldAlert className="size-5 text-amber-600 shrink-0" />
           <span>Modification réglementée du dossier médical</span>
@@ -127,7 +127,7 @@ export function ConsultationEditForm({
       </div>
 
       {/* Section Recommandation de suivi */}
-      <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+      <div className="rounded-lg border border-border/70 p-4 bg-muted/20 space-y-3">
         <div className="flex items-center gap-2">
           <input
             type="checkbox"

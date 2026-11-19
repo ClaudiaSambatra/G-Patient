@@ -42,7 +42,7 @@ export function RendezVousTableView({
   onDeleteRdv,
 }: RendezVousTableViewProps) {
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden">
+    <Card className="border-border/80 shadow-xs rounded-lg overflow-hidden">
       <CardHeader className="border-b border-border/60 bg-muted/20 py-3.5 px-6 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold">Rendez-vous programmés</CardTitle>
         <span className="text-xs text-muted-foreground">

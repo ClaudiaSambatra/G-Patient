@@ -15,10 +15,8 @@ import {
   UserGear,
   ShieldCheck,
   SignOut,
-  Heartbeat,
   Stethoscope,
   UserCheck,
-  Buildings,
 } from "@phosphor-icons/react"
 
 export interface CurrentUser {
@@ -66,22 +64,14 @@ export function Sidebar() {
       <div className="flex h-16 shrink-0 items-center px-6 border-b border-border/60">
         <Link
           href="/dashboard"
-          className="group flex items-center gap-2.5 transition-transform hover:scale-[1.02]"
+          className="flex items-center gap-2.5"
           id="nav-brand-logo"
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr bg-primary text-white shadow-md shadow-primary/20">
-            <Heartbeat size={22} weight="duotone" className="transition-transform group-hover:scale-110" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
-              Gestion Patients
-              <span className="rounded-full bg-primary/10 px-1.5 py-0 text-[9px] font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
-                Pro
-              </span>
-            </span>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Buildings size={12} weight="duotone" /> Centre Médical
-            </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ej-icon.png" alt="EJ Logiciel" className="size-9 shrink-0 rounded-md" />
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-semibold text-foreground">Gestion Patients</span>
+            <span className="text-[11px] text-muted-foreground">EJ Logiciel</span>
           </div>
         </Link>
       </div>
@@ -184,7 +174,7 @@ export function Sidebar() {
             id="nav-link-utilisateurs"
             className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
               pathname === "/utilisateurs"
-                ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
@@ -219,7 +209,7 @@ export function Sidebar() {
                 className="size-9 shrink-0 rounded-full object-cover shadow-xs border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all"
               />
             ) : (
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br bg-accent text-xs font-bold text-white shadow-xs group-hover:scale-105 transition-transform">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--background-dark)] text-xs font-semibold text-white">
                 {(user.first_name?.[0] || user.username[0] || "U").toUpperCase()}
                 {(user.last_name?.[0] || "").toUpperCase()}
               </div>

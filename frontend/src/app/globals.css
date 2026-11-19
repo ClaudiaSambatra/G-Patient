@@ -37,76 +37,181 @@
   --radius-xl: calc(var(--radius) + 4px);
   
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+
+/* Charte EJ Logiciel : les teintes bleues, cyan et violettes utilisées dans les
+   composants sont ramenées au bleu du logo, et les gris au bleu nuit. */
+@theme {
+  --color-blue-50: #EEEEFC;
+  --color-blue-100: #E0DFFA;
+  --color-blue-200: #C4C2F5;
+  --color-blue-300: #9F9CEE;
+  --color-blue-400: #7774E8;
+  --color-blue-500: #524FE5;
+  --color-blue-600: #3B38E0;
+  --color-blue-700: #2F2CB8;
+  --color-blue-800: #26248F;
+  --color-blue-900: #1E1D6B;
+  --color-blue-950: #141845;
+  --color-indigo-50: #EEEEFC;
+  --color-indigo-100: #E0DFFA;
+  --color-indigo-200: #C4C2F5;
+  --color-indigo-300: #9F9CEE;
+  --color-indigo-400: #7774E8;
+  --color-indigo-500: #524FE5;
+  --color-indigo-600: #3B38E0;
+  --color-indigo-700: #2F2CB8;
+  --color-indigo-800: #26248F;
+  --color-indigo-900: #1E1D6B;
+  --color-indigo-950: #141845;
+  --color-sky-50: #EEEEFC;
+  --color-sky-100: #E0DFFA;
+  --color-sky-200: #C4C2F5;
+  --color-sky-300: #9F9CEE;
+  --color-sky-400: #7774E8;
+  --color-sky-500: #524FE5;
+  --color-sky-600: #3B38E0;
+  --color-sky-700: #2F2CB8;
+  --color-sky-800: #26248F;
+  --color-sky-900: #1E1D6B;
+  --color-sky-950: #141845;
+  --color-cyan-50: #EEEEFC;
+  --color-cyan-100: #E0DFFA;
+  --color-cyan-200: #C4C2F5;
+  --color-cyan-300: #9F9CEE;
+  --color-cyan-400: #7774E8;
+  --color-cyan-500: #524FE5;
+  --color-cyan-600: #3B38E0;
+  --color-cyan-700: #2F2CB8;
+  --color-cyan-800: #26248F;
+  --color-cyan-900: #1E1D6B;
+  --color-cyan-950: #141845;
+  --color-teal-50: #EEEEFC;
+  --color-teal-100: #E0DFFA;
+  --color-teal-200: #C4C2F5;
+  --color-teal-300: #9F9CEE;
+  --color-teal-400: #7774E8;
+  --color-teal-500: #524FE5;
+  --color-teal-600: #3B38E0;
+  --color-teal-700: #2F2CB8;
+  --color-teal-800: #26248F;
+  --color-teal-900: #1E1D6B;
+  --color-teal-950: #141845;
+  --color-violet-50: #EEEEFC;
+  --color-violet-100: #E0DFFA;
+  --color-violet-200: #C4C2F5;
+  --color-violet-300: #9F9CEE;
+  --color-violet-400: #7774E8;
+  --color-violet-500: #524FE5;
+  --color-violet-600: #3B38E0;
+  --color-violet-700: #2F2CB8;
+  --color-violet-800: #26248F;
+  --color-violet-900: #1E1D6B;
+  --color-violet-950: #141845;
+  --color-purple-50: #EEEEFC;
+  --color-purple-100: #E0DFFA;
+  --color-purple-200: #C4C2F5;
+  --color-purple-300: #9F9CEE;
+  --color-purple-400: #7774E8;
+  --color-purple-500: #524FE5;
+  --color-purple-600: #3B38E0;
+  --color-purple-700: #2F2CB8;
+  --color-purple-800: #26248F;
+  --color-purple-900: #1E1D6B;
+  --color-purple-950: #141845;
+  --color-slate-50: #F6F7FB;
+  --color-slate-100: #EEF0F6;
+  --color-slate-200: #E1E4EE;
+  --color-slate-300: #C9CDDC;
+  --color-slate-400: #9599B0;
+  --color-slate-500: #676C86;
+  --color-slate-600: #4D526B;
+  --color-slate-700: #3A3E57;
+  --color-slate-800: #262A45;
+  --color-slate-900: #191C3D;
+  --color-slate-950: #10122E;
+  --color-gray-50: #F6F7FB;
+  --color-gray-100: #EEF0F6;
+  --color-gray-200: #E1E4EE;
+  --color-gray-300: #C9CDDC;
+  --color-gray-400: #9599B0;
+  --color-gray-500: #676C86;
+  --color-gray-600: #4D526B;
+  --color-gray-700: #3A3E57;
+  --color-gray-800: #262A45;
+  --color-gray-900: #191C3D;
+  --color-gray-950: #10122E;
 }
 
 :root {
-  --radius: 0.5rem;
-  /* Thème EJ Logiciel & Authentification */
-  --background-dark: #0F172A;
-  --surface: #F1F5F9;
-  --panel: #EAF2FF;
-  --primary: #1A5FFF;
-  --accent: #4DA3FF;
+  --radius: 0.375rem;
+  /* Charte EJ Logiciel (couleurs relevées sur le logo) */
+  --background-dark: #141845; /* bleu nuit du fond */
+  --surface: #F4F5FA;
+  --panel: #EDEEF8;
+  --primary: #3B38E0;         /* bleu de l'étoile et de l'arc */
+  --accent: #5359B7;          /* reflet de l'arc */
   --text-light: #FFFFFF;
-  --text-muted: #64748B;
+  --text-muted: #5E637D;
 
   /* Palette Base (Light Mode) */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  --background: 230 33% 97%;
+  --foreground: 235 42% 17%;
   
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 235 42% 17%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 235 42% 17%;
   
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 228 30% 95%;
+  --secondary-foreground: 235 42% 17%;
   
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 228 30% 95%;
+  --muted-foreground: 230 13% 45%;
   
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
   
-  --border: 214 32% 88%;
-  --input: 214 32% 88%;
-  --ring: #1A5FFF;
+  --border: 228 24% 89%;
+  --input: 228 24% 85%;
+  --ring: #3B38E0;
 }
 
 .dark {
-  /* Thème EJ Logiciel & Authentification (Dark) */
-  --background-dark: #0B1120;
-  --surface: #1E293B;
-  --panel: #1E293B;
-  --primary: #3B82F6;
-  --accent: #60A5FA;
+  /* Charte EJ Logiciel (sombre) */
+  --background-dark: #0E1033;
+  --surface: #1B1E44;
+  --panel: #1B1E44;
+  --primary: #6461EC;
+  --accent: #8B8FD6;
   --text-light: #FFFFFF;
-  --text-muted: #94A3B8;
+  --text-muted: #9EA2BC;
 
   /* Palette Base (Dark Mode) */
-  --background: 222 47% 7%;
-  --foreground: 210 40% 98%;
+  --background: 236 50% 10%;
+  --foreground: 230 33% 96%;
   
-  --card: 222 40% 12%;
-  --card-foreground: 210 40% 98%;
+  --card: 235 42% 15%;
+  --card-foreground: 230 33% 96%;
   
-  --popover: 222 40% 12%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 235 42% 15%;
+  --popover-foreground: 230 33% 96%;
   
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 233 32% 20%;
+  --secondary-foreground: 230 33% 96%;
   
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 233 32% 20%;
+  --muted-foreground: 231 17% 68%;
   
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 40%;
+  --destructive-foreground: 0 0% 100%;
   
-  --border: 222 30% 18%;
-  --input: 222 30% 18%;
-  --ring: #3B82F6;
+  --border: 233 30% 22%;
+  --input: 233 30% 22%;
+  --ring: #6461EC;
 }
 
 @layer base {

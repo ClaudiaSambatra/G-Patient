@@ -20,7 +20,7 @@ export function UsersTable({
   onDeleteUser,
 }: UsersTableProps) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
+    <div className="rounded-lg border border-border/80 bg-card shadow-xs overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm" id="table-users">
           <thead>

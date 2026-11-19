@@ -87,7 +87,7 @@ export function ExamensTable({
           </div>
         ) : demandesList.length === 0 ? (
           <div className="py-16 px-4 text-center text-muted-foreground text-sm flex flex-col items-center justify-center">
-            <div className="size-14 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-3">
+            <div className="size-14 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-3">
               {filterCategorie === "BIOLOGIE" ? (
                 <Microscope size={32} weight="duotone" />
               ) : (

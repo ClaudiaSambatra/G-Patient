@@ -20,7 +20,7 @@ export function ConsultationOrdonnancesBlock({
     currentUser?.role === "ADMIN" || currentUser?.role === "SECRETAIRE"
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3">
+    <div className="rounded-lg border border-border/70 bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Pill className="size-4 text-primary" />

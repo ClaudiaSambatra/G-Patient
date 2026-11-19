@@ -27,7 +27,7 @@ export function OrdonnanceCancelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-3xl border border-destructive/40 bg-card p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-destructive/40 bg-card p-6 shadow-2xl">
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <h3 className="text-base font-bold text-destructive flex items-center gap-2">
             <Ban className="size-5" /> Annuler l&apos;ordonnance {ordonnance.numero}

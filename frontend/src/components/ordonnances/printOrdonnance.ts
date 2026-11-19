@@ -12,7 +12,7 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
         .map(
           (l, index) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 10px 8px; font-weight: 600; color: #0f766e;">${index + 1}</td>
+        <td style="padding: 10px 8px; font-weight: 600; color: #141845;">${index + 1}</td>
         <td style="padding: 10px 8px;">
           <div style="font-weight: bold; font-size: 1.05em; color: #0f172a;">${l.medicament} ${l.dosage || ""}</div>
           ${l.forme ? `<div style="font-size: 0.85em; color: #64748b;">Forme : ${l.forme}</div>` : ""}
@@ -60,14 +60,14 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
           }
           .header-table {
             width: 100%;
-            border-bottom: 2.5px solid #0f766e;
+            border-bottom: 2.5px solid #141845;
             padding-bottom: 14px;
             margin-bottom: 22px;
           }
           .brand-title {
             font-size: 1.45em;
             font-weight: 800;
-            color: #0f766e;
+            color: #141845;
             letter-spacing: -0.5px;
           }
           .brand-sub {
@@ -86,7 +86,7 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
           }
           .doctor-sub {
             font-size: 0.9em;
-            color: #0d9488;
+            color: #141845;
             font-weight: 600;
           }
           .doctor-meta {
@@ -119,8 +119,8 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
           }
           .badge-num {
             display: inline-block;
-            background-color: #e0f2fe;
-            color: #0369a1;
+            background-color: #EEEEFC;
+            color: #3B38E0;
             padding: 2px 8px;
             border-radius: 4px;
             font-family: monospace;
@@ -131,7 +131,7 @@ export function handlePrintOrdonnance(ord: Ordonnance) {
             font-size: 1.2em;
             font-weight: 800;
             letter-spacing: 1px;
-            color: #0f766e;
+            color: #141845;
             margin: 18px 0;
             text-transform: uppercase;
           }

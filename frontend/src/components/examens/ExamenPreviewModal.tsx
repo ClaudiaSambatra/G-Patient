@@ -18,11 +18,11 @@ export function ExamenPreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-6">
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-6">
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+            <div className="size-10 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
               <FileText size={22} weight="duotone" />
             </div>
             <div>
@@ -41,11 +41,11 @@ export function ExamenPreviewModal({
         </div>
 
         {/* Feuille de prescription médicale stylisée */}
-        <div className="rounded-2xl border border-border/80 bg-background p-6 space-y-6 shadow-xs font-sans">
+        <div className="rounded-lg border border-border/80 bg-background p-6 space-y-6 shadow-xs font-sans">
           {/* En-tête de la clinique */}
           <div className="flex items-start justify-between border-b-2 border-cyan-600 pb-4">
             <div>
-              <div className="text-lg font-extrabold text-cyan-700 dark:text-cyan-400">
+              <div className="text-lg font-bold text-cyan-700 dark:text-cyan-400">
                 CENTRE MÉDICAL & CLINIQUE
               </div>
               <div className="text-xs text-muted-foreground">

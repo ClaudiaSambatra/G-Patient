@@ -140,7 +140,7 @@ export default function PatientsPage() {
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all active:scale-[0.99] cursor-pointer"
             >
               <UserPlus className="size-4.5" />
               <span>Nouveau Patient</span>
@@ -149,7 +149,7 @@ export default function PatientsPage() {
         </div>
 
         {/* Barre de recherche */}
-        <Card className="border-border/80 shadow-xs rounded-2xl p-4 bg-card/60 backdrop-blur-xs">
+        <Card className="border-border/80 shadow-xs rounded-lg p-4 bg-card/60 backdrop-blur-xs">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <input

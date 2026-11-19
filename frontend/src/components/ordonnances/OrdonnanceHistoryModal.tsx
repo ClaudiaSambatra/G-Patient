@@ -17,7 +17,7 @@ export function OrdonnanceHistoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
@@ -44,7 +44,7 @@ export function OrdonnanceHistoryModal({
           {ordonnance.historique?.map((h) => (
             <div
               key={h.id}
-              className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2 text-xs"
+              className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-2 text-xs"
             >
               <div className="flex items-center justify-between text-muted-foreground border-b border-border/40 pb-2">
                 <span className="font-semibold text-foreground flex items-center gap-1.5">

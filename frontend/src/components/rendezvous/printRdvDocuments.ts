@@ -21,7 +21,7 @@ export function handlePrintPrescription(
   const lignesRows = hasLignes
     ? ord.lignes!.map((l, index: number) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 10px 8px; font-weight: 600; color: #0f766e;">${index + 1}</td>
+        <td style="padding: 10px 8px; font-weight: 600; color: #141845;">${index + 1}</td>
         <td style="padding: 10px 8px;">
           <div style="font-weight: bold; font-size: 1.05em; color: #0f172a;">${l.medicament} ${l.dosage || ""}</div>
           ${l.forme ? `<div style="font-size: 0.85em; color: #64748b;">Forme : ${l.forme}</div>` : ""}
@@ -53,15 +53,15 @@ export function handlePrintPrescription(
         <style>
           @page { size: A4 portrait; margin: 15mm 20mm; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
-          .header-table { width: 100%; border-bottom: 2.5px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; }
-          .brand-title { font-size: 1.45em; font-weight: 800; color: #0f766e; }
+          .header-table { width: 100%; border-bottom: 2.5px solid #141845; padding-bottom: 14px; margin-bottom: 20px; }
+          .brand-title { font-size: 1.45em; font-weight: 800; color: #141845; }
           .brand-sub { font-size: 0.85em; color: #475569; }
           .meta-grid { width: 100%; margin-bottom: 22px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc; }
           .meta-cell { padding: 10px 14px; vertical-align: top; }
           .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
           .value { font-size: 1em; font-weight: 700; color: #0f172a; }
-          .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
-          .prescription-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0f766e; margin: 16px 0; text-transform: uppercase; }
+          .badge-num { display: inline-block; background-color: #EEEEFC; color: #3B38E0; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+          .prescription-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #141845; margin: 16px 0; text-transform: uppercase; }
           .presc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           .presc-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
           .footer-section { margin-top: 40px; page-break-inside: avoid; }
@@ -86,7 +86,7 @@ export function handlePrintPrescription(
             </td>
             <td class="meta-cell" style="width: 50%;">
               <div class="label">Patient</div>
-              <div class="value" style="font-size: 1.1em; color: #0f766e; margin-top: 4px;">${ord.patient_nom || existingConsultation?.patient_nom || ""} ${ord.patient_prenom || existingConsultation?.patient_prenom || ""}</div>
+              <div class="value" style="font-size: 1.1em; color: #141845; margin-top: 4px;">${ord.patient_nom || existingConsultation?.patient_nom || ""} ${ord.patient_prenom || existingConsultation?.patient_prenom || ""}</div>
             </td>
           </tr>
         </table>
@@ -128,7 +128,7 @@ export function handlePrintExam(
     ? exam.lignes.map((l, idx: number) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 9px; text-align: center; color: #64748b; font-weight: bold;">${idx + 1}</td>
-        <td style="padding: 9px; font-weight: 600; color: #0284c7;">
+        <td style="padding: 9px; font-weight: 600; color: #3B38E0;">
           ${l.categorie === 'BIOLOGIE' ? '🔬 Biologie' : (l.categorie === 'IMAGERIE' ? '🩻 Imagerie' : '📋 Exploration')}
         </td>
         <td style="padding: 9px; font-weight: 700; color: #0f172a;">${l.nom_examen}</td>
@@ -146,8 +146,8 @@ export function handlePrintExam(
         <style>
           @page { size: A4 portrait; margin: 15mm 20mm; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 20px; font-size: 13px; line-height: 1.5; }
-          .header-table { width: 100%; border-bottom: 2.5px solid #0369a1; padding-bottom: 14px; margin-bottom: 20px; }
-          .brand-title { font-size: 1.45em; font-weight: 800; color: #0369a1; }
+          .header-table { width: 100%; border-bottom: 2.5px solid #3B38E0; padding-bottom: 14px; margin-bottom: 20px; }
+          .brand-title { font-size: 1.45em; font-weight: 800; color: #3B38E0; }
           .brand-sub { font-size: 0.85em; color: #475569; }
           .doctor-box { text-align: right; }
           .doctor-name { font-size: 1.15em; font-weight: 700; color: #0f172a; }
@@ -155,11 +155,11 @@ export function handlePrintExam(
           .meta-cell { padding: 10px 14px; vertical-align: top; }
           .label { font-size: 0.75em; text-transform: uppercase; color: #64748b; font-weight: 700; }
           .value { font-size: 1em; font-weight: 700; color: #0f172a; }
-          .badge-num { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
-          .exam-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #0369a1; margin: 16px 0; text-transform: uppercase; }
+          .badge-num { display: inline-block; background-color: #EEEEFC; color: #3B38E0; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; }
+          .exam-title { text-align: center; font-size: 1.2em; font-weight: 800; color: #3B38E0; margin: 16px 0; text-transform: uppercase; }
           .exam-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           .exam-table th { background-color: #f1f5f9; color: #334155; font-size: 0.8em; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
-          .clinical-box { background: #f0f9ff; border-left: 4px solid #0284c7; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; font-size: 0.9em; color: #0369a1; }
+          .clinical-box { background: #EEEEFC; border-left: 4px solid #3B38E0; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; font-size: 0.9em; color: #3B38E0; }
           .footer-section { margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid; }
           .stamp-box { width: 230px; height: 100px; border: 1.5px dashed #94a3b8; border-radius: 8px; text-align: center; padding: 8px; color: #64748b; font-size: 0.85em; display: flex; flex-direction: column; justify-content: space-between; }
         </style>

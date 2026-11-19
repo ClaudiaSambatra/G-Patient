@@ -24,7 +24,7 @@ export function ConsultationsFilters({
   const hasActiveFilters = Boolean(search || dateDebut || dateFin)
 
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden p-4 bg-card/60 backdrop-blur-xs">
+    <Card className="border-border/80 shadow-xs rounded-lg overflow-hidden p-4 bg-card/60 backdrop-blur-xs">
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         {/* Recherche textuelle */}
         <div className="relative flex-1">

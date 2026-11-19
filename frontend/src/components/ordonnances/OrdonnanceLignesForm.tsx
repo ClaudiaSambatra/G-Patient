@@ -40,7 +40,7 @@ export function OrdonnanceLignesForm({
         {lignes.map((ligne, idx) => (
           <div
             key={idx}
-            className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3 relative"
+            className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-3 relative"
           >
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
               <span className="text-xs font-bold text-foreground">

@@ -48,11 +48,11 @@ export function ExamenCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5">
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+            <div className="size-10 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
               <Flask size={22} weight="duotone" />
             </div>
             <div>
@@ -99,7 +99,7 @@ export function ExamenCreateModal({
             </select>
 
             {selectedC && (
-              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-muted/40 border border-border/70 text-xs mt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs mt-2">
                 <div className="flex items-center gap-2">
                   <div className="size-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
                     <User size={15} weight="duotone" />

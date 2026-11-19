@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-8 max-w-md mx-auto">
           
           {/* Titre « Mot de passe oublié ? » avec « oublié » en --accent */}
-          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight text-center text-[var(--background-dark)] leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-bold tracking-tight text-center text-[var(--background-dark)] leading-tight">
             Mot de passe <span className="text-[var(--accent)]">oublié</span> ?
           </h1>
 
@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           {/* Message de confirmation après envoi */}
           {submitted ? (
             <div className="mt-5 flex flex-col items-center gap-3 text-center">
-              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-xs sm:text-sm text-primary font-medium flex items-center gap-2">
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs sm:text-sm text-primary font-medium flex items-center gap-2">
                 <CheckCircle2 className="size-4.5 shrink-0 text-primary" />
                 <span>Si ce compte existe, un e-mail vient d&apos;être envoyé.</span>
               </div>
@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
               <div className="mt-2 flex flex-col gap-2 w-full max-w-xs">
                 <Link
                   href={`/reset-password?email=${encodeURIComponent(email)}`}
-                  className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-[#1A5FFF]/20 transition-all"
+                  className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-[#3B38E0]/20 transition-all"
                 >
                   <span>Saisir le code reçu</span>
                   <ArrowRight className="size-4" />
@@ -107,7 +107,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-sm tracking-wide shadow-md shadow-[#1A5FFF]/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-sm tracking-wide shadow-md shadow-[#3B38E0]/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>{loading ? "Envoi en cours…" : "Envoyer le lien"}</span>
                 {!loading && <ArrowRight className="size-4" />}

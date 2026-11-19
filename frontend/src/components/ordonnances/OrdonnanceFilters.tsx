@@ -15,7 +15,7 @@ export function OrdonnanceFilters({
   onStatutChange,
 }: OrdonnanceFiltersProps) {
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl p-4 bg-card/60 backdrop-blur-xs">
+    <Card className="border-border/80 shadow-xs rounded-lg p-4 bg-card/60 backdrop-blur-xs">
       <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />

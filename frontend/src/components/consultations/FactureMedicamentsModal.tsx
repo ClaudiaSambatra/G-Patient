@@ -28,7 +28,7 @@ export function FactureMedicamentsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <h3 className="text-base font-bold flex items-center gap-2">
             <FileSignature className="size-5 text-emerald-600" />

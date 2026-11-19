@@ -18,7 +18,7 @@ export function ConsultationVitalsEditFields({
   )
 
   return (
-    <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3">
+    <div className="rounded-lg border border-border/70 p-4 bg-muted/20 space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Activity className="size-4 text-primary" /> Constantes physiologiques

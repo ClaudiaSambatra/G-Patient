@@ -102,7 +102,7 @@ export default function UtilisateursPage() {
   if (currentUser && !isAdmin) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-8 shadow-sm text-center max-w-md">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-8 shadow-sm text-center max-w-md">
           <ShieldAlert className="mx-auto size-12 text-destructive mb-3" />
           <h2 className="text-xl font-bold text-foreground">Accès restreint</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -165,7 +165,7 @@ export default function UtilisateursPage() {
                 setCreateError(null)
               }}
               id="btn-open-create-user"
-              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all active:scale-[0.99] cursor-pointer"
             >
               <UserPlus className="size-4.5" />
               <span>Nouvel utilisateur</span>

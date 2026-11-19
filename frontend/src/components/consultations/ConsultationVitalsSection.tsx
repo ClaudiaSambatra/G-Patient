@@ -33,7 +33,7 @@ export function ConsultationVitalsSection({
       />
 
       {/* 1. Alerte Médicale Prioritaire : Allergies & Antécédents */}
-      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
         <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
           <AlertTriangle className="size-4 shrink-0 text-amber-600" />
           Dossier médical patient — Alertes cliniques
@@ -68,7 +68,7 @@ export function ConsultationVitalsSection({
 
       {/* 2. Constantes Physiologiques & IMC */}
       {consultation.constantes && (
-        <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3 shadow-2xs">
+        <div className="rounded-lg border border-border/70 bg-card p-4 space-y-3 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Activity className="size-4 text-primary" /> Constantes physiologiques
@@ -149,7 +149,7 @@ export function ConsultationVitalsSection({
       {(consultation.date_suivi_recommandee ||
         consultation.date_controle_recommandee ||
         consultation.suivi_recommande) && (
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-2">
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
@@ -192,7 +192,7 @@ export function ConsultationVitalsSection({
 
       {/* 4. Examen Clinique & Diagnostic */}
       <div className="grid grid-cols-1 gap-4">
-        <div className="rounded-2xl border border-border/60 bg-muted/10 p-4 space-y-1">
+        <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-1">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
             Motif de la consultation
           </span>
@@ -201,7 +201,7 @@ export function ConsultationVitalsSection({
           </p>
         </div>
 
-        <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 space-y-1">
+        <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-1">
           <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider">
             <Sparkles className="size-3.5" />
             Conclusion Diagnostique
@@ -216,7 +216,7 @@ export function ConsultationVitalsSection({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-1">
+          <div className="rounded-lg border border-border/60 bg-card p-4 space-y-1">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               Observations cliniques
             </span>
@@ -229,7 +229,7 @@ export function ConsultationVitalsSection({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-1">
+          <div className="rounded-lg border border-border/60 bg-card p-4 space-y-1">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               Compte-rendu médical
             </span>

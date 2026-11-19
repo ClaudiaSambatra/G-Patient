@@ -9,7 +9,7 @@ export function UserStatsCards({ statsData }: UserStatsCardsProps) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {/* Total */}
-      <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-primary/40">
+      <div className="group rounded-lg border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-primary/40">
         <div className="flex items-center justify-between text-muted-foreground">
           <span className="text-xs font-medium uppercase tracking-wider">Total</span>
           <div className="rounded-lg bg-primary/10 p-2 text-primary">
@@ -23,7 +23,7 @@ export function UserStatsCards({ statsData }: UserStatsCardsProps) {
       </div>
 
       {/* Médecins */}
-      <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-emerald-200">
+      <div className="group rounded-lg border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-emerald-200">
         <div className="flex items-center justify-between text-muted-foreground">
           <span className="text-xs font-medium uppercase tracking-wider">Médecins</span>
           <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
@@ -37,7 +37,7 @@ export function UserStatsCards({ statsData }: UserStatsCardsProps) {
       </div>
 
       {/* Secrétaires */}
-      <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-amber-200">
+      <div className="group rounded-lg border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-amber-200">
         <div className="flex items-center justify-between text-muted-foreground">
           <span className="text-xs font-medium uppercase tracking-wider">Secrétaires</span>
           <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
@@ -51,7 +51,7 @@ export function UserStatsCards({ statsData }: UserStatsCardsProps) {
       </div>
 
       {/* Administrateurs */}
-      <div className="group rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-accent/40">
+      <div className="group rounded-lg border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-accent/40">
         <div className="flex items-center justify-between text-muted-foreground">
           <span className="text-xs font-medium uppercase tracking-wider">Admins</span>
           <div className="rounded-lg bg-accent/10 p-2 text-accent">
@@ -65,7 +65,7 @@ export function UserStatsCards({ statsData }: UserStatsCardsProps) {
       </div>
 
       {/* Actifs */}
-      <div className="group col-span-2 sm:col-span-1 rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-cyan-200">
+      <div className="group col-span-2 sm:col-span-1 rounded-lg border border-border/80 bg-card p-4 shadow-xs transition-all hover:shadow-md hover:border-cyan-200">
         <div className="flex items-center justify-between text-muted-foreground">
           <span className="text-xs font-medium uppercase tracking-wider">Actifs</span>
           <div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-600">

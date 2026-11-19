@@ -15,7 +15,7 @@ export function ExamenAccordionDetail({
   onPrint,
 }: ExamenAccordionDetailProps) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-card p-5 space-y-4 shadow-xs animate-in slide-in-from-top-2 duration-150">
+    <div className="rounded-lg border border-border/80 bg-card p-5 space-y-4 shadow-xs animate-in slide-in-from-top-2 duration-150">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
         <div className="flex items-center gap-3">
           <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">

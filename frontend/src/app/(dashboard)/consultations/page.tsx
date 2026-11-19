@@ -182,7 +182,7 @@ export default function ConsultationsPage() {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-xs ring-1 ring-primary/20 dark:bg-primary/20">
+            <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-xs ring-1 ring-primary/20 dark:bg-primary/20">
               <FileText className="size-6" />
             </div>
             <div>

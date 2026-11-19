@@ -65,10 +65,10 @@ export function ExamenEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="size-10 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <PencilSimple size={22} weight="duotone" />
             </div>
             <div>
@@ -87,7 +87,7 @@ export function ExamenEditModal({
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+          <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
             <Label
               htmlFor="edit-motif"
               className="text-amber-900 dark:text-amber-200 font-bold flex items-center gap-1.5 text-xs"

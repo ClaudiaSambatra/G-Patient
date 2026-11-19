@@ -115,7 +115,7 @@ export function RendezVousCalendarDayView({
                             onOpenConsultation(rdv)
                           }
                         }}
-                        className={`rounded-md border p-1.5 text-xs shadow-2xs mb-1 cursor-pointer transition-transform hover:scale-[1.01] ${bgBadge}`}
+                        className={`rounded-md border p-1.5 text-xs shadow-2xs mb-1 cursor-pointer transition-transform ${bgBadge}`}
                       >
                         <div className="font-bold flex items-center justify-between">
                           <span>

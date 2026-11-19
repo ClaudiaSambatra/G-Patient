@@ -39,7 +39,7 @@ export function ConsultationsTable({
   onSelectConsultation,
 }: ConsultationsTableProps) {
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden">
+    <Card className="border-border/80 shadow-xs rounded-lg overflow-hidden">
       <CardHeader className="border-b border-border/60 bg-muted/20 py-3.5 px-6 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-primary" />
@@ -65,7 +65,7 @@ export function ConsultationsTable({
           </div>
         ) : consultations.length === 0 ? (
           <div className="py-16 text-center text-sm text-muted-foreground">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground/60 mb-3">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground/60 mb-3">
               <FileText className="size-7" />
             </div>
             <p className="font-semibold text-foreground text-base">

@@ -36,7 +36,7 @@ export function OrdonnanceEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-6 sm:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
@@ -64,7 +64,7 @@ export function OrdonnanceEditModal({
 
         <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-5">
           {/* Alerte et Motif de correction obligatoire */}
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-xs">
               <ShieldAlert className="size-4" />
               Traçabilité réglementaire obligatoire

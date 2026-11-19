@@ -74,7 +74,7 @@ export default function LoginPage() {
         <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-8 max-w-md mx-auto">
           
           {/* Titre « Bon retour ! » avec « retour » en --accent */}
-          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight text-center text-[var(--background-dark)] leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-bold tracking-tight text-center text-[var(--background-dark)] leading-tight">
             Bon <span className="text-[var(--accent)]">retour</span> !
           </h1>
 
@@ -155,7 +155,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               id="btn-login-submit"
-              className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-sm tracking-wide shadow-md shadow-[#1A5FFF]/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-10 sm:h-11 rounded-full bg-[var(--primary)] hover:opacity-95 active:scale-[0.99] text-[var(--text-light)] font-bold text-sm tracking-wide shadow-md shadow-[#3B38E0]/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>{loading ? "Connexion en cours…" : "Se connecter"}</span>
               {!loading && <ArrowRight className="size-4" />}

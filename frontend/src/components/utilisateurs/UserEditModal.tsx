@@ -38,7 +38,7 @@ export function UserEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-xl rounded-lg border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-2.5">
             {user.photo ? (
@@ -49,7 +49,7 @@ export function UserEditModal({
                 className="size-10 shrink-0 rounded-xl object-cover border border-border shadow-xs"
               />
             ) : (
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-white">
                 <Edit3 className="size-5" />
               </div>
             )}
@@ -265,7 +265,7 @@ export function UserEditModal({
               type="submit"
               disabled={isPending}
               id="btn-submit-edit-user"
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
             >
               {isPending ? "Enregistrement…" : "Sauvegarder"}
             </button>

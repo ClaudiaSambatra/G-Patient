@@ -8,7 +8,7 @@ export function ConsultationOrigineCard({ orig }: ConsultationOrigineCardProps) 
   if (!orig) return null
 
   return (
-    <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-2 text-xs uppercase tracking-wider">
           <RotateCcw className="size-4 text-emerald-600" /> Suivi rattaché à la

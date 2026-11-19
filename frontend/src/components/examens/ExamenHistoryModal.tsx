@@ -17,7 +17,7 @@ export function ExamenHistoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+      <div className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <h3 className="text-base font-bold flex items-center gap-2">
             <ClockCounterClockwise
@@ -45,7 +45,7 @@ export function ExamenHistoryModal({
             demande.historique.map((h, i) => (
               <div
                 key={h.id || i}
-                className="p-4 rounded-2xl border border-border/80 bg-muted/20 text-xs space-y-2.5"
+                className="p-4 rounded-lg border border-border/80 bg-muted/20 text-xs space-y-2.5"
               >
                 <div className="flex items-center justify-between text-muted-foreground border-b border-border/50 pb-2">
                   <span className="font-semibold text-foreground flex items-center gap-1.5">

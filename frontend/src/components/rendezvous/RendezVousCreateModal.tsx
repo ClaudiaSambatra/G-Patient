@@ -39,7 +39,7 @@ export function RendezVousCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <CalendarIcon className="size-5 text-primary" /> Planifier un nouveau rendez-vous

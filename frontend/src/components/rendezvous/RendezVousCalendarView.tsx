@@ -47,7 +47,7 @@ export function RendezVousCalendarView({
   }
 
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden p-6 bg-card">
+    <Card className="border-border/80 shadow-xs rounded-lg overflow-hidden p-6 bg-card">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-border/60">
         <div className="flex items-center gap-3">
           <button

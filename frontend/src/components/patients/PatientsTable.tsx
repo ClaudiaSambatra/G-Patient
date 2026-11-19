@@ -25,7 +25,7 @@ export function PatientsTable({
   onDeletePatient,
 }: PatientsTableProps) {
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl overflow-hidden">
+    <Card className="border-border/80 shadow-xs rounded-lg overflow-hidden">
       <CardHeader className="border-b border-border/60 bg-muted/20 py-3.5 px-6">
         <CardTitle className="text-base font-semibold">Répertoire des dossiers</CardTitle>
       </CardHeader>

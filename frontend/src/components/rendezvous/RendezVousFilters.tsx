@@ -48,7 +48,7 @@ export function RendezVousFilters({
   onResetPage,
 }: RendezVousFiltersProps) {
   return (
-    <Card className="border-border/80 shadow-xs rounded-2xl p-4 bg-card/60 backdrop-blur-xs">
+    <Card className="border-border/80 shadow-xs rounded-lg p-4 bg-card/60 backdrop-blur-xs">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />

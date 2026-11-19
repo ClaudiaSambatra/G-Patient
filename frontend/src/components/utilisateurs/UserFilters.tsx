@@ -18,7 +18,7 @@ export function UserFilters({
   onStatusFilterChange,
 }: UserFiltersProps) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="rounded-lg border border-border/80 bg-card p-4 shadow-xs flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       {/* Recherche textuelle */}
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
