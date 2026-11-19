@@ -8,6 +8,7 @@ import {
   SquaresFour,
   Users,
   CalendarDots,
+  CalendarCheck,
   ClipboardText,
   Pill,
   Flask,
@@ -73,6 +74,14 @@ export function Sidebar() {
     refetchInterval: 60_000,
   })
 
+  // Badge du planning : rendez-vous à venir dont le médecin est absent ou hors horaires
+  const { data: nbRdvAReaffecter = 0 } = useQuery({
+    queryKey: ["planning-a-reaffecter", "compteur"],
+    queryFn: async () => (await apiClient.get<unknown[]>("/planning/rdv-a-reaffecter/")).data.length,
+    enabled: Boolean(gereLeStock),
+    refetchInterval: 60_000,
+  })
+
   return (
     <aside className="w-64 h-full border-r border-border/60 bg-background/85 backdrop-blur-md transition-all flex flex-col">
       <div className="flex h-16 shrink-0 items-center px-6 border-b border-border/60">
@@ -128,6 +137,27 @@ export function Sidebar() {
         >
           <CalendarDots size={20} weight="duotone" />
           Rendez-vous
+        </Link>
+
+        <Link
+          href="/planning"
+          id="nav-link-planning"
+          className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+            pathname === "/planning"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          <CalendarCheck size={20} weight="duotone" />
+          Planning des médecins
+          {gereLeStock && nbRdvAReaffecter > 0 && (
+            <span
+              title={`${nbRdvAReaffecter} rendez-vous à réaffecter`}
+              className="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+            >
+              {nbRdvAReaffecter}
+            </span>
+          )}
         </Link>
 
         <Link
