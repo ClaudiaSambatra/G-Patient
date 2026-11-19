@@ -182,7 +182,7 @@ def test_rendezvous_today_refused_for_absent_medecin(api_client, setup_data):
         }
         response = api_client.post(url, data, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Ce médecin est absent aujourd'hui." in str(response.data)
+        assert "est absent aujourd'hui." in str(response.data)
 
 
 @pytest.mark.django_db

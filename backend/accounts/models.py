@@ -39,8 +39,10 @@ class Medecin(models.Model):
 
     @property
     def absent_aujourdhui(self):
+        # Bouton « absent aujourd'hui » ou absence planifiée couvrant aujourd'hui (module 15)
         from django.utils import timezone
-        return bool(self.date_absence and self.date_absence == timezone.localdate())
+        from planning.services import est_absent
+        return est_absent(self, timezone.localdate())
 
     def __str__(self):
         return f"Dr. {self.utilisateur.last_name} {self.utilisateur.first_name}"
