@@ -10,9 +10,37 @@ env:
   IMAGE_PREFIX: ghcr.io/claudiasambatra/g-patient
 
 jobs:
+  # --------------------------------------------------------------- SECURITE
+  # Bloque le pipeline si du code caché réapparaît (malware déjà retrouvé
+  # dans postcss.config.mjs, frontend/init et de faux fichiers de polices).
+  securite:
+    name: Sécurité (code caché)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lignes anormalement longues
+        run: |
+          suspects=$(git grep -I -l -E '.{1000,}' -- ':!*.svg' ':!*package-lock.json' ':!*.json' ':!*.min.*' ':!*.lock' || true)
+          if [ -n "$suspects" ]; then
+            echo "$suspects"
+            echo "::error::Ligne de plus de 1000 caractères détectée (code caché possible)."
+            exit 1
+          fi
+      - name: Signatures connues et tâches VS Code automatiques
+        run: |
+          if git grep -I -n -E "var bx ?= ?'|runOn\"?: ?\"folderOpen|allowAutomaticTasks" -- ':!.github/workflows/ci.yml'; then
+            echo "::error::Signature du malware ou tâche VS Code automatique détectée."
+            exit 1
+          fi
+          if git ls-files | grep -iE '\.vscode/tasks\.json$|\.orc$|public/fonts/'; then
+            echo "::error::Fichier suspect (tâche VS Code, .orc ou faux dossier de polices)."
+            exit 1
+          fi
+
   # ---------------------------------------------------------------- BACKEND
   backend:
     name: Backend (flake8 + pytest)
+    needs: [securite]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,6 +86,7 @@ jobs:
   # --------------------------------------------------------------- FRONTEND
   frontend:
     name: Frontend (eslint + tsc + build)
+    needs: [securite]
     runs-on: ubuntu-latest
     defaults:
       run:
