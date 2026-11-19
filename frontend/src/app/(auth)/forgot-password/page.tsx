@@ -36,11 +36,11 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="h-screen w-full bg-white flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-y-auto lg:overflow-hidden font-sans">
-      <div className="w-full max-w-5xl lg:max-h-[92vh] flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-10 xl:gap-14">
+    <main className="h-screen w-full bg-white overflow-y-auto lg:overflow-hidden font-sans">
+      <div className="flex min-h-full w-full flex-col lg:flex-row items-center">
         
         {/* Colonne gauche (formulaire centré verticalement) */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-8 max-w-md mx-auto">
+        <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 py-10 sm:px-6 lg:px-8 max-w-md mx-auto">
           
           {/* Titre « Mot de passe oublié ? » avec « oublié » en --accent */}
           <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-bold tracking-tight text-center text-[var(--background-dark)] leading-tight">
@@ -139,7 +139,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Colonne droite (masquée sur tablette et mobile : hidden lg:flex) */}
-        <div className="hidden lg:flex lg:w-1/2 w-full self-stretch items-center justify-center">
+        <div className="relative hidden lg:block lg:w-1/2 self-stretch">
           <AuthIllustration />
         </div>
 

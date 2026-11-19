@@ -1,22 +1,18 @@
 import Image from "next/image"
 
+// Occupe toute la moitié droite des écrans de connexion.
 export function AuthIllustration() {
   return (
-    <div className="relative w-full h-[320px] sm:h-[400px] lg:h-[520px] overflow-hidden rounded-lg bg-[var(--background-dark)]">
-      {/* Photo : Vitaly Gariev sur Unsplash (licence Unsplash) */}
+    <div className="absolute inset-0 bg-[#DCDFFF]">
+      {/* Illustration : salle d'attente (image fournie) */}
       <Image
-        src="/connexion-medecin.jpg"
-        alt="Médecin dans son cabinet"
+        src="/connexion-salle-attente-v2.jpg"
+        alt="Illustration : salle d'attente du cabinet médical"
         fill
         priority
-        sizes="(min-width: 1024px) 50vw, 100vw"
-        className="object-cover"
+        sizes="50vw"
+        className="object-cover object-bottom"
       />
-      <div className="absolute inset-x-0 bottom-0 bg-[var(--background-dark)]/85 px-6 py-4 text-white">
-        <p className="text-sm lg:text-[15px] leading-snug">
-          Gestion des patients du cabinet : rendez-vous, consultations, ordonnances et factures.
-        </p>
-      </div>
     </div>
   )
 }
