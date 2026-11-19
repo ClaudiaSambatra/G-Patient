@@ -187,7 +187,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         Permet à un administrateur de réinitialiser le mot de passe d'un utilisateur.
         """
         user = self.get_object()
-        serializer = ResetPasswordSerializer(data=request.data)
+        serializer = ResetPasswordSerializer(data=request.data, context={'user': user})
         serializer.is_valid(raise_exception=True)
         new_password = serializer.validated_data['new_password']
         user.set_password(new_password)

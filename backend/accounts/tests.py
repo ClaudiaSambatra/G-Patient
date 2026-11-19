@@ -216,6 +216,25 @@ class TestGestionUtilisateursAdmin:
         self.medecin.refresh_from_db()
         assert self.medecin.check_password("NewSecretPassword2026!")
 
+    def test_creation_refuse_mot_de_passe_faible(self):
+        for mdp in ["123456789", "password123", "dr_faible"]:
+            response = self.client.post("/api/accounts/utilisateurs/", {
+                "username": "dr_faible", "role": Utilisateur.Role.MEDECIN, "password": mdp,
+            })
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, mdp
+            assert "password" in response.data
+        assert not Utilisateur.objects.filter(username="dr_faible").exists()
+
+    def test_reinitialisation_refuse_mot_de_passe_faible(self):
+        ancien_hash = self.medecin.password
+        response = self.client.post(f"/api/accounts/utilisateurs/{self.medecin.id}/reset-password/", {
+            "new_password": "12345678", "confirm_password": "12345678",
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "new_password" in response.data
+        self.medecin.refresh_from_db()
+        assert self.medecin.password == ancien_hash
+
     def test_admin_ne_peut_pas_desactiver_son_propre_compte(self):
         response = self.client.post(f"/api/accounts/utilisateurs/{self.admin.id}/toggle-active/")
         assert response.status_code == status.HTTP_400_BAD_REQUEST

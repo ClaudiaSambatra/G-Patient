@@ -127,11 +127,17 @@ export function useUserMutations(
     },
   })
 
+  // Générateur cryptographique (crypto.getRandomValues) et non Math.random().
   function generateStrongPassword() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*"
+    // Plus grand multiple de chars.length <= 256 : évite le biais du modulo.
+    const limite = 256 - (256 % chars.length)
     let pwd = ""
-    for (let i = 0; i < 12; i++) {
-      pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    while (pwd.length < 16) {
+      const octets = crypto.getRandomValues(new Uint8Array(32))
+      for (const o of octets) {
+        if (o < limite && pwd.length < 16) pwd += chars[o % chars.length]
+      }
     }
     return pwd
   }

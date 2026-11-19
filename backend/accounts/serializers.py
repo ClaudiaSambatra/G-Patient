@@ -137,6 +137,18 @@ class UtilisateurCreateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
 
+    def validate(self, attrs):
+        # Mêmes règles que le changement de mot de passe (AUTH_PASSWORD_VALIDATORS).
+        champs_utilisateur = {
+            k: v for k, v in attrs.items()
+            if k in ('username', 'email', 'first_name', 'last_name')
+        }
+        try:
+            validate_password(attrs['password'], user=Utilisateur(**champs_utilisateur))
+        except DjangoValidationError as err:
+            raise serializers.ValidationError({"password": list(err.messages)})
+        return attrs
+
     def create(self, validated_data):
         password = validated_data.pop('password')
         profil_medecin = pop_profil_medecin(validated_data)
@@ -197,6 +209,10 @@ class ResetPasswordSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"confirm_password": "Les mots de passe ne correspondent pas."})
+        try:
+            validate_password(attrs['new_password'], user=self.context.get('user'))
+        except DjangoValidationError as err:
+            raise serializers.ValidationError({"new_password": list(err.messages)})
         return attrs
 
 
