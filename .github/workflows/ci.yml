@@ -36,6 +36,14 @@ jobs:
             echo "::error::Fichier suspect (tâche VS Code, .orc ou faux dossier de polices)."
             exit 1
           fi
+      - name: Aucun fichier de secrets versionné
+        run: |
+          secrets=$(git ls-files | grep -E '(^|/)\.env(\.[^/]*)?$' | grep -v '\.example$' || true)
+          if [ -n "$secrets" ]; then
+            echo "$secrets"
+            echo "::error::Fichier .env versionné : retirez-le (git rm --cached) et utilisez un .env.example."
+            exit 1
+          fi
 
   # ---------------------------------------------------------------- BACKEND
   backend:

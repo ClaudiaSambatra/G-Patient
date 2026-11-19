@@ -4,6 +4,11 @@
 config.bat
 node_modules
 .env.backup
+
+# Secrets : seuls les modèles *.example sont versionnés
+.env
+.env.*
+!.env.example
 *.pem
 CANEVAS L3-M2.pdf
 
