@@ -104,6 +104,9 @@ export function RendezVousCalendarWeekView({
                     if (rdv.statut === "ANNULE")
                       bgBadge =
                         "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                    if (rdv.statut === "NON_VENU")
+                      bgBadge =
+                        "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
                     if (rdv.statut === "TERMINE")
                       bgBadge =
                         "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"

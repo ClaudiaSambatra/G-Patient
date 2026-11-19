@@ -27,7 +27,7 @@ export interface RendezVous {
   medecin_nom: string
   medecin_absent_aujourdhui?: boolean
   date_heure: string
-  statut: "PLANIFIE" | "CONFIRME" | "ANNULE" | "TERMINE"
+  statut: "PLANIFIE" | "CONFIRME" | "ANNULE" | "TERMINE" | "NON_VENU"
   type: "CONSULTATION" | "CONTROLE"
   consultation_origine?: number | null
   statut_paiement: "PAYE" | "IMPAYE" | "GRATUIT"

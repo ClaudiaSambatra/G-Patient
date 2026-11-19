@@ -134,7 +134,7 @@ export function RendezVousTableRow({
               <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400">
                 Impayé
               </span>
-              {isStaff && rdv.statut !== "ANNULE" && (
+              {isStaff && rdv.statut !== "ANNULE" && rdv.statut !== "NON_VENU" && (
                 <button
                   type="button"
                   onClick={() => onEncaisserRow(rdv)}

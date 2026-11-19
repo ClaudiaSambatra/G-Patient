@@ -78,6 +78,7 @@ export function RendezVousFilters({
             <option value="PLANIFIE">Planifié</option>
             <option value="CONFIRME">Confirmé</option>
             <option value="ANNULE">Annulé</option>
+            <option value="NON_VENU">Non venu</option>
             <option value="TERMINE">Terminé</option>
           </select>
         </div>

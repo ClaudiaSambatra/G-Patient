@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Patient, Medecin, RdvFormState } from "./types"
+import { CreneauxPicker } from "./CreneauxPicker"
 
 interface RendezVousEditModalProps {
   isOpen: boolean
@@ -117,6 +118,13 @@ export function RendezVousEditModal({
               />
             </div>
           </div>
+
+          <CreneauxPicker
+            medecinId={form.medecin}
+            date={form.date}
+            heure={form.heure}
+            onChoisir={(heure) => setForm({ ...form, heure })}
+          />
 
           {form.type === "CONTROLE" && (
             <div className="space-y-1 animate-in fade-in duration-200">

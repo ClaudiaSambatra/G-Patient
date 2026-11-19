@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Patient, Medecin, RdvFormState } from "./types"
+import { CreneauxPicker } from "./CreneauxPicker"
 
 interface RendezVousCreateModalProps {
   isOpen: boolean
@@ -136,6 +137,13 @@ export function RendezVousCreateModal({
               />
             </div>
           </div>
+
+          <CreneauxPicker
+            medecinId={form.medecin}
+            date={form.date}
+            heure={form.heure}
+            onChoisir={(heure) => setForm({ ...form, heure })}
+          />
 
           <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
