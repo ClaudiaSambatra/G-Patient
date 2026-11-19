@@ -24,6 +24,7 @@ class PatientViewSet(viewsets.ModelViewSet):
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import DocumentMedical
 from .serializers import DocumentMedicalSerializer
+from config.parametres import param_identifiant
 
 
 class DocumentMedicalViewSet(viewsets.ModelViewSet):
@@ -36,7 +37,7 @@ class DocumentMedicalViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        patient_id = self.request.query_params.get('patient')
+        patient_id = param_identifiant(self.request, 'patient')
         if patient_id:
             queryset = queryset.filter(patient_id=patient_id)
         return queryset

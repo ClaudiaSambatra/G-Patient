@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from accounts.permissions import IsMedecin, IsSecretaireOuMedecinOuAdmin
 from .models import DemandeExamen, DemandeExamenHistorique
 from .serializers import DemandeExamenSerializer
+from config.parametres import param_identifiant, param_date
 
 
 class DemandeExamenViewSet(viewsets.ModelViewSet):
@@ -44,13 +45,13 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        consultation_id = self.request.query_params.get('consultation')
-        patient_id = self.request.query_params.get('patient')
+        consultation_id = param_identifiant(self.request, 'consultation')
+        patient_id = param_identifiant(self.request, 'patient')
         numero = self.request.query_params.get('numero')
         statut = self.request.query_params.get('statut')
         categorie = self.request.query_params.get('categorie')
-        date_debut = self.request.query_params.get('date_debut')
-        date_fin = self.request.query_params.get('date_fin')
+        date_debut = param_date(self.request, 'date_debut')
+        date_fin = param_date(self.request, 'date_fin')
 
         if consultation_id:
             queryset = queryset.filter(consultation_id=consultation_id)

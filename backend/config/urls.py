@@ -21,6 +21,25 @@ def root_view(request):
     })
 
 
+def erreur_404(request, exception=None):
+    # Une API répond toujours en JSON, même pour une adresse inconnue (relevé par OWASP ZAP)
+    if request.path.startswith('/api/'):
+        return JsonResponse({'detail': 'Ressource introuvable.'}, status=404)
+    from django.views.defaults import page_not_found
+    return page_not_found(request, exception)
+
+
+def erreur_500(request):
+    if request.path.startswith('/api/'):
+        return JsonResponse({'detail': 'Erreur interne du serveur.'}, status=500)
+    from django.views.defaults import server_error
+    return server_error(request)
+
+
+handler404 = erreur_404
+handler500 = erreur_500
+
+
 def health(request):
     return JsonResponse({'status': 'ok'})
 

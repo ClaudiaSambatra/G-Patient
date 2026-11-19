@@ -17,6 +17,7 @@ from pharmacie.services import StockInsuffisant, sortir_medicaments_facture
 from .models import Facture
 from .serializers import FactureSerializer
 from .pdf import generate_recu_pdf
+from config.parametres import param_identifiant
 
 
 class QueryParamOrHeaderJWTAuthentication(JWTAuthentication):
@@ -63,7 +64,7 @@ class FactureViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         statut = self.request.query_params.get('statut')
         facture_type = self.request.query_params.get('type')
-        patient_id = self.request.query_params.get('patient')
+        patient_id = param_identifiant(self.request, 'patient')
 
         if statut:
             queryset = queryset.filter(statut=statut)
@@ -71,7 +72,7 @@ class FactureViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(type=facture_type)
         if patient_id:
             queryset = queryset.filter(patient_id=patient_id)
-        rendez_vous_id = self.request.query_params.get('rendez_vous')
+        rendez_vous_id = param_identifiant(self.request, 'rendez_vous')
         if rendez_vous_id:
             queryset = queryset.filter(rendez_vous_id=rendez_vous_id)
 

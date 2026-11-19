@@ -12,6 +12,7 @@ from accounts.permissions import IsSecretaireOuMedecinOuAdmin, IsMedecin
 from patients.models import Patient
 from appointments.models import RendezVous
 from accounts.models import Medecin
+from config.parametres import param_identifiant, param_date
 
 
 class ConsultationPagination(PageNumberPagination):
@@ -93,10 +94,10 @@ class ConsultationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(Q(medecin=user) | Q(id__in=consult_origine_ids)).distinct()
 
         # Filtres via URL params
-        rdv_id = self.request.query_params.get('rendez_vous')
-        patient_id = self.request.query_params.get('patient')
-        date_debut = self.request.query_params.get('date_debut')
-        date_fin = self.request.query_params.get('date_fin')
+        rdv_id = param_identifiant(self.request, 'rendez_vous')
+        patient_id = param_identifiant(self.request, 'patient')
+        date_debut = param_date(self.request, 'date_debut')
+        date_fin = param_date(self.request, 'date_fin')
 
         if rdv_id:
             queryset = queryset.filter(rendez_vous_id=rdv_id)
@@ -161,7 +162,7 @@ class RetourSansRendezVousViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='verifier-eligibilite')
     def verifier_eligibilite(self, request):
-        patient_id = request.query_params.get('patient')
+        patient_id = param_identifiant(request, 'patient')
         if not patient_id:
             return Response(
                 {"detail": "Le paramètre 'patient' est requis."},

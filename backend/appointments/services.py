@@ -10,7 +10,24 @@ from billing.models import Facture
 from consultations.models import Consultation
 from consultations.services import calculer_eligibilite_controle
 from patients.models import Patient
+from config.parametres import lire_identifiant
 from .models import RendezVous
+
+
+def identifiants_invalides(**valeurs):
+    """
+    Réponse 400 si un identifiant fourni n'est pas un entier valide.
+    Sans ce contrôle, une valeur comme « AAAA… » faisait échouer la requête SQL (erreur 500),
+    ce qu'a relevé le scan OWASP ZAP.
+    """
+    erreurs = {
+        champ: "Identifiant invalide."
+        for champ, valeur in valeurs.items()
+        if valeur not in (None, '') and lire_identifiant(valeur) is None
+    }
+    if erreurs:
+        return Response(erreurs, status=status.HTTP_400_BAD_REQUEST)
+    return None
 
 
 def traiter_accueil_consultation(serializer_class, patient_id, medecin_id, motif):
@@ -25,6 +42,9 @@ def traiter_accueil_consultation(serializer_class, patient_id, medecin_id, motif
         return Response({"patient": "Le patient est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
     if not medecin_id:
         return Response({"medecin": "Le médecin est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+    erreur = identifiants_invalides(patient=patient_id, medecin=medecin_id)
+    if erreur:
+        return erreur
 
     patient = Patient.objects.filter(pk=patient_id).first()
     if not patient:
@@ -98,6 +118,11 @@ def traiter_accueil_suivi(serializer_class, patient_id, medecin_id, consultation
         return Response({"patient": "Le patient est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
     if not consultation_origine_id:
         return Response({"consultation_origine": "La consultation d'origine est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+    erreur = identifiants_invalides(
+        patient=patient_id, medecin=medecin_id, consultation_origine=consultation_origine_id
+    )
+    if erreur:
+        return erreur
 
     patient = Patient.objects.filter(pk=patient_id).first()
     if not patient:

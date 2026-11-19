@@ -1,2 +1,8 @@
-# Règles OWASP ZAP : <id>\t<IGNORE|INFO|WARN|FAIL>\t<justification>
-# Une règle passée en FAIL fait échouer le pipeline.
+# Regles OWASP ZAP : <id>	<IGNORE|INFO|WARN|FAIL>	<justification>
+# Une regle en FAIL fait echouer le pipeline. Analyse du premier scan : 19/11/2026.
+30001	FAIL	(Buffer Overflow) Corrige : identifiants valides sur accueil-consultation / accueil-suivi, plus aucune erreur 500. Toute regression bloque le pipeline.
+100001	WARN	(Unexpected Content-Type) Corrige : les erreurs 404/500 sous /api/ repondent en JSON. Laisse en WARN pour surveillance.
+100000	WARN	(Client/Server Error) Meme regle pour les 4xx (normaux : ZAP teste des adresses inexistantes) et les 5xx ; ne peut donc pas etre en FAIL.
+90004	INFO	(Cross-Origin-Resource-Policy) API consommee par le frontend depuis un autre domaine via CORS ; CORP ne concerne que les chargements no-cors (images) et same-origin bloquerait les photos de profil.
+10049	INFO	(Non-Storable Content) Voulu : les reponses authentifiees ne doivent pas etre mises en cache.
+10111	INFO	(Authentication Request Identified) Simple detection de la route de connexion JWT /api/auth/token/.

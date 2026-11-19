@@ -10,6 +10,7 @@ from accounts.permissions import (
     IsSecretaireOuAdmin,
     IsAdmin,
 )
+from config.parametres import param_identifiant, param_date
 
 
 class RendezVousViewSet(viewsets.ModelViewSet):
@@ -42,7 +43,7 @@ class RendezVousViewSet(viewsets.ModelViewSet):
         if user.role == 'MEDECIN':
             queryset = queryset.filter(medecin__utilisateur=user)
         else:
-            medecin_id = self.request.query_params.get('medecin')
+            medecin_id = param_identifiant(self.request, 'medecin')
             if medecin_id:
                 queryset = queryset.filter(medecin_id=medecin_id)
 
@@ -57,9 +58,9 @@ class RendezVousViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(type=type_rdv)
 
         # Filtres par date (jour exact ou intervalle)
-        date_str = self.request.query_params.get('date')
-        date_debut = self.request.query_params.get('date_debut')
-        date_fin = self.request.query_params.get('date_fin')
+        date_str = param_date(self.request, 'date')
+        date_debut = param_date(self.request, 'date_debut')
+        date_fin = param_date(self.request, 'date_fin')
 
         if date_str:
             queryset = queryset.filter(date_heure__date=date_str)
@@ -81,7 +82,7 @@ class RendezVousViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='controle-eligible')
     def controle_eligible(self, request):
-        patient_id = request.query_params.get('patient')
+        patient_id = param_identifiant(request, 'patient')
         date_str = request.query_params.get('date')
 
         if not patient_id or not date_str:
@@ -175,7 +176,7 @@ class RendezVousViewSet(viewsets.ModelViewSet):
         Retourne l'historique complet des consultations d'un patient avec recommandation de suivi,
         disponibilité du praticien initial, et statut d'éligibilité pour le choix de la secrétaire.
         """
-        patient_id = request.query_params.get('patient')
+        patient_id = param_identifiant(request, 'patient')
         if not patient_id:
             return Response({"detail": "Le paramètre 'patient' est requis."}, status=status.HTTP_400_BAD_REQUEST)
 

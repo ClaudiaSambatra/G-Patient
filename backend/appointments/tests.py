@@ -843,3 +843,33 @@ def test_historique_suivi_endpoint(api_client, setup_data):
     assert item['suivi_recommande'] is True
     assert item['motif_suivi'] == 'Vérifier glycémie'
     assert item['medecin_id'] == setup_data['medecin1'].id
+
+
+# ============================================================================
+# Robustesse des identifiants (alerte OWASP ZAP « Buffer Overflow » / erreur 500)
+# ============================================================================
+
+VALEURS_MALVEILLANTES = ['A' * 5000, 'abc', '1 OR 1=1', '-3', '0', '9' * 30]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('valeur', VALEURS_MALVEILLANTES)
+def test_accueil_consultation_identifiant_invalide_renvoie_400(api_client, setup_data, valeur):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    res = api_client.post(reverse('rendezvous-accueil-consultation'), {
+        'patient': setup_data['patient'].id, 'medecin': valeur, 'motif': 'Test',
+    })
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data == {'medecin': 'Identifiant invalide.'}
+    assert not RendezVous.objects.exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('valeur', VALEURS_MALVEILLANTES)
+def test_accueil_suivi_identifiant_invalide_renvoie_400(api_client, setup_data, valeur):
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    res = api_client.post(reverse('rendezvous-accueil-suivi'), {
+        'patient': valeur, 'consultation_origine': valeur, 'motif': 'Test',
+    })
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert set(res.data) == {'patient', 'consultation_origine'}

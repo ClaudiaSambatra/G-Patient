@@ -6,6 +6,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from config.parametres import param_identifiant
 from accounts.permissions import IsAdmin, IsSecretaireOuAdmin, IsSecretaireOuMedecinOuAdmin
 from .models import MouvementStock, StockMedicament
 from .serializers import (
@@ -128,8 +129,9 @@ class MouvementStockViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
     def get_queryset(self):
         queryset = super().get_queryset()
         params = self.request.query_params
-        if params.get('medicament'):
-            queryset = queryset.filter(medicament_id=params['medicament'])
+        medicament_id = param_identifiant(self.request, 'medicament')
+        if medicament_id:
+            queryset = queryset.filter(medicament_id=medicament_id)
         if params.get('type'):
             queryset = queryset.filter(type=params['type'])
         return queryset
