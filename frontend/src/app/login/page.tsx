@@ -67,7 +67,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="h-screen w-full bg-white overflow-y-auto lg:overflow-hidden font-sans">
+    <main className="relative h-screen w-full bg-white overflow-y-auto lg:overflow-hidden font-sans">
       <div className="flex min-h-full w-full flex-col lg:flex-row items-center">
         
         {/* Colonne gauche (formulaire centré verticalement) */}
@@ -170,6 +170,16 @@ export default function LoginPage() {
         </div>
 
       </div>
+
+      {/* Crédit exigé par la licence gratuite Vecteezy pour l'illustration de droite */}
+      <a
+        href="https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-2 left-3 hidden text-[10px] text-slate-400 hover:underline lg:block"
+      >
+        Illustration : Vecteezy.com
+      </a>
     </main>
   )
 }

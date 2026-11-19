@@ -178,3 +178,8 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 4. **En développement local**, ouvrez [http://localhost:8025](http://localhost:8025) (Mailpit) pour voir les emails reçus instantanément.
 5. Saisissez le code et choisissez votre nouveau mot de passe (min. 8 caractères) pour vous reconnecter immédiatement.
 
+
+## Crédits
+
+- Illustration des écrans de connexion : « Patient waiting for visit doctor illustration concept » par Abdur Razzaq sur [Vecteezy.com](https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept) (licence gratuite Vecteezy, attribution obligatoire).
+- Police : [IBM Plex Sans](https://github.com/IBM/plex) (SIL Open Font License).
