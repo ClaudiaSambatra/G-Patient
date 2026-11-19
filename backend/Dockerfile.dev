@@ -5,7 +5,7 @@ WORKDIR /app
 # Pas besoin d'apt-get / build-essential / libpq-dev : psycopg2-binary
 # embarque déjà les bibliothèques PostgreSQL nécessaires, précompilées.
 COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN pip install --no-cache-dir --only-binary :all: -r requirements-dev.txt
 
 COPY . .
 

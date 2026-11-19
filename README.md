@@ -188,3 +188,20 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 
 - Illustration des écrans de connexion : « Patient waiting for visit doctor illustration concept » par Abdur Razzaq sur [Vecteezy.com](https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept) (licence gratuite Vecteezy, attribution obligatoire).
 - Police : [IBM Plex Sans](https://github.com/IBM/plex) (SIL Open Font License).
+
+## Sécurité de la chaîne CI/CD
+
+Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et aux analyses SonarCloud et OWASP ZAP) :
+
+- **Actions GitHub épinglées sur un SHA** de commit et **image OWASP ZAP épinglée par son empreinte** (digest).
+- **`npm ci --ignore-scripts`** : aucun script d'installation de dépendance n'est exécuté (CI et Dockerfile).
+- **`pip install --only-binary :all:`** : uniquement des paquets précompilés, aucun script `setup.py` exécuté ; versions exactes dans `requirements.txt`.
+- Job « Sécurité » : blocage du code caché (lignes anormalement longues, signatures connues, tâches VS Code automatiques) et des fichiers `.env` versionnés.
+- Scan dynamique **OWASP ZAP** de l'API (règles classées dans `.zap/rules.tsv`), scan **Trivy** des images, analyse **SonarCloud**.
+
+Alertes SonarCloud acceptées, avec justification :
+
+| Alerte | Justification |
+|---|---|
+| `COPY . .` dans les Dockerfile (copie récursive) | Les fichiers sensibles (`.env`, `.git`, médias, rapports de couverture…) sont exclus par `.dockerignore`. |
+| Image exécutée en `root` dans `Dockerfile.dev` | Images de **développement** local uniquement ; les images de production (`Dockerfile`) tournent avec un utilisateur dédié (`django`, `nextjs`). |

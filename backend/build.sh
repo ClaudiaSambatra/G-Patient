@@ -2,7 +2,7 @@
 # Script de build Render pour le backend Django
 set -o errexit
 
-pip install -r requirements.txt
+pip install --only-binary :all: -r requirements.txt
 python manage.py collectstatic --noinput
 python manage.py migrate
 python manage.py setup_admin
