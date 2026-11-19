@@ -193,6 +193,11 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# --- Rendez-vous ---------------------------------------------------------------
+# Durée d'un créneau de rendez-vous : deux RDV d'un même médecin (ou patient) ne
+# peuvent pas commencer à moins de cette durée l'un de l'autre.
+DUREE_RDV_MINUTES = config('DUREE_RDV_MINUTES', default=15, cast=int)
+
 # --- Description OpenAPI de l'API (drf-spectacular) --------------------------
 # Utilisée par le scan de sécurité OWASP ZAP du pipeline CI et, en développement,
 # par la documentation interactive /api/docs/.

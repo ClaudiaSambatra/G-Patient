@@ -5,14 +5,15 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.models import Medecin, Utilisateur
 from accounts.permissions import IsSecretaireOuAdmin
 from appointments.models import RendezVous
-from config.parametres import param_identifiant
+from config.parametres import param_date, param_identifiant
 from .models import AbsenceMedecin, HoraireMedecin
 from .serializers import AbsenceMedecinSerializer, HoraireMedecinSerializer, ReaffectationSerializer, nom_medecin
-from .services import indisponibilite, rdv_a_reaffecter, remplacants_possibles
+from .services import absence_du_jour, creneaux_libres, indisponibilite, rdv_a_reaffecter, remplacants_possibles
 
 
 def gere_le_planning(user):
@@ -150,3 +151,33 @@ class RdvAReaffecterViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             rdv.motif = f"{rdv.motif} ({note})" if rdv.motif else note
             rdv.save(update_fields=['medecin', 'motif', 'date_modification'])
         return Response(self._serialiser(rdv, None))
+
+
+class CreneauxLibresView(APIView):
+    """
+    GET /api/planning/creneaux/?medecin=<id>&date=AAAA-MM-JJ
+    Créneaux de DUREE_RDV_MINUTES encore libres pour ce médecin ce jour-là (aide à la prise de RDV).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.conf import settings
+        from rest_framework.exceptions import ValidationError
+
+        medecin_id = param_identifiant(request, 'medecin')
+        jour = param_date(request, 'date')
+        if not medecin_id or not jour:
+            raise ValidationError({"detail": "Les paramètres « medecin » et « date » sont obligatoires."})
+        medecin = Medecin.objects.select_related('utilisateur').filter(pk=medecin_id).first()
+        if not medecin:
+            return Response({"medecin": "Médecin introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        absence = absence_du_jour(medecin, jour)
+        return Response({
+            'medecin': medecin.id,
+            'date': jour,
+            'duree_minutes': settings.DUREE_RDV_MINUTES,
+            'horaires_definis': medecin.horaires.exists(),
+            'absence': (absence.get_type_display() if absence.type != AbsenceMedecin.Type.AUTRE else "Absent")
+            if absence else None,
+            'creneaux': creneaux_libres(medecin, jour),
+        })

@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 from .models import RendezVous
 
@@ -57,6 +58,20 @@ class RendezVousSerializer(serializers.ModelSerializer):
                         'statut': f"Le statut '{self.instance.get_statut_display()}' est définitif et le rendez-vous ne peut plus être modifié (seul le rétablissement en 'Planifié' est autorisé)."
                     })
 
+            # Patient non venu : seule la correction en « Confirmé » est possible (erreur de saisie)
+            if current_statut == RendezVous.Statut.NON_VENU and new_statut not in (
+                RendezVous.Statut.NON_VENU, RendezVous.Statut.CONFIRME
+            ):
+                raise serializers.ValidationError({
+                    'statut': "Un rendez-vous « Non venu » ne peut être que corrigé en « Confirmé »."
+                })
+
+            if new_statut == RendezVous.Statut.NON_VENU and current_statut != RendezVous.Statut.NON_VENU:
+                if self.instance.date_heure > timezone.now():
+                    raise serializers.ValidationError({
+                        'statut': "Un patient ne peut être déclaré non venu qu'après l'heure du rendez-vous."
+                    })
+
             if new_statut != current_statut:
                 if new_statut == RendezVous.Statut.TERMINE:
                     raise serializers.ValidationError({
@@ -64,9 +79,12 @@ class RendezVousSerializer(serializers.ModelSerializer):
                     })
 
                 allowed_transitions = {
-                    RendezVous.Statut.PLANIFIE: [RendezVous.Statut.CONFIRME, RendezVous.Statut.ANNULE],
-                    RendezVous.Statut.CONFIRME: [RendezVous.Statut.ANNULE],
+                    RendezVous.Statut.PLANIFIE: [
+                        RendezVous.Statut.CONFIRME, RendezVous.Statut.ANNULE, RendezVous.Statut.NON_VENU
+                    ],
+                    RendezVous.Statut.CONFIRME: [RendezVous.Statut.ANNULE, RendezVous.Statut.NON_VENU],
                     RendezVous.Statut.ANNULE: [RendezVous.Statut.PLANIFIE],
+                    RendezVous.Statut.NON_VENU: [RendezVous.Statut.CONFIRME],
                 }
                 allowed = allowed_transitions.get(current_statut, [])
                 if new_statut not in allowed:

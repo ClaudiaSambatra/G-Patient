@@ -58,6 +58,7 @@ def get_admin_dashboard_data(today):
         {'statut': 'CONFIRME', 'label': 'Confirmé', 'count': rdv_map.get('CONFIRME', 0), 'color': '#10b981'},
         {'statut': 'TERMINE', 'label': 'Terminé', 'count': rdv_map.get('TERMINE', 0), 'color': '#6366f1'},
         {'statut': 'ANNULE', 'label': 'Annulé', 'count': rdv_map.get('ANNULE', 0), 'color': '#ef4444'},
+        {'statut': 'NON_VENU', 'label': 'Non venu', 'count': rdv_map.get('NON_VENU', 0), 'color': '#f59e0b'},
     ]
 
     activite_medecins = []

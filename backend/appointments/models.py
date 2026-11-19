@@ -11,6 +11,7 @@ class RendezVous(models.Model):
         CONFIRME = 'CONFIRME', 'Confirmé'
         ANNULE = 'ANNULE', 'Annulé'
         TERMINE = 'TERMINE', 'Terminé'
+        NON_VENU = 'NON_VENU', 'Non venu'
 
     class Type(models.TextChoices):
         CONSULTATION = 'CONSULTATION', 'Consultation'
@@ -128,33 +129,22 @@ class RendezVous(models.Model):
                 if raison:
                     raise ValidationError({'date_heure': raison})
 
-            # Règle 2 : Conflit d'horaire pour le médecin (même date et heure exacte)
-            qs_medecin = RendezVous.objects.filter(
-                medecin=self.medecin,
-                date_heure=self.date_heure,
-                statut__in=[self.Statut.PLANIFIE, self.Statut.CONFIRME]
-            )
-            if self.pk:
-                qs_medecin = qs_medecin.exclude(pk=self.pk)
-
-            if qs_medecin.exists():
+            # Règle 2 : Chevauchement avec un autre RDV du médecin (créneaux de DUREE_RDV_MINUTES)
+            from planning.services import rdv_qui_chevauchent
+            conflit = rdv_qui_chevauchent(self.date_heure, exclure_pk=self.pk, medecin=self.medecin).first()
+            if conflit:
                 raise ValidationError({
-                    'date_heure': "Le médecin a déjà un rendez-vous à cette date et cette heure."
+                    'date_heure': f"Le médecin a déjà un rendez-vous à {timezone.localtime(conflit.date_heure):%H:%M} : "
+                                  f"choisissez un créneau libre."
                 })
 
-        # Règle 3 : Conflit d'horaire pour le patient (même date et heure exacte)
+        # Règle 3 : Chevauchement avec un autre RDV du patient
         if self.date_heure and self.patient:
-            qs_patient = RendezVous.objects.filter(
-                patient=self.patient,
-                date_heure=self.date_heure,
-                statut__in=[self.Statut.PLANIFIE, self.Statut.CONFIRME]
-            )
-            if self.pk:
-                qs_patient = qs_patient.exclude(pk=self.pk)
-
-            if qs_patient.exists():
+            from planning.services import rdv_qui_chevauchent
+            conflit = rdv_qui_chevauchent(self.date_heure, exclure_pk=self.pk, patient=self.patient).first()
+            if conflit:
                 raise ValidationError({
-                    'date_heure': "Le patient a déjà un rendez-vous à cette date et cette heure."
+                    'date_heure': f"Le patient a déjà un rendez-vous à {timezone.localtime(conflit.date_heure):%H:%M}."
                 })
 
     def save(self, *args, **kwargs):
@@ -172,10 +162,20 @@ class RendezVous(models.Model):
                 date_consultation__date__lte=rdv_date
             ).order_by('-date_consultation', '-id').first()
 
+        ancien_statut = None
+        if self.pk:
+            ancien_statut = RendezVous.objects.filter(pk=self.pk).values_list('statut', flat=True).first()
+
         super().save(*args, **kwargs)
 
-        # Si annulé, passer la facture consultation impayée à ANNULEE
-        if self.statut == self.Statut.ANNULE:
+        # Patient non venu corrigé en « Confirmé » : sa facture redevient à payer
+        if ancien_statut == self.Statut.NON_VENU and self.statut == self.Statut.CONFIRME:
+            if hasattr(self, 'facture') and self.facture and self.facture.statut == 'ANNULEE':
+                self.facture.statut = 'IMPAYEE'
+                self.facture.save(update_fields=['statut'])
+
+        # Si annulé ou patient non venu, passer la facture consultation impayée à ANNULEE
+        if self.statut in (self.Statut.ANNULE, self.Statut.NON_VENU):
             if hasattr(self, 'facture') and self.facture:
                 if self.facture.statut == 'IMPAYEE':
                     self.facture.statut = 'ANNULEE'

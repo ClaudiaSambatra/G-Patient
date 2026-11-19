@@ -216,3 +216,106 @@ def test_reaffecter_a_un_medecin_indisponible_refuse(api_client, data, rdv_penda
     assert 'absent' in str(res.data['medecin'])
     rdv_pendant_absence.refresh_from_db()
     assert rdv_pendant_absence.medecin == data['kanto']
+
+
+# ==============================================================================
+# CRÉNEAUX DE 15 MINUTES
+# ==============================================================================
+
+@pytest.mark.django_db
+def test_deux_rdv_a_moins_de_15_minutes_refuses(api_client, data):
+    dt = prochain(1, 10)
+    assert creer_rdv_api(api_client, data, data['bema'], dt).status_code == status.HTTP_201_CREATED
+    # même médecin, autre patient, 10 minutes plus tard : chevauchement
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.post(reverse('rendezvous-list'), {
+        'patient': data['patient2'].id, 'medecin': data['bema'].id,
+        'date_heure': (dt + timedelta(minutes=10)).isoformat(), 'type': 'CONSULTATION',
+    }, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'déjà un rendez-vous à 10:00' in str(res.data['date_heure'])
+    res = api_client.post(reverse('rendezvous-list'), {
+        'patient': data['patient2'].id, 'medecin': data['bema'].id,
+        'date_heure': (dt + timedelta(minutes=15)).isoformat(), 'type': 'CONSULTATION',
+    }, format='json')
+    assert res.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+def test_le_creneau_doit_finir_avant_la_fin_de_la_plage(api_client, data):
+    HoraireMedecin.objects.create(medecin=data['rado'], jour=0, heure_debut=time(8), heure_fin=time(12))
+    assert creer_rdv_api(api_client, data, data['rado'], prochain(0, 11, 50)).status_code == 400  # finirait à 12h05
+    assert creer_rdv_api(api_client, data, data['rado'], prochain(0, 11, 45)).status_code == 201
+
+
+@pytest.mark.django_db
+def test_creneaux_libres_tiennent_compte_des_horaires_et_des_rdv(api_client, data):
+    lundi = prochain(0, 8)
+    HoraireMedecin.objects.create(medecin=data['rado'], jour=0, heure_debut=time(8), heure_fin=time(9))
+    RendezVous.objects.create(patient=data['patient'], medecin=data['rado'], date_heure=lundi + timedelta(minutes=10))
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.get(reverse('creneaux-libres'), {'medecin': data['rado'].id, 'date': lundi.date().isoformat()})
+    assert res.status_code == status.HTTP_200_OK
+    # le RDV de 8h10 bloque les créneaux de 8h00 et 8h15
+    assert res.data['creneaux'] == ['08:30', '08:45']
+    assert res.data['duree_minutes'] == 15
+    assert res.data['horaires_definis'] is True
+    # mardi : pas de plage ce jour-là
+    mardi = (lundi + timedelta(days=1)).date().isoformat()
+    assert api_client.get(reverse('creneaux-libres'), {'medecin': data['rado'].id, 'date': mardi}).data['creneaux'] == []
+
+
+@pytest.mark.django_db
+def test_creneaux_libres_medecin_sans_horaires_et_absent(api_client, data):
+    jour = prochain(2, 8).date()
+    api_client.force_authenticate(user=data['secretaire'])
+    url = reverse('creneaux-libres')
+    creneaux = api_client.get(url, {'medecin': data['bema'].id, 'date': jour.isoformat()}).data['creneaux']
+    assert creneaux[0] == '08:00' and creneaux[-1] == '16:45' and len(creneaux) == 36
+    AbsenceMedecin.objects.create(medecin=data['bema'], date_debut=jour, date_fin=jour, type='FORMATION')
+    res = api_client.get(url, {'medecin': data['bema'].id, 'date': jour.isoformat()})
+    assert res.data['creneaux'] == [] and res.data['absence'] == 'Formation'
+    assert api_client.get(url, {'medecin': data['bema'].id}).status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ==============================================================================
+# STATUT « NON VENU »
+# ==============================================================================
+
+def rdv_avec_facture(data, dt, statut='CONFIRME'):
+    # La facture de consultation est créée automatiquement avec le RDV
+    rdv = RendezVous.objects.create(patient=data['patient'], medecin=data['bema'], date_heure=dt, statut=statut)
+    return rdv
+
+
+@pytest.mark.django_db
+def test_patient_non_venu_annule_la_facture_impayee(api_client, data):
+    rdv = rdv_avec_facture(data, timezone.now() - timedelta(hours=2))
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.patch(reverse('rendezvous-detail', args=[rdv.id]), {'statut': 'NON_VENU'}, format='json')
+    assert res.status_code == status.HTTP_200_OK, res.data
+    rdv.refresh_from_db()
+    assert rdv.statut == 'NON_VENU'
+    assert rdv.facture.statut == 'ANNULEE'
+
+    # erreur de saisie : retour à « Confirmé », la facture redevient à payer
+    res = api_client.patch(reverse('rendezvous-detail', args=[rdv.id]), {'statut': 'CONFIRME'}, format='json')
+    assert res.status_code == status.HTTP_200_OK, res.data
+    rdv.refresh_from_db()
+
+
+@pytest.mark.django_db
+def test_non_venu_impossible_avant_l_heure_du_rdv(api_client, data):
+    rdv = rdv_avec_facture(data, prochain(2, 10))
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.patch(reverse('rendezvous-detail', args=[rdv.id]), {'statut': 'NON_VENU'}, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "après l'heure du rendez-vous" in str(res.data)
+
+
+@pytest.mark.django_db
+def test_non_venu_ne_peut_etre_que_corrige_en_confirme(api_client, data):
+    rdv = rdv_avec_facture(data, timezone.now() - timedelta(hours=1), statut='NON_VENU')
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.patch(reverse('rendezvous-detail', args=[rdv.id]), {'statut': 'PLANIFIE'}, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST

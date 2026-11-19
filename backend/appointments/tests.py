@@ -369,7 +369,7 @@ def test_medecin_same_datetime_conflict(api_client, setup_data):
     }
     res = api_client.post(url, data, format='json')
     assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Le médecin a déjà un rendez-vous à cette date et cette heure." in str(res.data)
+    assert "Le médecin a déjà un rendez-vous à" in str(res.data)
 
 
 @pytest.mark.django_db
@@ -394,7 +394,7 @@ def test_patient_same_datetime_conflict(api_client, setup_data):
     }
     res = api_client.post(url, data, format='json')
     assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Le patient a déjà un rendez-vous à cette date et cette heure." in str(res.data)
+    assert "Le patient a déjà un rendez-vous à" in str(res.data)
 
 
 @pytest.mark.django_db
