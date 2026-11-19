@@ -91,10 +91,9 @@ jobs:
       - name: Lint (flake8)
         run: flake8 .
       - name: Tests (pytest) et couverture
-        run: |
-          pytest --cov --cov-report=xml --cov-report=term
-          # Chemins relatifs à la racine du dépôt, comme les attend SonarCloud
-          sed -i -e 's#filename="#filename="backend/#g' -e 's#<source>.*</source>##g' coverage.xml
+        # coverage.xml contient le chemin absolu du dossier backend : SonarCloud, lancé depuis
+        # le même emplacement, retrouve ainsi les fichiers.
+        run: pytest --cov --cov-report=xml --cov-report=term
       - name: Publier la couverture
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:

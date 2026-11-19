@@ -1,11 +1,11 @@
 # Couverture de tests (envoyée à SonarCloud par le CI)
 [run]
 source = .
-relative_files = True
 omit =
     */migrations/*
     */tests.py
     */test_*.py
+    conftest.py
     manage.py
     config/wsgi.py
     config/asgi.py
