@@ -1,5 +1,10 @@
 # Gestion de Patients — Environnement de développement
 
+[![CI/CD](https://github.com/ClaudiaSambatra/G-Patient/actions/workflows/ci.yml/badge.svg)](https://github.com/ClaudiaSambatra/G-Patient/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ClaudiaSambatra_G-Patient&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ClaudiaSambatra_G-Patient)
+[![Couverture](https://sonarcloud.io/api/project_badges/measure?project=ClaudiaSambatra_G-Patient&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ClaudiaSambatra_G-Patient)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ClaudiaSambatra_G-Patient&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ClaudiaSambatra_G-Patient)
+
 Mono-dépôt du projet de mémoire DevOps : `backend` (Django + DRF), `frontend`
 (Next.js), orchestrés avec Docker Compose pour le développement local.
 

@@ -88,8 +88,42 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Lint (flake8)
         run: flake8 .
-      - name: Tests (pytest)
-        run: pytest
+      - name: Tests (pytest) et couverture
+        run: |
+          pytest --cov --cov-report=xml --cov-report=term
+          # Chemins relatifs à la racine du dépôt, comme les attend SonarCloud
+          sed -i 's#filename="#filename="backend/#g' coverage.xml
+      - name: Publier la couverture
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-backend
+          path: backend/coverage.xml
+
+  # ------------------------------------------------------ QUALITÉ (SONAR)
+  # Analyse statique SonarCloud : bugs, vulnérabilités, code dupliqué, dette
+  # technique et couverture des tests. Ignorée tant que SONAR_TOKEN n'est pas configuré.
+  sonarcloud:
+    name: Qualité du code (SonarCloud)
+    needs: [backend]
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SONAR_TOKEN != ''
+        with:
+          fetch-depth: 0  # historique complet : SonarCloud attribue les problèmes aux commits
+      - uses: actions/download-artifact@v4
+        if: env.SONAR_TOKEN != ''
+        with:
+          name: couverture-backend
+          path: backend
+      - name: Analyse SonarCloud
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v5
+      - name: SonarCloud non configuré
+        if: env.SONAR_TOKEN == ''
+        run: 'echo "::notice::Secret SONAR_TOKEN absent, analyse SonarCloud ignorée."'
 
   # ------------------------------------------------------------ OWASP ZAP
   # Scan de sécurité dynamique (DAST) de l'API sur une instance jetable :
