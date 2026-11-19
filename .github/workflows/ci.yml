@@ -91,6 +91,108 @@ jobs:
       - name: Tests (pytest)
         run: pytest
 
+  # ------------------------------------------------------------ OWASP ZAP
+  # Scan de sécurité dynamique (DAST) de l'API sur une instance jetable :
+  # base vide, e-mails désactivés, connexion en administrateur pour couvrir les
+  # routes protégées par JWT. Le rapport est publié en artefact et dans le résumé.
+  zap:
+    name: Sécurité API (OWASP ZAP)
+    needs: [backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: zap_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SECRET_KEY: ci-zap-secret-key-not-used-anywhere-else
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      POSTGRES_DB: zap_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      API_PUBLIC_URL: http://localhost:8000
+      ADMIN_USERNAME: zap_admin
+      ADMIN_PASSWORD: Zap-CI-${{ github.run_id }}-Scan!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+
+      - name: Démarrer l'API jetable
+        run: |
+          python manage.py migrate --noinput
+          python manage.py setup_admin
+          python manage.py collectstatic --noinput
+          gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --daemon --access-logfile ../gunicorn.log
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/api/health/ && break; sleep 1; done
+
+      - name: Description OpenAPI et jeton administrateur
+        run: |
+          mkdir -p ../zap && chmod 777 ../zap
+          python manage.py spectacular --file ../zap/openapi.yml
+          TOKEN=$(curl -sf -X POST http://localhost:8000/api/auth/token/ \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\": \"$ADMIN_USERNAME\", \"password\": \"$ADMIN_PASSWORD\"}" | python -c "import json,sys; print(json.load(sys.stdin)['access'])")
+          echo "::add-mask::$TOKEN"
+          # Ajoute l'en-tête Authorization à chaque requête envoyée par ZAP
+          cat > ../zap/auth.prop <<EOF
+          replacer.full_list(0).description=jwt
+          replacer.full_list(0).enabled=true
+          replacer.full_list(0).matchtype=REQ_HEADER
+          replacer.full_list(0).matchstr=Authorization
+          replacer.full_list(0).regex=false
+          replacer.full_list(0).replacement=Bearer $TOKEN
+          EOF
+          sed -i 's/^ *//' ../zap/auth.prop
+          cp ../.zap/rules.tsv ../zap/rules.tsv
+
+      - name: Scan OWASP ZAP (API)
+        working-directory: .
+        run: |
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py -t openapi.yml -f openapi -c rules.tsv -I \
+            -r zap-rapport.html -w zap-rapport.md -J zap-rapport.json \
+            -z "-configfile /zap/wrk/auth.prop"
+
+      - name: Résumé du scan
+        if: always()
+        working-directory: .
+        run: |
+          rm -f zap/auth.prop
+          if [ -f zap/zap-rapport.md ]; then cat zap/zap-rapport.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Publier le rapport ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-owasp-zap
+          path: |
+            zap/zap-rapport.html
+            zap/zap-rapport.md
+            zap/zap-rapport.json
+          if-no-files-found: ignore
+
   # --------------------------------------------------------------- FRONTEND
   frontend:
     name: Frontend (eslint + tsc + build)
@@ -114,7 +216,7 @@ jobs:
   # ------------------------------------------- BUILD + PUSH GHCR + TRIVY
   images:
     name: Image ${{ matrix.service }} (build, push, Trivy)
-    needs: [backend, frontend]
+    needs: [backend, frontend, zap]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

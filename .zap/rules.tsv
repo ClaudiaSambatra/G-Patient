@@ -1,0 +1,2 @@
+# Règles OWASP ZAP : <id>\t<IGNORE|INFO|WARN|FAIL>\t<justification>
+# Une règle passée en FAIL fait échouer le pipeline.

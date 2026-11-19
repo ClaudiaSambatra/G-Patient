@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'drf_spectacular',
 
     # Applications métier
     'accounts',
@@ -188,6 +189,18 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# --- Description OpenAPI de l'API (drf-spectacular) --------------------------
+# Utilisée par le scan de sécurité OWASP ZAP du pipeline CI et, en développement,
+# par la documentation interactive /api/docs/.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Gestion des patients',
+    'DESCRIPTION': 'API REST du cabinet médical (Django REST Framework, authentification JWT).',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVERS': [{'url': config('API_PUBLIC_URL', default='http://localhost:8000')}],
 }
 
 SIMPLE_JWT = {
