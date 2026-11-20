@@ -1,0 +1,1921 @@
+{
+  "info": {
+    "name": "Gestion de Patients — tests de l'API",
+    "description": "Scénario de bout en bout de l'API REST (Django REST Framework) : santé, authentification JWT, contrôle des rôles, patients, rendez-vous et stock de pharmacie.\n\nExécution : `newman run postman/gestion-patients.postman_collection.json -e postman/ci.postman_environment.json` (voir README).\n\nVariables d'environnement attendues : `baseUrl`, `adminUsername`, `adminPassword`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{tokenAdmin}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Contrôles communs à toutes les requêtes",
+          "// Exigence de performance : moins de 300 ms pour les opérations courantes. Les opérations qui",
+          "// hachent un mot de passe (Argon2, lent par conception contre la force brute) ont droit à 1 s.",
+          "const chemin = pm.request.url.getPath();",
+          "const hachage = chemin.endsWith(\"/auth/token/\") || (pm.request.method === \"POST\" && chemin.endsWith(\"/accounts/utilisateurs/\"));",
+          "const limite = hachage ? 1000 : 300;",
+          "pm.test(\"Réponse en moins de \" + limite + \" ms (exigence de performance)\", () => pm.expect(pm.response.responseTime).to.be.below(limite));",
+          "if (pm.response.code !== 204) {",
+          "    pm.test(\"Réponse au format JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "refreshAdmin",
+      "value": ""
+    },
+    {
+      "key": "tokenSecretaire",
+      "value": ""
+    },
+    {
+      "key": "jetonInvalide",
+      "value": ""
+    },
+    {
+      "key": "suffixe",
+      "value": ""
+    },
+    {
+      "key": "motDePasseTest",
+      "value": ""
+    },
+    {
+      "key": "medecinId",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "demain",
+      "value": ""
+    },
+    {
+      "key": "dateHeureRdv",
+      "value": ""
+    },
+    {
+      "key": "rdvId",
+      "value": ""
+    },
+    {
+      "key": "medicamentId",
+      "value": ""
+    },
+    {
+      "key": "utilisateurMedecinId",
+      "value": ""
+    },
+    {
+      "key": "utilisateurSecretaireId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 · Santé",
+      "description": "Disponibilité de l'API.",
+      "item": [
+        {
+          "name": "API en ligne",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status = ok\", () => pm.expect(pm.response.json().status).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Adresse inconnue : 404 en JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inexistant/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inexistant",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Message d'erreur\", () => pm.expect(pm.response.json()).to.have.property(\"detail\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 · Authentification",
+      "description": "Jetons JWT (simplejwt).",
+      "item": [
+        {
+          "name": "Mot de passe erroné refusé",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"mauvais-mot-de-passe\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Aucun jeton délivré\", () => pm.expect(pm.response.json()).to.not.have.property(\"access\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Connexion administrateur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "pm.test(\"Jetons access et refresh délivrés\", () => {",
+                  "    pm.expect(corps.access).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(corps.refresh).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set(\"tokenAdmin\", corps.access);",
+                  "pm.collectionVariables.set(\"refreshAdmin\", corps.refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Renouvellement du jeton",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token/refresh/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token",
+                "refresh",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refreshAdmin}}\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Nouveau jeton access\", () => pm.expect(pm.response.json().access).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accès sans jeton refusé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jeton invalide refusé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jetonInvalide}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"jetonInvalide\", \"eyJhbGciOiJIUzI1NiJ9.e30.signature-fausse\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 · Utilisateurs et rôles",
+      "description": "Création des comptes par l'administrateur et contrôle d'accès par rôle.",
+      "item": [
+        {
+          "name": "Créer un médecin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"medecin_{{suffixe}}\",\n  \"password\": \"{{motDePasseTest}}\",\n  \"email\": \"medecin_{{suffixe}}@exemple.mg\",\n  \"first_name\": \"Hery\",\n  \"last_name\": \"Rakoto{{suffixe}}\",\n  \"role\": \"MEDECIN\",\n  \"specialite\": \"Médecine générale\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Identifiants uniques à chaque exécution (la collection peut tourner plusieurs fois sur la même base)",
+                  "const suffixe = Date.now().toString().slice(-8);",
+                  "pm.collectionVariables.set(\"suffixe\", suffixe);",
+                  "pm.collectionVariables.set(\"motDePasseTest\", \"Test-\" + suffixe + \"-Newman!\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json();",
+                  "pm.test(\"Rôle MEDECIN\", () => pm.expect(u.role).to.eql(\"MEDECIN\"));",
+                  "pm.test(\"Le mot de passe n'est jamais renvoyé\", () => pm.expect(u).to.not.have.property(\"password\"));",
+                  "pm.collectionVariables.set(\"utilisateurMedecinId\", u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mot de passe faible refusé",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"faible_{{suffixe}}\",\n  \"password\": \"1234\",\n  \"role\": \"SECRETAIRE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erreur sur le mot de passe\", () => pm.expect(pm.response.json()).to.have.property(\"password\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer une secrétaire",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"secretaire_{{suffixe}}\",\n  \"password\": \"{{motDePasseTest}}\",\n  \"first_name\": \"Voahangy\",\n  \"last_name\": \"Rasoa\",\n  \"role\": \"SECRETAIRE\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Rôle SECRETAIRE\", () => pm.expect(pm.response.json().role).to.eql(\"SECRETAIRE\"));",
+                  "pm.collectionVariables.set(\"utilisateurSecretaireId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrouver le médecin créé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/medecins/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "medecins",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "const liste = corps.results || corps;",
+                  "const medecin = liste.find(m => m.nom === \"Rakoto\" + pm.collectionVariables.get(\"suffixe\"));",
+                  "pm.test(\"Le profil médecin a été créé automatiquement\", () => pm.expect(medecin).to.be.an(\"object\"));",
+                  "pm.test(\"Spécialité enregistrée\", () => pm.expect(medecin.specialite).to.eql(\"Médecine générale\"));",
+                  "pm.collectionVariables.set(\"medecinId\", medecin.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Connexion secrétaire",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"secretaire_{{suffixe}}\",\n  \"password\": \"{{motDePasseTest}}\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"tokenSecretaire\", pm.response.json().access);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Secrétaire : gestion des comptes interdite",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Secrétaire : son propre profil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/me/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "me",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Rôle SECRETAIRE\", () => pm.expect(pm.response.json().role).to.eql(\"SECRETAIRE\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 · Patients",
+      "description": "Dossier patient (module 2) et recherche (module 14), par la secrétaire.",
+      "item": [
+        {
+          "name": "Patient incomplet refusé",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prenom\": \"Sans nom\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Champs obligatoires signalés\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"nom\");",
+                  "    pm.expect(pm.response.json()).to.have.property(\"date_naissance\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer un patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Randria{{suffixe}}\",\n  \"prenom\": \"Fanja\",\n  \"sexe\": \"F\",\n  \"date_naissance\": \"1990-05-14\",\n  \"contact\": \"034 00 000 00\",\n  \"adresse\": \"Antananarivo\",\n  \"groupe_sanguin\": \"O+\",\n  \"allergies\": \"\",\n  \"antecedents\": \"Asthme\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test(\"Identifiant attribué\", () => pm.expect(p.id).to.be.a(\"number\"));",
+                  "pm.test(\"Âge calculé à partir de la date de naissance\", () => pm.expect(p.age).to.be.within(30, 45));",
+                  "pm.collectionVariables.set(\"patientId\", p.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consulter le dossier",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{patientId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{patientId}}",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Données du dossier\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.prenom).to.eql(\"Fanja\");",
+                  "    pm.expect(p.groupe_sanguin).to.eql(\"O+\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recherche par nom (paginée)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/?search=Randria{{suffixe}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Randria{{suffixe}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "pm.test(\"Liste paginée\", () => pm.expect(corps).to.include.keys(\"count\", \"results\"));",
+                  "pm.test(\"Le patient est trouvé\", () => {",
+                  "    pm.expect(corps.count).to.eql(1);",
+                  "    pm.expect(corps.results[0].id).to.eql(pm.collectionVariables.get(\"patientId\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ajouter une allergie",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{patientId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{patientId}}",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allergies\": \"Pénicilline\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Allergie enregistrée\", () => pm.expect(pm.response.json().allergies).to.eql(\"Pénicilline\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patient inexistant : 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/999999999/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "999999999",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 · Rendez-vous",
+      "description": "Créneaux libres (module 15) et prise de rendez-vous (module 3).",
+      "item": [
+        {
+          "name": "Créneaux libres du médecin demain",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/planning/creneaux/?medecin={{medecinId}}&date={{demain}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "planning",
+                "creneaux",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "medecin",
+                  "value": "{{medecinId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{demain}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Demain, au fuseau de Madagascar (UTC+3)",
+                  "const demain = new Date(Date.now() + 3 * 3600 * 1000 + 24 * 3600 * 1000).toISOString().slice(0, 10);",
+                  "pm.collectionVariables.set(\"demain\", demain);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "pm.test(\"Créneaux de 15 minutes\", () => pm.expect(corps.duree_minutes).to.eql(15));",
+                  "pm.test(\"Au moins un créneau libre\", () => pm.expect(corps.creneaux).to.be.an(\"array\").that.is.not.empty);",
+                  "pm.collectionVariables.set(\"dateHeureRdv\", corps.date + \"T\" + corps.creneaux[0] + \":00+03:00\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Prendre le rendez-vous",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient\": \"{{patientId}}\",\n  \"medecin\": \"{{medecinId}}\",\n  \"date_heure\": \"{{dateHeureRdv}}\",\n  \"motif\": \"Toux persistante\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "const rdv = pm.response.json();",
+                  "pm.test(\"Statut initial Planifié\", () => pm.expect(rdv.statut).to.eql(\"PLANIFIE\"));",
+                  "pm.test(\"Type Consultation par défaut\", () => pm.expect(rdv.type).to.eql(\"CONSULTATION\"));",
+                  "pm.collectionVariables.set(\"rdvId\", rdv.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créneau déjà pris refusé",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient\": \"{{patientId}}\",\n  \"medecin\": \"{{medecinId}}\",\n  \"date_heure\": \"{{dateHeureRdv}}\",\n  \"motif\": \"Doublon\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rendez-vous dans le passé refusé",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient\": \"{{patientId}}\",\n  \"medecin\": \"{{medecinId}}\",\n  \"date_heure\": \"2020-01-06T09:00:00+03:00\",\n  \"motif\": \"Passé\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erreur sur la date\", () => pm.expect(pm.response.json()).to.have.property(\"date_heure\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Le créneau n'est plus proposé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/planning/creneaux/?medecin={{medecinId}}&date={{demain}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "planning",
+                "creneaux",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "medecin",
+                  "value": "{{medecinId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{demain}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const heure = pm.collectionVariables.get(\"dateHeureRdv\").slice(11, 16);",
+                  "pm.test(\"Créneau \" + heure + \" retiré des créneaux libres\", () => pm.expect(pm.response.json().creneaux).to.not.include(heure));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Statut Terminé manuel interdit",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/{{rdvId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                "{{rdvId}}",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"TERMINE\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erreur sur le statut\", () => pm.expect(pm.response.json()).to.have.property(\"statut\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Annuler le rendez-vous",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/{{rdvId}}/annuler/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                "{{rdvId}}",
+                "annuler",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Statut Annulé\", () => pm.expect(pm.response.json().statut).to.eql(\"ANNULE\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 · Pharmacie",
+      "description": "Stock de médicaments, mouvements et alerte de seuil (module 11).",
+      "item": [
+        {
+          "name": "Créer un médicament sous le seuil",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Paracétamol {{suffixe}}\",\n  \"dosage\": \"500 mg\",\n  \"forme\": \"Comprimé\",\n  \"unite\": \"boîte\",\n  \"prix_unitaire\": \"2500.00\",\n  \"seuil_alerte\": 10,\n  \"quantite_initiale\": 4\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "const m = pm.response.json();",
+                  "pm.test(\"Quantité initiale en stock\", () => pm.expect(m.quantite).to.eql(4));",
+                  "pm.test(\"Alerte de rupture active (4 < 10)\", () => pm.expect(m.en_alerte).to.be.true);",
+                  "pm.collectionVariables.set(\"medicamentId\", m.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Réception d'une livraison",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/{{medicamentId}}/entree/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                "{{medicamentId}}",
+                "entree",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantite\": 20,\n  \"motif\": \"Livraison Newman\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const m = pm.response.json();",
+                  "pm.test(\"Stock augmenté (4 + 20)\", () => pm.expect(m.quantite).to.eql(24));",
+                  "pm.test(\"Alerte levée\", () => pm.expect(m.en_alerte).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quantité négative refusée",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/{{medicamentId}}/entree/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                "{{medicamentId}}",
+                "entree",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantite\": -5,\n  \"motif\": \"\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mouvement tracé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/mouvements/?medicament={{medicamentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "mouvements",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "medicament",
+                  "value": "{{medicamentId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "const liste = corps.results || corps;",
+                  "pm.test(\"La livraison apparaît dans l'historique\", () => pm.expect(liste.some(mv => mv.motif === \"Livraison Newman\")).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 · Suppressions et nettoyage",
+      "description": "Règles de suppression (rôles, traçabilité) puis retrait des données de test.",
+      "item": [
+        {
+          "name": "Secrétaire : suppression d'un patient interdite",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{patientId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{patientId}}",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Secrétaire : suppression d'un médicament interdite",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/{{medicamentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                "{{medicamentId}}",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Médicament avec historique : suppression refusée",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/{{medicamentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                "{{medicamentId}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Il faut le désactiver\", () => pm.expect(pm.response.json().detail).to.include(\"désactivez\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Désactiver le médicament",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stocks/medicaments/{{medicamentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stocks",
+                "medicaments",
+                "{{medicamentId}}",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actif\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Médicament inactif\", () => pm.expect(pm.response.json().actif).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer le rendez-vous",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/rendezvous/{{rdvId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rendezvous",
+                "{{rdvId}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer le patient",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{patientId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{patientId}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Le patient n'existe plus",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patients/{{patientId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{patientId}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Désactiver le compte médecin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/{{utilisateurMedecinId}}/toggle-active/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                "{{utilisateurMedecinId}}",
+                "toggle-active",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Désactiver le compte secrétaire",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/utilisateurs/{{utilisateurSecretaireId}}/toggle-active/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "utilisateurs",
+                "{{utilisateurSecretaireId}}",
+                "toggle-active",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Compte désactivé : connexion refusée",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"secretaire_{{suffixe}}\",\n  \"password\": \"{{motDePasseTest}}\"\n}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

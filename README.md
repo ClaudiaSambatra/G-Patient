@@ -204,6 +204,34 @@ conteneurs Docker ──stdout/stderr──▶ Grafana Alloy ──push──▶
 
 Lancement avec la supervision : `docker compose -f docker-compose.monitoring.yml up -d`, puis Grafana sur http://localhost:3001 → *Supervision › Journaux applicatifs*, ou *Explore* avec par exemple `{service="backend", level="error"}`.
 
+## Tests de l'API (Postman / Newman)
+
+La collection `postman/gestion-patients.postman_collection.json` déroule un **parcours métier complet** sur l'API, en 41 requêtes et 155 assertions :
+
+| Dossier | Ce qui est vérifié |
+|---|---|
+| 00 · Santé | API en ligne, erreurs 404 en JSON |
+| 01 · Authentification | jetons JWT, renouvellement, refus sans jeton ou avec un mauvais mot de passe |
+| 02 · Utilisateurs et rôles | création des comptes médecin et secrétaire, mot de passe robuste imposé, accès interdit selon le rôle |
+| 03 · Patients | champs obligatoires, création, âge calculé, recherche paginée, mise à jour |
+| 04 · Rendez-vous | créneaux libres de 15 min, prise de RDV, double réservation et date passée refusées, transitions de statut |
+| 05 · Pharmacie | stock initial, alerte de seuil, réception de livraison, traçabilité des mouvements |
+| 06 · Suppressions et nettoyage | suppressions réservées à l'administrateur, médicament avec historique désactivé et non supprimé, comptes de test désactivés |
+
+Chaque réponse est aussi contrôlée sur son **format JSON** et son **temps de réponse**. Le seuil est de 300 ms, l'exigence de performance du cahier des charges, et passe à 1 s pour les seules opérations qui hachent un mot de passe avec Argon2, un algorithme lent par conception. Les données de test portent un suffixe unique, si bien que la collection peut tourner plusieurs fois sur la même base.
+
+- **En CI** : le job « Tests d'API (Postman / Newman) » démarre une API jetable (PostgreSQL vierge), lance la collection avec l'image Docker Newman épinglée par son empreinte, affiche un résumé dans l'onglet *Summary* et publie le rapport JUnit (artefact `rapport-newman`). La construction des images attend ce job.
+- **En local**, contre une API qui tourne sur le port 8000 :
+
+  ```bash
+  docker run --rm --network host -v "$PWD/postman:/etc/newman:ro,z" postman/newman:6.1.3-alpine \
+    run gestion-patients.postman_collection.json -e ci.postman_environment.json \
+    --env-var baseUrl=http://localhost:8000 \
+    --env-var adminUsername=<admin> --env-var adminPassword=<mot de passe>
+  ```
+
+- **Dans Postman** : *Import* de la collection et de l'environnement `postman/ci.postman_environment.json`, puis renseigner `adminPassword`.
+
 ## Sécurité de la chaîne CI/CD
 
 Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et aux analyses SonarCloud et OWASP ZAP) :
@@ -212,6 +240,7 @@ Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et
 - **`npm ci --ignore-scripts`** : aucun script d'installation de dépendance n'est exécuté (CI et Dockerfile).
 - **`pip install --only-binary :all:`** : uniquement des paquets précompilés, aucun script `setup.py` exécuté ; versions exactes dans `requirements.txt`.
 - Job « Sécurité » : blocage du code caché (lignes anormalement longues, signatures connues, tâches VS Code automatiques) et des fichiers `.env` versionnés.
+- Tests d'API **Postman / Newman** (image épinglée par son empreinte, rapport JSON contenant les secrets jamais publié).
 - Scan dynamique **OWASP ZAP** de l'API (règles classées dans `.zap/rules.tsv`), scan **Trivy** des images, analyse **SonarCloud**.
 
 Alertes SonarCloud acceptées, avec justification :
