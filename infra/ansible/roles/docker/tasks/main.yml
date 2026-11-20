@@ -1,0 +1,48 @@
+# Docker Engine et le plugin Compose, depuis le dépôt officiel de Docker.
+# Un Docker déjà présent (cas du runner GitHub) est conservé tel quel.
+- name: Docker Compose est-il déjà installé ?
+  ansible.builtin.command: docker compose version
+  register: docker_present
+  changed_when: false
+  failed_when: false
+
+- name: Installer Docker depuis le dépôt officiel
+  when: docker_present.rc != 0
+  block:
+    - name: Dépôt APT de Docker (clé vérifiée par APT)
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ ansible_facts['distribution_release'] }}"
+        components: stable
+        architectures: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+        signed_by: https://download.docker.com/linux/ubuntu/gpg
+
+    - name: Paquets Docker
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+- name: Docker démarré et lancé au démarrage
+  when: docker_gerer_service | default(true) | bool
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Groupe docker
+  ansible.builtin.group:
+    name: docker
+    system: true
+
+- name: L'utilisateur de déploiement peut utiliser Docker
+  ansible.builtin.user:
+    name: "{{ app_utilisateur }}"
+    groups: docker
+    append: true

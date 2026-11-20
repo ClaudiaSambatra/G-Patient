@@ -1,0 +1,25 @@
+# Playbook principal : prépare un serveur Ubuntu et y déploie l'application.
+#
+#   ansible-playbook site.yml --limit serveurs
+#
+# Idempotent : relancé sur un serveur déjà à jour, il ne modifie rien (changed=0).
+- name: Déploiement de Gestion de Patients
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Vérifier que les secrets sont fournis
+      ansible.builtin.assert:
+        that:
+          - app_django_secret_key | length >= 32
+          - app_postgres_password | length >= 16
+          - app_grafana_password | length >= 12
+        fail_msg: >-
+          Secrets manquants ou trop courts : définir APP_DJANGO_SECRET_KEY, APP_POSTGRES_PASSWORD
+          et APP_GRAFANA_PASSWORD dans l'environnement (ou dans un fichier chiffré avec ansible-vault).
+        quiet: true
+
+  roles:
+    - socle
+    - docker
+    - application

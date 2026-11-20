@@ -1,0 +1,22 @@
+# Inventaire des serveurs.
+#
+# serveurs : machines de déploiement réelles, joignables en SSH (Ubuntu 22.04 / 24.04).
+#   Pour déployer sur un nouveau serveur, il suffit d'ajouter son adresse ici :
+#     ansible-playbook site.yml --limit serveurs
+#
+# ci : la machine virtuelle jetable de GitHub Actions, sur laquelle le playbook est testé
+#   à chaque modification (job « Infrastructure (Ansible) »).
+all:
+  children:
+    serveurs:
+      hosts:
+        # demo:
+        #   ansible_host: 203.0.113.10
+        #   ansible_user: ubuntu
+        #   app_domaine: 203.0.113.10
+    ci:
+      hosts:
+        localhost:
+          ansible_connection: local
+          # Le runner GitHub a déjà Docker ; son réseau ne doit pas être filtré
+          socle_pare_feu: false

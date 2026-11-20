@@ -325,6 +325,74 @@ jobs:
             gunicorn.log
           if-no-files-found: ignore
 
+  # ------------------------------------------------- INFRASTRUCTURE (ANSIBLE)
+  # Le playbook est appliqué sur la machine virtuelle jetable du runner (un Ubuntu neuf),
+  # comme sur un vrai serveur, puis relancé : la 2e passe doit être sans aucun changement.
+  infra:
+    name: Infrastructure (Ansible)
+    needs: [securite]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: infra/ansible
+    env:
+      ANSIBLE_FORCE_COLOR: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Ansible (préinstallé sur le runner)
+        run: ansible --version
+
+      - name: Secrets jetables
+        working-directory: .
+        run: |
+          for v in APP_DJANGO_SECRET_KEY:32 APP_POSTGRES_PASSWORD:16 APP_GRAFANA_PASSWORD:12; do
+            valeur=$(openssl rand -hex "${v#*:}")
+            echo "::add-mask::$valeur"
+            echo "${v%%:*}=$valeur" >> "$GITHUB_ENV"
+          done
+
+      - name: Vérification de la syntaxe
+        run: ansible-playbook site.yml --syntax-check
+
+      - name: 1re passe — préparation du serveur et déploiement
+        run: ansible-playbook site.yml --limit ci
+
+      - name: 2e passe — idempotence (aucun changement attendu)
+        run: |
+          ansible-playbook site.yml --limit ci | tee ../../idempotence.log
+          if ! grep -qE 'localhost +: ok=[0-9]+ +changed=0 +unreachable=0 +failed=0' ../../idempotence.log; then
+            echo "::error::La 2e passe a modifié le serveur : le playbook n'est pas idempotent."
+            exit 1
+          fi
+
+      - name: La pile déployée répond
+        run: |
+          # Chaque service a jusqu'à 2 minutes pour être prêt (Loki met un peu de temps à démarrer)
+          attendre() {
+            for _ in $(seq 1 24); do "$@" && return 0; sleep 5; done
+            echo "::error::Pas de réponse : $*"; return 1
+          }
+          cd /opt/gestion-patients
+          attendre curl -fsS http://localhost/api/health/
+          attendre curl -fsS http://localhost/grafana/api/health
+          # Loki joignable depuis Grafana (sa source de données)
+          attendre sudo docker compose -f docker-compose.prod.yml exec -T grafana wget -qO- http://loki:3100/ready
+          sudo docker compose -f docker-compose.prod.yml ps
+
+      - name: Résumé
+        if: always()
+        working-directory: .
+        run: |
+          {
+            echo "### Infrastructure (Ansible)"
+            echo ""
+            echo '```'
+            grep -A1 'PLAY RECAP' idempotence.log 2>/dev/null || echo "2e passe non exécutée"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # --------------------------------------------------------------- FRONTEND
   frontend:
     name: Frontend (eslint + tsc + build)
@@ -349,7 +417,7 @@ jobs:
   # ------------------------------------------- BUILD + PUSH GHCR + TRIVY
   images:
     name: Image ${{ matrix.service }} (build, push, Trivy)
-    needs: [backend, frontend, zap, api-tests]
+    needs: [backend, frontend, zap, api-tests, infra]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -393,64 +461,16 @@ jobs:
           exit-code: "0"
           format: table
 
-  # ------------------------------------------------------------- DEPLOY EC2
+  # ---------------------------------------------------------------- DEPLOY
+  # Render redéploie depuis GHCR/GitHub ; un serveur se déploie avec Ansible (infra/ansible).
   deploy:
-    name: Déploiement continu sur AWS EC2
+    name: Déploiement continu (Render)
     needs: [images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - name: Déploiement via SSH sur AWS EC2 (Optionnel)
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          SSH_HOST: ${{ secrets.EC2_HOST }}
-          SSH_USER: ${{ secrets.EC2_USER }}
-        run: |
-          if [ -z "$SSH_HOST" ] || [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$SSH_USER" ]; then
-            echo "⚠️ Secrets AWS EC2 non configurés. Déploiement ignoré."
-            exit 0
-          fi
-
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-          echo "🔍 Vérification de la connectivité avec le serveur AWS EC2..."
-          if ! ssh-keyscan -T 5 -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
-            echo "⚠️ Le serveur AWS EC2 est actuellement éteint ou inaccessible. Déploiement ignoré avec succès."
-            exit 0
-          fi
-
-          ssh -o ConnectTimeout=8 -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash << 'EOF' || {
-            echo "⚠️ Impossible de se connecter en SSH au serveur EC2. Déploiement ignoré."
-            exit 0
-          }
-            set -e
-            echo "🚀 Démarrage du déploiement..."
-            cd /home/ubuntu/gestion-patients
-
-            echo "📥 Récupération des dernières modifications de code et configs..."
-            git pull origin main
-
-            echo "🐳 Téléchargement des nouvelles images Docker..."
-            docker compose -f docker-compose.prod.yml pull
-
-            echo "🔄 Redémarrage des services..."
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            echo "🩺 Vérification de l'état de l'application..."
-            sleep 5
-            docker compose -f docker-compose.prod.yml ps
-            curl -f -s http://127.0.0.1/api/health/ > /dev/null && echo "✅ API opérationnelle !"
-
-            echo "🧹 Nettoyage des anciennes images inutilisées..."
-            docker image prune -f
-            echo "🎉 Déploiement terminé avec succès !"
-          EOF
-
-      - name: Déploiement continu sur Render (Optionnel)
-        if: always()
+      - name: Déploiement continu sur Render
         run: |
           if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
             echo "🚀 Déclenchement du déploiement automatique sur Render..."

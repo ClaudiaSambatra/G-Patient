@@ -1,0 +1,11 @@
+# Fichiers de la pile copiés depuis le dépôt (chemins relatifs à la racine du dépôt)
+application_fichiers:
+  - docker-compose.prod.yml
+  - infra/nginx.conf
+  - infra/prometheus/prometheus.yml
+  - infra/loki/loki-config.yml
+  - infra/alloy/config.alloy
+  - infra/grafana/provisioning/datasources/datasource.yml
+  - infra/grafana/provisioning/dashboards/dashboards.yml
+  - infra/grafana/dashboards/supervision.json
+  - infra/grafana/dashboards/journaux.json

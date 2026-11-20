@@ -1,0 +1,11 @@
+socle_paquets:
+  - ca-certificates
+  - curl
+  - gnupg
+  - ufw
+  - unattended-upgrades
+socle_pare_feu: true
+socle_ports_ouverts:
+  - "22/tcp"    # SSH
+  - "80/tcp"    # application (Nginx)
+  - "443/tcp"   # HTTPS
