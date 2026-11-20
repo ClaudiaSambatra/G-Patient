@@ -982,3 +982,36 @@ def test_mots_de_passe_haches_en_argon2_et_anciens_pbkdf2_convertis(settings):
     assert ancien.check_password('Ancien-Pass-2026')  # vérifie et convertit
     ancien.refresh_from_db()
     assert ancien.password.startswith('argon2')
+
+
+@pytest.mark.django_db
+class TestChargerDemo:
+    def test_charge_un_jeu_coherent(self):
+        from datetime import timedelta
+        from django.core.management import call_command
+        from django.utils import timezone
+        from appointments.models import RendezVous
+        from billing.models import Facture
+        from consultations.services import calculer_eligibilite_controle
+        from patients.models import Patient
+        from pharmacie.models import StockMedicament
+
+        call_command('charger_demo')
+
+        assert Utilisateur.objects.filter(role=Utilisateur.Role.MEDECIN).count() == 2
+        assert Patient.objects.count() == 4
+        assert RendezVous.objects.filter(statut=RendezVous.Statut.PLANIFIE).count() == 3
+        assert Facture.objects.filter(statut=Facture.StatutPaiement.IMPAYEE).count() == 3
+        assert Facture.objects.filter(statut=Facture.StatutPaiement.PAYEE).count() == 2
+        assert StockMedicament.objects.get(nom='Paracétamol').quantite == 48
+        toky = Patient.objects.get(prenom='Toky')
+        demain = timezone.localdate() + timedelta(days=1)
+        assert calculer_eligibilite_controle(toky, demain)['statut'] == 'ELIGIBLE'
+
+    def test_refuse_un_second_chargement(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        call_command('charger_demo')
+        with pytest.raises(CommandError):
+            call_command('charger_demo')
