@@ -337,3 +337,5 @@ Alertes SonarCloud acceptées, avec justification :
 |---|---|
 | `COPY . .` dans les Dockerfile (copie récursive) | Les fichiers sensibles (`.env`, `.git`, médias, rapports de couverture…) sont exclus par `.dockerignore`. |
 | Image exécutée en `root` dans `Dockerfile.dev` | Images de **développement** local uniquement ; les images de production (`Dockerfile`) tournent avec un utilisateur dédié (`django`, `nextjs`). |
+| Droits `0644` / `0755` des fichiers de la pile déployés par Ansible (rôle `application`) | Ces fichiers (Compose, Nginx, Prometheus, Grafana, Loki, Alloy) sont lus à l'intérieur des conteneurs par des utilisateurs différents (`nobody` pour Prometheus, uid 472 pour Grafana, uid 10001 pour Loki) : la lecture par « les autres » est nécessaire. Ils ne contiennent aucun secret (ils sont publics dans le dépôt) ; le seul fichier sensible, `.env`, est en `0600`. |
+| Droits `0644` de `/etc/apt/apt.conf.d/20auto-upgrades` (rôle `socle`) | Droits standard des fichiers de configuration d'APT sous Debian/Ubuntu : avec moins, les commandes `apt` d'un utilisateur non administrateur échouent (« Permission denied »). Fichier sans secret, propriété de root. |

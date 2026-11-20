@@ -360,6 +360,9 @@ jobs:
         run: ansible-playbook site.yml --limit ci
 
       - name: 2e passe — idempotence (aucun changement attendu)
+        env:
+          ANSIBLE_FORCE_COLOR: "0"   # récapitulatif sans codes couleur, pour pouvoir le contrôler
+          ANSIBLE_NOCOLOR: "1"
         run: |
           ansible-playbook site.yml --limit ci | tee ../../idempotence.log
           if ! grep -qE 'localhost +: ok=[0-9]+ +changed=0 +unreachable=0 +failed=0' ../../idempotence.log; then
