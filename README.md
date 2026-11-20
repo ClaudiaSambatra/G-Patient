@@ -153,6 +153,7 @@ gestion-patients/
 │   ├── consultations/  # Module 4 — Consultations (modèle de base)
 │   ├── prescriptions/  # Module 5 — Ordonnances (modèle de base)
 │   ├── billing/        # Module 7 — Facturation (modèle de base)
+│   ├── audit/          # Module 10 — Journal d'audit (traçabilité des accès)
 │   ├── Dockerfile      # Image de production (multi-stage, gunicorn)
 │   └── Dockerfile.dev  # Image de développement (hot-reload)
 ├── frontend/           # Next.js + Tailwind + shadcn/ui
@@ -184,6 +185,23 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 5. Saisissez le code et choisissez votre nouveau mot de passe (min. 8 caractères) pour vous reconnecter immédiatement.
 
 
+## Journal d'audit (module 10)
+
+Chaque action sensible est tracée dans la table du journal d'audit : **qui** (compte et rôle), **quoi** (action, ressource et identifiant), **quand**, **d'où** (adresse IP et navigateur) et avec **quel résultat** (code HTTP : une tentative refusée est gardée, elle aussi).
+
+| Action | Ce qui est tracé |
+|---|---|
+| Connexion / Échec de connexion | chaque tentative sur `/api/auth/token/` ; en cas d'échec, le nom saisi est gardé (essais sur des comptes inexistants) |
+| Mot de passe oublié | demandes de code et réinitialisations |
+| Consultation | lecture d'un dossier patient, d'une consultation, d'une ordonnance ou d'un examen, et des listes filtrées sur un patient |
+| Création / Modification / Suppression | toute écriture d'un utilisateur connecté, sur n'importe quelle ressource de l'API |
+
+- **Fonctionnement** : un middleware Django (`backend/audit/middleware.py`) écrit l'entrée une fois la réponse connue. La connexion est tracée par le sérialiseur JWT, le seul à connaître le compte visé. Les mots de passe et le contenu des requêtes ne sont jamais enregistrés. Une panne du journal ne fait jamais échouer la requête.
+- **Ce qui n'est pas tracé** : les requêtes anonymes refusées, la supervision (`/api/health/`, `/api/metrics/`), le renouvellement du jeton et les listes générales, qui rempliraient le journal sans rien apprendre.
+- **Adresse IP** : derrière Nginx ou Render, elle est lue dans `X-Forwarded-For`, en ne prenant que la valeur ajoutée par le proxy, car les autres peuvent être falsifiées par le client. Réglage `AUDIT_DERRIERE_PROXY`, activé par défaut quand `DJANGO_DEBUG=False`.
+- **Consultation** : page **Journal d'audit** du frontend (administrateurs uniquement), avec des filtres par action, période et refus, et une recherche. Côté API, `GET /api/audit/` accepte `?action=`, `?ressource=`, `?utilisateur=`, `?echecs=1`, `?du=`, `?au=` et `?search=`. Le journal est en **lecture seule**, y compris dans l'admin Django.
+- **Conservation** : `python manage.py purger_journal_audit` supprime les entrées de plus de 365 jours (`AUDIT_CONSERVATION_JOURS` ou `--jours`). Les sauvegardes nocturnes de la base contiennent aussi le journal.
+
 ## Crédits
 
 - Illustration des écrans de connexion : « Patient waiting for visit doctor illustration concept » par Abdur Razzaq sur [Vecteezy.com](https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept) (licence gratuite Vecteezy, attribution obligatoire).
@@ -206,17 +224,18 @@ Lancement avec la supervision : `docker compose -f docker-compose.monitoring.yml
 
 ## Tests de l'API (Postman / Newman)
 
-La collection `postman/gestion-patients.postman_collection.json` déroule un **parcours métier complet** sur l'API, en 41 requêtes et 155 assertions :
+La collection `postman/gestion-patients.postman_collection.json` déroule un **parcours métier complet** sur l'API, en 47 requêtes et 182 assertions :
 
 | Dossier | Ce qui est vérifié |
 |---|---|
 | 00 · Santé | API en ligne, erreurs 404 en JSON |
 | 01 · Authentification | jetons JWT, renouvellement, refus sans jeton ou avec un mauvais mot de passe |
-| 02 · Utilisateurs et rôles | création des comptes médecin et secrétaire, mot de passe robuste imposé, accès interdit selon le rôle |
+| 02 · Utilisateurs et rôles | création des comptes médecin et secrétaire, mot de passe robuste imposé, accès interdit selon le rôle (comptes, journal d'audit) |
 | 03 · Patients | champs obligatoires, création, âge calculé, recherche paginée, mise à jour |
 | 04 · Rendez-vous | créneaux libres de 15 min, prise de RDV, double réservation et date passée refusées, transitions de statut |
 | 05 · Pharmacie | stock initial, alerte de seuil, réception de livraison, traçabilité des mouvements |
 | 06 · Suppressions et nettoyage | suppressions réservées à l'administrateur, médicament avec historique désactivé et non supprimé, comptes de test désactivés |
+| 07 · Journal d'audit | l'échec de connexion, la consultation du dossier, la suppression refusée puis la suppression réelle sont tracés, avec date et adresse IP ; le journal ne peut pas être effacé |
 
 Chaque réponse est aussi contrôlée sur son **format JSON** et son **temps de réponse**. Le seuil est de 300 ms, l'exigence de performance du cahier des charges, et passe à 1 s pour les seules opérations qui hachent un mot de passe avec Argon2, un algorithme lent par conception. Les données de test portent un suffixe unique, si bien que la collection peut tourner plusieurs fois sur la même base.
 

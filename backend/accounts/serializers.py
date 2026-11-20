@@ -3,8 +3,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from audit.journal import Action, enregistrer
 from .models import Utilisateur, Medecin
 
 
@@ -21,8 +23,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             if user:
                 attrs['username'] = user.username
 
-        print(f"[AUTH] Tentative: '{raw_username}' -> user: {user.username if user else 'NON TROUVE'}")
-        return super().validate(attrs)
+        request = self.context.get('request')
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            # Le nom saisi est gardé tel quel : il révèle les essais sur des comptes inexistants
+            enregistrer(request, Action.ECHEC_CONNEXION, 401, nom_utilisateur=raw_username)
+            raise
+        enregistrer(request, Action.CONNEXION, 200, utilisateur=self.user)
+        return data
 
     @classmethod
     def get_token(cls, user):
