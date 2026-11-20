@@ -243,6 +243,9 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@gestion-patients.local')
 EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=5, cast=int)
+# Si l'email ne part pas, écrire le code de réinitialisation dans les journaux du serveur.
+# Développement uniquement : en production, quiconque lit les journaux prendrait n'importe quel compte.
+OTP_DANS_LES_JOURNAUX = config('OTP_DANS_LES_JOURNAUX', default=DEBUG, cast=bool)
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # Tarif de consultation (par défaut 20 000 Ar)

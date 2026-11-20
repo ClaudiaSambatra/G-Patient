@@ -1,4 +1,4 @@
-import sys
+import logging
 import secrets
 from datetime import timedelta
 from django.utils import timezone
@@ -15,6 +15,7 @@ from rest_framework import status
 from .models import PasswordResetToken
 
 Utilisateur = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class RequestOTPView(APIView):
@@ -191,7 +192,8 @@ class RequestOTPView(APIView):
             msg.attach_alternative(html_content, "text/html")
             msg.send(fail_silently=False)
 
-            print(f"OTP envoyé par email à {user.email}: {otp_code}", flush=True)
+            # Jamais le code : les journaux sont lisibles dans Grafana (Loki) et chez l'hébergeur
+            logger.info("Code de réinitialisation envoyé par email (utilisateur %s)", user.pk)
             return Response(
                 {
                     'message': f'Un code de vérification a été envoyé à {user.email}.',
@@ -200,13 +202,14 @@ class RequestOTPView(APIView):
                 status=status.HTTP_200_OK
             )
         except Exception as e:
-            print(f"Erreur d'envoi d'email SMTP: {e}", file=sys.stderr, flush=True)
-            # Log de simulation en console
-            print("========== EMAIL SIMULATION ==========", flush=True)
-            print(f"Destinataire : {user.email}", flush=True)
-            print(f"Code OTP : {otp_code}", flush=True)
-            print(f"Lien direct : {reset_link}", flush=True)
-            print("======================================", flush=True)
+            logger.error("Envoi de l'email de réinitialisation impossible : %s", e)
+            # Sans serveur d'email (développement), le code n'est lisible que dans les journaux.
+            # Ailleurs, ce serait une fuite : toute personne lisant les journaux (Grafana, Render)
+            # pourrait réinitialiser le mot de passe de n'importe quel compte
+            if settings.OTP_DANS_LES_JOURNAUX:
+                logger.warning(
+                    "EMAIL SIMULÉ pour %s : code %s, lien %s", user.email, otp_code, reset_link
+                )
             return Response(
                 {
                     'message': f'Un code de réinitialisation a été généré pour {user.email}.',
