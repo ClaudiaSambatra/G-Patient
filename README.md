@@ -232,6 +232,49 @@ Chaque réponse est aussi contrôlée sur son **format JSON** et son **temps de 
 
 - **Dans Postman** : *Import* de la collection et de l'environnement `postman/ci.postman_environment.json`, puis renseigner `adminPassword`.
 
+## Sauvegardes de la base (Neon)
+
+La base de production est hébergée chez **Neon**, avec deux niveaux de protection :
+
+| Niveau | Outil | Usage |
+|---|---|---|
+| Restauration instantanée | historique de Neon (*point-in-time restore*, console Neon › *Branches* › *Restore*) | annuler une erreur récente, dans la fenêtre d'historique de l'offre Neon |
+| Sauvegarde indépendante | workflow **« Sauvegarde de la base »** (`.github/workflows/sauvegarde.yml`) | incident grave, suppression du projet Neon, compte compromis, changement d'hébergeur |
+
+Le workflow tourne **chaque nuit à 2 h** (heure d'Antananarivo). Il peut aussi être lancé à la main : *Actions › Sauvegarde de la base › Run workflow*. Le script `infra/sauvegardes/sauvegarder.sh` :
+
+1. détecte la version de PostgreSQL du serveur et utilise `pg_dump` de la même version ;
+2. fait une sauvegarde complète et compressée ;
+3. **la restaure dans une base jetable** et compare le nombre de lignes de chaque table avec la source. Une sauvegarde dont la restauration échoue fait échouer le workflow, et GitHub envoie alors un e-mail ;
+4. la **chiffre en AES-256** (GPG), car ce sont des données médicales. La copie en clair n'est jamais conservée.
+
+La sauvegarde chiffrée et son empreinte SHA-256 sont conservées **30 jours** comme artefacts du workflow.
+
+### Mise en place (une fois)
+
+Dans *Settings › Secrets and variables › Actions*, ajouter deux secrets :
+
+- `NEON_DATABASE_URL` : la chaîne de connexion Neon **directe**, sans `-pooler` dans le nom d'hôte, car `pg_dump` passe mal par le pooler ;
+- `SAUVEGARDE_PHRASE_SECRETE` : une phrase secrète longue, par exemple générée avec `openssl rand -base64 32`. **À garder aussi dans un gestionnaire de mots de passe** : sans elle, les sauvegardes sont illisibles.
+
+Le planning nocturne ne s'active qu'une fois le workflow présent sur `main`. GitHub suspend les workflows planifiés après 60 jours sans activité sur le dépôt.
+
+### Restaurer
+
+```bash
+# Dernière sauvegarde réussie, téléchargée depuis GitHub (gh authentifié)
+CIBLE_DATABASE_URL="postgresql://..." ./infra/sauvegardes/restaurer.sh --derniere
+
+# Ou un fichier précis
+CIBLE_DATABASE_URL="postgresql://..." ./infra/sauvegardes/restaurer.sh gestion_patients_AAAA-MM-JJ_HHMM.dump.gpg
+```
+
+Le script vérifie l'empreinte, déchiffre (la phrase secrète est demandée), affiche la base cible et **demande de retaper son nom** avant de la remplacer. La restauration se fait en une seule transaction : en cas d'erreur, la base reste dans son état d'avant.
+
+**Bonne pratique avec Neon** : restaurer dans une **nouvelle branche Neon** (console › *Branches* › *Create branch*), vérifier l'application dessus, puis faire pointer `DATABASE_URL` (Render) vers cette branche. La production n'est ainsi jamais écrasée à l'aveugle.
+
+Les deux scripts fonctionnent avec n'importe quel PostgreSQL. Pour changer d'hébergeur de base, il suffit de modifier `NEON_DATABASE_URL`, et une restauration sert aussi à **migrer** les données vers la nouvelle base.
+
 ## Sécurité de la chaîne CI/CD
 
 Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et aux analyses SonarCloud et OWASP ZAP) :
