@@ -571,11 +571,11 @@ def test_historical_prescription_and_paid_invoice_remain_intact():
 
 
 # ==============================================================================
-# IMPRESSION A4
+# IMPRESSION A5
 # ==============================================================================
 
 @pytest.mark.django_db
-def test_pdf_ordonnance_a4_imprimable_par_la_secretaire(api_client, test_data):
+def test_pdf_ordonnance_a5_imprimable_par_la_secretaire(api_client, test_data):
     ordonnance = Ordonnance.objects.create(consultation=test_data['consultation1'])
     LigneOrdonnance.objects.create(
         ordonnance=ordonnance, medicament='Paracétamol', dosage='500 mg', forme='Comprimé',
@@ -588,7 +588,7 @@ def test_pdf_ordonnance_a4_imprimable_par_la_secretaire(api_client, test_data):
     assert res.status_code == status.HTTP_200_OK
     assert res['Content-Type'] == 'application/pdf'
     assert res.content.startswith(b'%PDF')
-    assert b'/MediaBox [ 0 0 595.2756 841.8898 ]' in res.content  # A4 portrait
+    assert b'/MediaBox [ 0 0 419.5276 595.2756 ]' in res.content  # A5 portrait
 
 
 @pytest.mark.django_db

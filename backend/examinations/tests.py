@@ -495,7 +495,7 @@ def test_protect_on_delete_consultation_or_patient(test_data):
 
 
 @pytest.mark.django_db
-def test_pdf_demande_examens_a4_groupee_par_categorie(api_client, test_data):
+def test_pdf_demande_examens_a5_groupee_par_categorie(api_client, test_data):
     demande = DemandeExamen.objects.create(
         consultation=test_data['consultation1'], patient=test_data['patient'], medecin=test_data['medecin1_user'],
         renseignements_cliniques='Fièvre & toux depuis 3 jours',
@@ -508,5 +508,5 @@ def test_pdf_demande_examens_a4_groupee_par_categorie(api_client, test_data):
 
     assert res.status_code == status.HTTP_200_OK
     assert res['Content-Type'] == 'application/pdf'
-    assert b'/MediaBox [ 0 0 595.2756 841.8898 ]' in res.content
+    assert b'/MediaBox [ 0 0 419.5276 595.2756 ]' in res.content
     assert f'demande_examens_{demande.numero}.pdf' in res['Content-Disposition']

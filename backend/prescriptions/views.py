@@ -110,7 +110,7 @@ class OrdonnanceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
-        """Document A4 à imprimer ou à remettre au patient."""
+        """Document A5 à imprimer ou à remettre au patient."""
         instance = self.get_object()
         response = HttpResponse(generer_ordonnance_pdf(instance), content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="ordonnance_{instance.numero or instance.pk}.pdf"'

@@ -3,7 +3,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyle
 
 from config.documents_pdf import (
-    FILET, LARGEUR_UTILE, MARQUE, STYLES, bloc_signature, construire_a4, e, en_tete, encadre_patient,
+    FILET, LARGEUR_UTILE, MARQUE, STYLES, bloc_signature, construire_document, e, en_tete, encadre_patient,
 )
 
 from .models import LigneDemandeExamen
@@ -24,14 +24,14 @@ def renseignements(texte):
         ('LINEBEFORE', (0, 0), (0, -1), 2.5, MARQUE),
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#eef2ff')),
         ('LEFTPADDING', (0, 0), (-1, -1), 9),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     return [tableau, Spacer(1, 3 * mm)]
 
 
 def case_a_cocher():
-    case = Table([['']], colWidths=[3.5 * mm], rowHeights=[3.5 * mm])
+    case = Table([['']], colWidths=[3 * mm], rowHeights=[3 * mm])
     case.setStyle(TableStyle([('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#475569'))]))
     return case
 
@@ -46,7 +46,7 @@ def section_categorie(categorie, lignes):
             Paragraph(f"<b>{e(ligne.nom_examen)}</b>", STYLES['texte']),
             Paragraph(e(ligne.instructions) or '—', STYLES['detail']),
         ])
-    tableau = Table(donnees, colWidths=[8 * mm, LARGEUR_UTILE * 0.5, LARGEUR_UTILE * 0.5 - 8 * mm],
+    tableau = Table(donnees, colWidths=[6 * mm, LARGEUR_UTILE * 0.5, LARGEUR_UTILE * 0.5 - 6 * mm],
                     repeatRows=1)
     tableau.setStyle(TableStyle([
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, FILET),
@@ -72,8 +72,8 @@ def generer_demande_examen_pdf(demande):
             contenu.append(section_categorie(categorie, du_groupe))
 
     contenu.append(bloc_signature(demande.medecin, demande.date_creation))
-    return construire_a4(
+    return construire_document(
         "Demande d'examens", demande.numero, contenu,
-        mention="À présenter au laboratoire ou au centre d'imagerie. Rapporter les résultats à la consultation.",
+        mention="À présenter au laboratoire ou au centre d'imagerie.",
         annule=demande.statut == demande.Statut.ANNULEE,
     )

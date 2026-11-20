@@ -2,7 +2,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyle
 
 from config.documents_pdf import (
-    FILET, LARGEUR_UTILE, STYLES, bloc_signature, construire_a4, e, en_tete, encadre_patient,
+    FILET, LARGEUR_UTILE, STYLES, bloc_signature, construire_document, e, en_tete, encadre_patient,
 )
 
 
@@ -20,7 +20,7 @@ def posologie(ligne):
 def bloc_ligne(numero, ligne):
     nom = f"<b>{numero}. {e(' '.join(m for m in (ligne.medicament, ligne.dosage) if m))}</b>"
     if ligne.forme:
-        nom += f" <font color='#64748b' size='9'>({e(ligne.forme)})</font>"
+        nom += f" <font color='#64748b' size='7.5'>({e(ligne.forme)})</font>"
     details = [Paragraph(nom, STYLES['texte'])]
     texte_posologie = posologie(ligne)
     if texte_posologie:
@@ -35,8 +35,8 @@ def bloc_ligne(numero, ligne):
     tableau.setStyle(TableStyle([
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, FILET),
         ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     return KeepTogether([tableau])
 
@@ -63,7 +63,7 @@ def generer_ordonnance_pdf(ordonnance):
             contenu.append(Paragraph(f"<b>Durée :</b> {e(ordonnance.duree)}", STYLES['texte']))
 
     contenu.append(bloc_signature(consultation.medecin, ordonnance.date_creation))
-    return construire_a4(
+    return construire_document(
         'Ordonnance', ordonnance.numero, contenu,
         mention="Ordonnance à conserver. Ne pas dépasser les doses prescrites.",
         annule=ordonnance.statut == ordonnance.Statut.ANNULEE,

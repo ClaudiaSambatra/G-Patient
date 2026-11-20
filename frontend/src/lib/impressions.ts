@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client"
 
 // Les documents imprimables sont produits en PDF par le backend : un reçu au format ticket (80 mm),
-// les ordonnances et demandes d'examens en A4. Le PDF est récupéré avec le jeton dans l'en-tête
+// les ordonnances et demandes d'examens en A5. Le PDF est récupéré avec le jeton dans l'en-tête
 // (jamais dans l'adresse), puis ouvert dans un nouvel onglet d'où l'on imprime.
 
 async function messageErreur(erreur: unknown): Promise<string> {

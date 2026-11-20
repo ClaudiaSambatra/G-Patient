@@ -107,7 +107,7 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
-        """Document A4 à imprimer ou à remettre au patient."""
+        """Document A5 à imprimer ou à remettre au patient."""
         instance = self.get_object()
         response = HttpResponse(generer_demande_examen_pdf(instance), content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="demande_examens_{instance.numero or instance.pk}.pdf"'
