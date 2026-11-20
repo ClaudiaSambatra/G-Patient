@@ -184,6 +184,8 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 4. **En développement local**, ouvrez [http://localhost:8025](http://localhost:8025) (Mailpit) pour voir les emails reçus instantanément.
 5. Saisissez le code et choisissez votre nouveau mot de passe (min. 8 caractères) pour vous reconnecter immédiatement.
 
+Le code n'est **jamais écrit dans les journaux du serveur** (Loki, Render) : il n'existe que dans l'email. Seul cas à part : en développement, si l'email ne peut pas partir, le code est affiché dans les journaux du backend (`docker compose logs backend`). Ce comportement suit `OTP_DANS_LES_JOURNAUX`, activé par défaut seulement quand `DJANGO_DEBUG=True`. En production, sans serveur d'email configuré, la réinitialisation par code est donc impossible : il faut configurer le SMTP (`EMAIL_HOST`, etc.).
+
 
 ## Journal d'audit (module 10)
 

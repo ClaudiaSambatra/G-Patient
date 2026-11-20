@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -316,6 +318,33 @@ class TestRecuperationMotDePasse:
         assert "docteur.test@hopital.local" in sent_email.to
         assert "[Gestion Patients] Réinitialisation de votre mot de passe" in sent_email.subject
         assert token_obj.code in sent_email.body
+
+    def _code_et_journaux(self, caplog, capsys):
+        from .models import PasswordResetToken
+        with caplog.at_level("DEBUG"):
+            response = self.client.post("/api/auth/request-otp/", {"email": "docteur.test@hopital.local"})
+        assert response.status_code == status.HTTP_200_OK
+        code = PasswordResetToken.objects.filter(utilisateur=self.user, is_used=False).first().code
+        sortie = capsys.readouterr()
+        return code, caplog.text + sortie.out + sortie.err
+
+    def test_code_jamais_dans_les_journaux_quand_l_email_part(self, settings, caplog, capsys):
+        settings.OTP_DANS_LES_JOURNAUX = True
+        code, journaux = self._code_et_journaux(caplog, capsys)
+        assert code not in journaux
+
+    def test_email_en_echec_code_absent_des_journaux_en_production(self, settings, caplog, capsys):
+        settings.OTP_DANS_LES_JOURNAUX = False
+        with mock.patch("accounts.password_reset_views.EmailMultiAlternatives.send", side_effect=OSError("SMTP indisponible")):
+            code, journaux = self._code_et_journaux(caplog, capsys)
+        assert code not in journaux
+        assert "SMTP indisponible" in journaux
+
+    def test_email_en_echec_code_dans_les_journaux_en_developpement(self, settings, caplog, capsys):
+        settings.OTP_DANS_LES_JOURNAUX = True
+        with mock.patch("accounts.password_reset_views.EmailMultiAlternatives.send", side_effect=OSError("SMTP indisponible")):
+            code, journaux = self._code_et_journaux(caplog, capsys)
+        assert code in journaux
 
     def test_demande_otp_insensible_a_la_casse(self):
         from .models import PasswordResetToken
