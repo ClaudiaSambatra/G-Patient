@@ -1,0 +1,38 @@
+- name: Installer les paquets de base
+  ansible.builtin.apt:
+    name: "{{ socle_paquets }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Activer les mises à jour de sécurité automatiques
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: "0644"
+
+- name: Créer l'utilisateur de déploiement
+  ansible.builtin.user:
+    name: "{{ app_utilisateur }}"
+    shell: /bin/bash
+    create_home: true
+
+- name: Pare-feu — ouvrir les ports utiles
+  ansible.builtin.command: ufw allow {{ item }}
+  loop: "{{ socle_ports_ouverts }}"
+  register: socle_regles
+  changed_when: "'Skipping' not in socle_regles.stdout"
+  when: socle_pare_feu | bool
+
+- name: Pare-feu — état actuel
+  ansible.builtin.command: ufw status
+  register: socle_ufw
+  changed_when: false
+  when: socle_pare_feu | bool
+
+- name: Pare-feu — activer (tout le reste est fermé)
+  ansible.builtin.command: ufw --force enable
+  changed_when: true
+  when: "socle_pare_feu | bool and 'Status: active' not in socle_ufw.stdout"

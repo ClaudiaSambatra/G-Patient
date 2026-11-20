@@ -160,7 +160,7 @@ gestion-patients/
 │   ├── src/components/ui/  # Composants shadcn/ui
 │   ├── Dockerfile      # Image de production (multi-stage, standalone)
 │   └── Dockerfile.dev  # Image de développement (hot-reload)
-├── infra/              # (à venir) Ansible, configs Nginx/Traefik, CI/CD
+├── infra/              # Ansible, Nginx, Prometheus, Grafana, Loki, Alloy, sauvegardes
 └── docker-compose.yml  # Orchestration de dev (backend, frontend, db, pgadmin)
 ```
 
@@ -275,6 +275,42 @@ Le script vérifie l'empreinte, déchiffre (la phrase secrète est demandée), a
 
 Les deux scripts fonctionnent avec n'importe quel PostgreSQL. Pour changer d'hébergeur de base, il suffit de modifier `NEON_DATABASE_URL`, et une restauration sert aussi à **migrer** les données vers la nouvelle base.
 
+## Infrastructure as Code (Ansible)
+
+Le dossier `infra/ansible/` prépare un serveur **Ubuntu 22.04 ou 24.04 vierge** et y déploie toute la pile de production (`docker-compose.prod.yml` : application, Nginx, Prometheus, Grafana, Loki), sans aucune action manuelle sur le serveur.
+
+| Rôle | Ce qu'il fait |
+|---|---|
+| `socle` | paquets de base, mises à jour de sécurité automatiques, utilisateur `deploy`, pare-feu UFW (seuls SSH, HTTP et HTTPS sont ouverts) |
+| `docker` | Docker Engine et Compose depuis le dépôt officiel de Docker (un Docker déjà présent est conservé) |
+| `application` | fichiers de la pile, `.env` généré à partir des secrets (droits `600`, jamais versionné), téléchargement des images GHCR, lancement, vérification de `/api/health/` |
+
+Le playbook n'utilise que les modules intégrés d'Ansible (`ansible.builtin`), donc aucune collection externe n'est téléchargée. Il est **idempotent** : relancé sur un serveur déjà à jour, il ne modifie rien (`changed=0`).
+
+### Déployer sur un serveur
+
+1. Ajouter le serveur dans `infra/ansible/inventaire.yml`, dans le groupe `serveurs` (adresse, utilisateur SSH, `app_domaine`).
+2. Fournir les secrets par l'environnement, puis lancer :
+
+```bash
+cd infra/ansible
+export APP_DJANGO_SECRET_KEY=... APP_POSTGRES_PASSWORD=... APP_GRAFANA_PASSWORD=...
+ansible-playbook site.yml --limit serveurs
+```
+
+Changer d'hébergeur revient à changer l'adresse dans l'inventaire et à relancer le playbook.
+
+### Test en CI
+
+Le job **« Infrastructure (Ansible) »** applique le playbook à chaque modification sur la machine virtuelle jetable de GitHub Actions, un Ubuntu neuf, comme sur un vrai serveur. Il :
+
+1. vérifie la syntaxe ;
+2. fait une **1re passe** : préparation et déploiement complet ;
+3. fait une **2e passe** qui doit afficher `changed=0`, sinon le job échoue. C'est la preuve de l'idempotence ;
+4. vérifie que l'API, Grafana et Loki répondent.
+
+Les secrets de ce test sont générés à chaque exécution et masqués dans les journaux. La construction des images attend ce job.
+
 ## Sécurité de la chaîne CI/CD
 
 Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et aux analyses SonarCloud et OWASP ZAP) :
@@ -301,3 +337,5 @@ Alertes SonarCloud acceptées, avec justification :
 |---|---|
 | `COPY . .` dans les Dockerfile (copie récursive) | Les fichiers sensibles (`.env`, `.git`, médias, rapports de couverture…) sont exclus par `.dockerignore`. |
 | Image exécutée en `root` dans `Dockerfile.dev` | Images de **développement** local uniquement ; les images de production (`Dockerfile`) tournent avec un utilisateur dédié (`django`, `nextjs`). |
+| Droits `0644` / `0755` des fichiers de la pile déployés par Ansible (rôle `application`) | Ces fichiers (Compose, Nginx, Prometheus, Grafana, Loki, Alloy) sont lus à l'intérieur des conteneurs par des utilisateurs différents (`nobody` pour Prometheus, uid 472 pour Grafana, uid 10001 pour Loki) : la lecture par « les autres » est nécessaire. Ils ne contiennent aucun secret (ils sont publics dans le dépôt) ; le seul fichier sensible, `.env`, est en `0600`. |
+| Droits `0644` de `/etc/apt/apt.conf.d/20auto-upgrades` (rôle `socle`) | Droits standard des fichiers de configuration d'APT sous Debian/Ubuntu : avec moins, les commandes `apt` d'un utilisateur non administrateur échouent (« Permission denied »). Fichier sans secret, propriété de root. |

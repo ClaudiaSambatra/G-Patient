@@ -1,0 +1,13 @@
+# Variables communes à tous les serveurs. Les secrets ne sont jamais écrits ici :
+# ils sont lus dans l'environnement (ou peuvent être fournis par ansible-vault).
+
+app_dossier: /opt/gestion-patients
+app_utilisateur: deploy
+app_domaine: localhost          # adresse IP ou nom de domaine public du serveur
+
+app_django_secret_key: "{{ lookup('ansible.builtin.env', 'APP_DJANGO_SECRET_KEY') }}"
+app_postgres_password: "{{ lookup('ansible.builtin.env', 'APP_POSTGRES_PASSWORD') }}"
+app_grafana_password: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_PASSWORD') }}"
+
+# Racine du dépôt Git (les fichiers de la pile y sont pris)
+depot_racine: "{{ playbook_dir }}/../.."
