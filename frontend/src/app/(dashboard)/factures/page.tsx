@@ -139,7 +139,7 @@ export default function FacturesPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       refetch()
       showNotification("success", "Facture encaissée avec succès. Le rendez-vous associé est confirmé.")
-      imprimerRecu(id)
+      void imprimerRecu(id)
     },
     onError: (err) => {
       const msg = extractErrorMessage(err, "Impossible d'encaisser cette facture.")
