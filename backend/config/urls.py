@@ -84,6 +84,9 @@ urlpatterns = [
     path('api/billing/', include('billing.urls')),
     path('api/stocks/', include('pharmacie.urls')),
     path('api/planning/', include('planning.urls')),
+
+    # Journal d'audit (administrateurs)
+    path('api/audit/', include('audit.urls')),
 ]
 
 from django.conf import settings

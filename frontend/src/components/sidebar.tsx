@@ -19,6 +19,7 @@ import {
   SignOut,
   Stethoscope,
   UserCheck,
+  ListMagnifyingGlass,
 } from "@phosphor-icons/react"
 
 export interface CurrentUser {
@@ -248,6 +249,30 @@ export function Sidebar() {
             <span
               className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                 pathname === "/utilisateurs"
+                  ? "bg-white/20 text-white"
+                  : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground"
+              }`}
+            >
+              Admin
+            </span>
+          </Link>
+        )}
+
+        {isAdmin && (
+          <Link
+            href="/journal-audit"
+            id="nav-link-journal-audit"
+            className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all ${
+              pathname === "/journal-audit"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <ListMagnifyingGlass size={20} weight="duotone" />
+            <span className="flex-1">Journal d&apos;audit</span>
+            <span
+              className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                pathname === "/journal-audit"
                   ? "bg-white/20 text-white"
                   : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-foreground"
               }`}

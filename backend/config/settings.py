@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'examinations',
     'pharmacie',
     'planning',
+    'audit',
 ]
 
 AUTH_USER_MODEL = 'accounts.Utilisateur'
@@ -79,6 +80,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'audit.middleware.JournalAuditMiddleware',
 ]
 
 try:
@@ -199,6 +201,12 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# --- Journal d'audit -----------------------------------------------------------
+# En production, l'API est derrière un proxy (Nginx ou Render) : l'adresse du client
+# est alors lue dans X-Forwarded-For. Conservation des entrées : voir purger_journal_audit.
+AUDIT_DERRIERE_PROXY = config('AUDIT_DERRIERE_PROXY', default=not DEBUG, cast=bool)
+AUDIT_CONSERVATION_JOURS = config('AUDIT_CONSERVATION_JOURS', default=365, cast=int)
 
 # --- Rendez-vous ---------------------------------------------------------------
 # Durée d'un créneau de rendez-vous : deux RDV d'un même médecin (ou patient) ne

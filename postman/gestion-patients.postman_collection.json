@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Gestion de Patients — tests de l'API",
-    "description": "Scénario de bout en bout de l'API REST (Django REST Framework) : santé, authentification JWT, contrôle des rôles, patients, rendez-vous et stock de pharmacie.\n\nExécution : `newman run postman/gestion-patients.postman_collection.json -e postman/ci.postman_environment.json` (voir README).\n\nVariables d'environnement attendues : `baseUrl`, `adminUsername`, `adminPassword`.",
+    "description": "Scénario de bout en bout de l'API REST (Django REST Framework) : santé, authentification JWT, contrôle des rôles, patients, rendez-vous, stock de pharmacie et journal d'audit.\n\nExécution : `newman run postman/gestion-patients.postman_collection.json -e postman/ci.postman_environment.json` (voir README).\n\nVariables d'environnement attendues : `baseUrl`, `adminUsername`, `adminPassword`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -89,6 +89,10 @@
     },
     {
       "key": "utilisateurSecretaireId",
+      "value": ""
+    },
+    {
+      "key": "entreeAuditId",
       "value": ""
     }
   ],
@@ -681,6 +685,45 @@
                 "exec": [
                   "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"Rôle SECRETAIRE\", () => pm.expect(pm.response.json().role).to.eql(\"SECRETAIRE\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Secrétaire : journal d'audit interdit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSecretaire}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 403\", () => pm.response.to.have.status(403));"
                 ]
               }
             }
@@ -1910,6 +1953,240 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Statut 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 · Journal d'audit",
+      "description": "Les actions du scénario sont tracées (module 10) : qui, quoi, quand, d'où. Consultation réservée à l'administrateur, en lecture seule.",
+      "item": [
+        {
+          "name": "Échec de connexion tracé",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/?action=ECHEC_CONNEXION&search=secretaire_{{suffixe}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "ECHEC_CONNEXION"
+                },
+                {
+                  "key": "search",
+                  "value": "secretaire_{{suffixe}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const entrees = pm.response.json().results;",
+                  "const trouvee = entrees.find(e => e.nom_utilisateur === \"secretaire_\" + pm.collectionVariables.get(\"suffixe\") && e.statut === 401 && !e.reussie);",
+                  "pm.test(\"La connexion du compte désactivé apparaît, avec le nom saisi\", () => pm.expect(trouvee, JSON.stringify(entrees.slice(0, 3))).to.exist);",
+                  "pm.test(\"Date et adresse IP renseignées\", () => {",
+                  "    pm.expect(trouvee.date).to.be.a(\"string\");",
+                  "    pm.expect(trouvee.adresse_ip).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultation du dossier tracée",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/?action=CONSULTATION&ressource=patients&search=secretaire_{{suffixe}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "CONSULTATION"
+                },
+                {
+                  "key": "ressource",
+                  "value": "patients"
+                },
+                {
+                  "key": "search",
+                  "value": "secretaire_{{suffixe}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const entrees = pm.response.json().results;",
+                  "const trouvee = entrees.find(e => e.objet_id === String(pm.collectionVariables.get(\"patientId\")) && e.role === \"SECRETAIRE\" && e.statut === 200);",
+                  "pm.test(\"La secrétaire a consulté le dossier du patient\", () => pm.expect(trouvee, JSON.stringify(entrees.slice(0, 3))).to.exist);",
+                  "pm.test(\"Date et adresse IP renseignées\", () => {",
+                  "    pm.expect(trouvee.date).to.be.a(\"string\");",
+                  "    pm.expect(trouvee.adresse_ip).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suppression refusée tracée",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/?action=SUPPRESSION&echecs=1&search=secretaire_{{suffixe}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "SUPPRESSION"
+                },
+                {
+                  "key": "echecs",
+                  "value": "1"
+                },
+                {
+                  "key": "search",
+                  "value": "secretaire_{{suffixe}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const entrees = pm.response.json().results;",
+                  "const trouvee = entrees.find(e => e.ressource === \"patients\" && e.objet_id === String(pm.collectionVariables.get(\"patientId\")) && e.statut === 403);",
+                  "pm.test(\"La tentative de suppression par la secrétaire est gardée (403)\", () => pm.expect(trouvee, JSON.stringify(entrees.slice(0, 3))).to.exist);",
+                  "pm.test(\"Date et adresse IP renseignées\", () => {",
+                  "    pm.expect(trouvee.date).to.be.a(\"string\");",
+                  "    pm.expect(trouvee.adresse_ip).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suppression du patient tracée",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/?action=SUPPRESSION&ressource=patients&search={{adminUsername}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "SUPPRESSION"
+                },
+                {
+                  "key": "ressource",
+                  "value": "patients"
+                },
+                {
+                  "key": "search",
+                  "value": "{{adminUsername}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const entrees = pm.response.json().results;",
+                  "const trouvee = entrees.find(e => e.objet_id === String(pm.collectionVariables.get(\"patientId\")) && e.statut === 204);",
+                  "pm.test(\"La suppression par l'administrateur apparaît (204)\", () => pm.expect(trouvee, JSON.stringify(entrees.slice(0, 3))).to.exist);",
+                  "pm.test(\"Date et adresse IP renseignées\", () => {",
+                  "    pm.expect(trouvee.date).to.be.a(\"string\");",
+                  "    pm.expect(trouvee.adresse_ip).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set(\"entreeAuditId\", trouvee.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Journal en lecture seule",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit/{{entreeAuditId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                "{{entreeAuditId}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 405\", () => pm.response.to.have.status(405));",
+                  "pm.test(\"Aucune entrée ne peut être effacée par l'API\", () => pm.expect(pm.response.json().detail).to.be.a(\"string\"));"
                 ]
               }
             }
