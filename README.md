@@ -238,7 +238,16 @@ Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et
 
 - **Actions GitHub épinglées sur un SHA** de commit et **image OWASP ZAP épinglée par son empreinte** (digest).
 - **`npm ci --ignore-scripts`** : aucun script d'installation de dépendance n'est exécuté (CI et Dockerfile).
-- **`pip install --only-binary :all:`** : uniquement des paquets précompilés, aucun script `setup.py` exécuté ; versions exactes dans `requirements.txt`.
+- **`pip install --only-binary :all: --require-hashes`** : uniquement des paquets précompilés (aucun script `setup.py` exécuté), dont **toutes** les versions, dépendances indirectes comprises, sont verrouillées avec leur empreinte SHA-256 dans `backend/requirements.lock` (et `requirements-dev.lock`). Un paquet modifié sur PyPI est refusé à l'installation (CI, Dockerfile, Render).
+  Après une modification de `requirements.txt` ou `requirements-dev.txt`, régénérer les fichiers verrouillés :
+
+  ```bash
+  docker run --rm -v "$PWD/backend:/w:z" -w /w python:3.12-slim sh -c '
+    pip install -q --only-binary :all: pip-tools==7.5.2 &&
+    for f in requirements requirements-dev; do
+      pip-compile -q --generate-hashes --allow-unsafe --strip-extras --no-header --annotation-style=line -o $f.lock $f.txt
+    done'
+  ```
 - Job « Sécurité » : blocage du code caché (lignes anormalement longues, signatures connues, tâches VS Code automatiques) et des fichiers `.env` versionnés.
 - Tests d'API **Postman / Newman** (image épinglée par son empreinte, rapport JSON contenant les secrets jamais publié).
 - Scan dynamique **OWASP ZAP** de l'API (règles classées dans `.zap/rules.tsv`), scan **Trivy** des images, analyse **SonarCloud**.

@@ -84,10 +84,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-      - run: 'pip install --only-binary :all: -r requirements-dev.txt'
+          cache-dependency-path: backend/requirements-dev.lock
+      - run: 'pip install --only-binary :all: --require-hashes -r requirements-dev.lock'
       - name: Lint (flake8)
         run: flake8 .
       - name: Tests (pytest) et couverture
@@ -171,8 +169,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: 'pip install --only-binary :all: -r requirements.txt'
+          cache-dependency-path: backend/requirements.lock
+      - run: 'pip install --only-binary :all: --require-hashes -r requirements.lock'
 
       - name: Démarrer l'API jetable
         run: |
@@ -276,8 +274,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: 'pip install --only-binary :all: -r requirements.txt'
+          cache-dependency-path: backend/requirements.lock
+      - run: 'pip install --only-binary :all: --require-hashes -r requirements.lock'
 
       - name: Démarrer l'API jetable
         run: |
@@ -290,8 +288,9 @@ jobs:
       - name: Collection Postman (Newman)
         working-directory: .
         run: |
-          mkdir -p newman && chmod 777 newman
-          docker run --rm --network host \
+          # Newman tourne avec l'identité du runner : rapports écrits sans ouvrir les droits du dossier
+          mkdir -p newman
+          docker run --rm --network host --user "$(id -u):$(id -g)" \
             -v "$PWD/postman:/etc/newman:ro" -v "$PWD/newman:/rapports:rw" \
             postman/newman@sha256:d9b5e780ead0026bbb37f3759cd7b10fc8a88cd4030c8266a7c5e343d75a5198 \
             run gestion-patients.postman_collection.json -e ci.postman_environment.json \

@@ -5,8 +5,8 @@ WORKDIR /app
 
 # psycopg2-binary embarque déjà libpq (précompilé) : pas besoin de
 # build-essential / libpq-dev, ce qui évite une dépendance à apt-get.
-COPY requirements.txt .
-RUN pip install --no-cache-dir --only-binary :all: --prefix=/install -r requirements.txt
+COPY requirements.lock .
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes --prefix=/install -r requirements.lock
 
 # --- Étape 2 : image finale (légère) ----------------------------------------
 FROM python:3.12-slim
