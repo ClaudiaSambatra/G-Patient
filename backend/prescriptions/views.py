@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,6 +6,7 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from accounts.permissions import IsSecretaireOuMedecinOuAdmin
 from .models import Ordonnance, OrdonnanceHistorique
+from .pdf import generer_ordonnance_pdf
 from .serializers import OrdonnanceSerializer
 from config.parametres import param_identifiant, param_date
 
@@ -105,6 +107,14 @@ class OrdonnanceViewSet(viewsets.ModelViewSet):
                 {"detail": "Impossible de supprimer une ordonnance ayant déjà fait l'objet d'une facture comptable."}
             )
         instance.delete()
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """Document A4 à imprimer ou à remettre au patient."""
+        instance = self.get_object()
+        response = HttpResponse(generer_ordonnance_pdf(instance), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="ordonnance_{instance.numero or instance.pk}.pdf"'
+        return response
 
     @action(detail=True, methods=['post'], url_path='annuler')
     def annuler(self, request, pk=None):

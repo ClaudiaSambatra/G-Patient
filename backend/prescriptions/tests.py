@@ -568,3 +568,51 @@ def test_historical_prescription_and_paid_invoice_remain_intact():
     assert facture_hist.statut == 'PAYEE'
     assert facture_hist.ordonnance.numero == 'ORD-2026-00001'
     assert facture_hist.ordonnance.medicaments == 'Pasti grippe 500 mg'
+
+
+# ==============================================================================
+# IMPRESSION A4
+# ==============================================================================
+
+@pytest.mark.django_db
+def test_pdf_ordonnance_a4_imprimable_par_la_secretaire(api_client, test_data):
+    ordonnance = Ordonnance.objects.create(consultation=test_data['consultation1'])
+    LigneOrdonnance.objects.create(
+        ordonnance=ordonnance, medicament='Paracétamol', dosage='500 mg', forme='Comprimé',
+        dose_par_prise='1 comprimé', frequence='3 fois par jour', duree='5 jours',
+    )
+    api_client.force_authenticate(user=test_data['secretaire'])
+
+    res = api_client.get(reverse('ordonnance-pdf', args=[ordonnance.id]))
+
+    assert res.status_code == status.HTTP_200_OK
+    assert res['Content-Type'] == 'application/pdf'
+    assert res.content.startswith(b'%PDF')
+    assert b'/MediaBox [ 0 0 595.2756 841.8898 ]' in res.content  # A4 portrait
+
+
+@pytest.mark.django_db
+def test_pdf_ordonnance_refuse_au_medecin_non_prescripteur(api_client, test_data):
+    ordonnance = Ordonnance.objects.create(consultation=test_data['consultation1'], medicaments='Repos')
+    api_client.force_authenticate(user=test_data['medecin2_user'])
+
+    res = api_client.get(reverse('ordonnance-pdf', args=[ordonnance.id]))
+
+    assert res.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_pdf_ordonnance_annulee_avec_caracteres_speciaux(api_client, test_data):
+    patient = test_data['patient']
+    patient.nom = 'Rabe & <Fils>'
+    patient.allergies = 'Pénicilline <forte>'
+    patient.save()
+    ordonnance = Ordonnance.objects.create(
+        consultation=test_data['consultation1'], medicaments='Sirop "A & B"\nRepos', statut=Ordonnance.Statut.ANNULEE,
+    )
+    api_client.force_authenticate(user=test_data['medecin1_user'])
+
+    res = api_client.get(reverse('ordonnance-pdf', args=[ordonnance.id]))
+
+    assert res.status_code == status.HTTP_200_OK
+    assert res.content.startswith(b'%PDF')

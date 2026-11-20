@@ -1,130 +1,144 @@
+"""
+Reçu de paiement au format ticket (rouleau thermique de 80 mm) : la hauteur de la page
+suit la longueur du contenu, comme un ticket de caisse.
+"""
 import io
+
+from django.conf import settings
 from django.utils import timezone
-from reportlab.lib.pagesizes import A5
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from config.documents_pdf import e, nom_medecin
+
+LARGEUR_TICKET = 80 * mm
+MARGE = 4 * mm
+# Le cadre de page de ReportLab ajoute 6 pt de marge intérieure de chaque côté
+LARGEUR_UTILE = LARGEUR_TICKET - 2 * MARGE - 12
+
+NOIR = colors.black
+GRIS = colors.HexColor('#444444')
+
+STYLES = {
+    'cabinet': ParagraphStyle('t_cabinet', fontName='Helvetica-Bold', fontSize=10, leading=12,
+                              alignment=TA_CENTER, textColor=NOIR),
+    'centre': ParagraphStyle('t_centre', fontName='Helvetica', fontSize=7.5, leading=9.5,
+                             alignment=TA_CENTER, textColor=GRIS),
+    'titre': ParagraphStyle('t_titre', fontName='Helvetica-Bold', fontSize=9, leading=11,
+                            alignment=TA_CENTER, textColor=NOIR),
+    'texte': ParagraphStyle('t_texte', fontName='Helvetica', fontSize=8, leading=10, textColor=NOIR),
+    'detail': ParagraphStyle('t_detail', fontName='Helvetica', fontSize=7, leading=9, textColor=GRIS),
+    'droite': ParagraphStyle('t_droite', fontName='Helvetica', fontSize=8, leading=10,
+                             alignment=TA_RIGHT, textColor=NOIR),
+    'total': ParagraphStyle('t_total', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=NOIR),
+    'total_montant': ParagraphStyle('t_total_montant', fontName='Helvetica-Bold', fontSize=11, leading=14,
+                                    alignment=TA_RIGHT, textColor=NOIR),
+}
+
+
+def ar(montant):
+    """20000 → « 20 000 Ar »."""
+    return f"{montant:,.0f}".replace(',', ' ') + ' Ar'
+
+
+def pointilles():
+    return HRFlowable(width='100%', thickness=0.6, color=NOIR, dash=(2, 2), spaceBefore=4, spaceAfter=4)
+
+
+def ligne_deux_colonnes(gauche, droite, style_gauche='texte', style_droite='droite', part_droite=0.38):
+    tableau = Table([[Paragraph(gauche, STYLES[style_gauche]), Paragraph(droite, STYLES[style_droite])]],
+                    colWidths=[LARGEUR_UTILE * (1 - part_droite), LARGEUR_UTILE * part_droite])
+    tableau.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+    ]))
+    return tableau
+
+
+def lignes_consultation(facture):
+    lignes = [ligne_deux_colonnes(e(facture.designation or 'Frais de consultation'), ar(facture.montant))]
+    rdv = facture.rendez_vous
+    if rdv:
+        quand = timezone.localtime(rdv.date_heure).strftime('%d/%m/%Y %H:%M')
+        lignes.append(Paragraph(f"{e(nom_medecin(rdv.medecin.utilisateur))} — RDV du {quand}", STYLES['detail']))
+    return lignes
+
+
+def lignes_medicaments(facture):
+    """Une ligne par médicament délivré par le cabinet : nom, puis « quantité × prix » et le total."""
+    ordonnance = facture.ordonnance
+    if not ordonnance:
+        return [ligne_deux_colonnes(e(facture.designation or 'Médicaments'), ar(facture.montant))]
+
+    lignes, exterieurs = [], []
+    for ligne in ordonnance.lignes.select_related('medicament_stock'):
+        med = ligne.medicament_stock
+        if not med:
+            exterieurs.append(' '.join(m for m in (ligne.medicament, ligne.dosage) if m))
+            continue
+        lignes.append(Paragraph(f"<b>{e(med)}</b>", STYLES['texte']))
+        lignes.append(ligne_deux_colonnes(
+            f"{ligne.quantite} {e(med.unite)}(s) × {ar(med.prix_unitaire)}",
+            ar(ligne.quantite * med.prix_unitaire), style_gauche='detail',
+        ))
+    if not lignes:
+        lignes.append(ligne_deux_colonnes(e(facture.designation or 'Médicaments'), ar(facture.montant)))
+    lignes.append(Spacer(1, 2))
+    lignes.append(Paragraph(f"Ordonnance {e(ordonnance.numero)}", STYLES['detail']))
+    if exterieurs:
+        lignes.append(Paragraph(f"Non délivré ici (pharmacie) : {e(', '.join(exterieurs))}", STYLES['detail']))
+    return lignes
+
+
+def hauteur_contenu(contenu):
+    hauteur = 0
+    for element in contenu:
+        _, h = element.wrap(LARGEUR_UTILE, 10_000)
+        hauteur += h + element.getSpaceBefore() + element.getSpaceAfter()
+    return hauteur
 
 
 def generate_recu_pdf(facture):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A5,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30
-    )
+    paiement = facture.date_paiement or facture.date_creation
+    caissier = (facture.encaisse_par.get_full_name() or facture.encaisse_par.username) \
+        if facture.encaisse_par else 'Secrétariat'
 
-    styles = getSampleStyleSheet()
-
-    header_style = ParagraphStyle(
-        'HeaderStyle',
-        parent=styles['Normal'],
-        fontSize=15,
-        leading=19,
-        textColor=colors.HexColor('#0f766e'),
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-
-    sub_header_style = ParagraphStyle(
-        'SubHeaderStyle',
-        parent=styles['Normal'],
-        fontSize=9,
-        leading=13,
-        textColor=colors.HexColor('#475569'),
-        alignment=TA_CENTER
-    )
-
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading2'],
-        fontSize=13,
-        leading=17,
-        textColor=colors.HexColor('#1e293b'),
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-
-    paid_badge_style = ParagraphStyle(
-        'PaidBadgeStyle',
-        parent=styles['Normal'],
-        fontSize=13,
-        leading=17,
-        textColor=colors.HexColor('#15803d'),
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-
-    normal_style = ParagraphStyle(
-        'ReceiptNormal',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor('#1e293b')
-    )
-
-    bold_style = ParagraphStyle(
-        'ReceiptBold',
-        parent=normal_style,
-        fontName='Helvetica-Bold'
-    )
-
-    story = []
-
-    # En-tête de l'établissement
-    story.append(Paragraph("CENTRE MÉDICAL GESTION PATIENTS", header_style))
-    story.append(Paragraph("Soins Médicaux &amp; Consultations • Tél: +261 34 00 000 00", sub_header_style))
-    story.append(Spacer(1, 10))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceAfter=12))
-
-    # Titre du reçu
-    story.append(Paragraph(f"REÇU DE PAIEMENT N° REC-{facture.pk:05d}", title_style))
-    story.append(Paragraph("— MENTION : PAYÉ —", paid_badge_style))
-    story.append(Spacer(1, 12))
-
-    # Détails du reçu
-    date_paiement_str = (
-        timezone.localtime(facture.date_paiement).strftime("%d/%m/%Y %H:%M")
-        if facture.date_paiement
-        else timezone.localtime(facture.date_creation).strftime("%d/%m/%Y %H:%M")
-    )
-
-    patient_nom = f"{facture.patient.nom} {facture.patient.prenom}"
-    encaisse_par_nom = (
-        facture.encaisse_par.get_full_name() or facture.encaisse_par.username
-        if facture.encaisse_par
-        else "Accueil / Secrétariat"
-    )
-    designation = facture.designation or facture.actes or "Frais médicaux"
-
-    table_data = [
-        [Paragraph("Date :", bold_style), Paragraph(date_paiement_str, normal_style)],
-        [Paragraph("Patient :", bold_style), Paragraph(patient_nom, normal_style)],
-        [Paragraph("Type :", bold_style), Paragraph(facture.get_type_display(), normal_style)],
-        [Paragraph("Désignation :", bold_style), Paragraph(designation, normal_style)],
-        [Paragraph("Montant total :", bold_style), Paragraph(f"<b>{facture.montant:,.0f} Ar</b>".replace(',', ' '), bold_style)],
-        [Paragraph("Encaissé par :", bold_style), Paragraph(encaisse_par_nom, normal_style)],
-        [Paragraph("Statut :", bold_style), Paragraph("<font color='#15803d'><b>Payé</b></font>", bold_style)],
+    contenu = [
+        Paragraph(e(settings.CABINET_NOM), STYLES['cabinet']),
+        Paragraph(e(settings.CABINET_ADRESSE), STYLES['centre']),
+        Paragraph(f"Tél. : {e(settings.CABINET_TELEPHONE)}", STYLES['centre']),
+        pointilles(),
+        Paragraph(f"REÇU N° REC-{facture.pk:05d}", STYLES['titre']),
+        Paragraph(timezone.localtime(paiement).strftime('%d/%m/%Y à %H:%M'), STYLES['centre']),
+        Spacer(1, 3),
+        Paragraph(f"Patient : <b>{e(facture.patient.nom)} {e(facture.patient.prenom)}</b>", STYLES['texte']),
+        Paragraph(f"Caissier : {e(caissier)}", STYLES['texte']),
+        pointilles(),
+    ]
+    if facture.type == facture.Type.MEDICAMENTS:
+        contenu += lignes_medicaments(facture)
+    else:
+        contenu += lignes_consultation(facture)
+    contenu += [
+        pointilles(),
+        ligne_deux_colonnes('TOTAL', ar(facture.montant), 'total', 'total_montant', part_droite=0.55),
+        Paragraph('PAYÉ', STYLES['titre']),
+        pointilles(),
+        Paragraph('Merci de votre confiance.', STYLES['centre']),
+        Paragraph('Conservez ce reçu, il vous sera demandé pour tout suivi.', STYLES['centre']),
     ]
 
-    t = Table(table_data, colWidths=[110, 250])
-    t.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#f1f5f9')),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0fdf4')),
-    ]))
-    story.append(t)
-
-    story.append(Spacer(1, 20))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=8))
-    story.append(Paragraph("<i>Document valant reçu officiel de règlement. Conservez ce reçu pour tout retrait de médicaments ou suivi.</i>", sub_header_style))
-
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
+    hauteur = hauteur_contenu(contenu) + 2 * MARGE + 12 + 6 * mm
+    tampon = io.BytesIO()
+    doc = SimpleDocTemplate(
+        tampon, pagesize=(LARGEUR_TICKET, hauteur), title=f"Reçu REC-{facture.pk:05d}",
+        author=settings.CABINET_NOM, leftMargin=MARGE, rightMargin=MARGE, topMargin=MARGE, bottomMargin=MARGE,
+    )
+    doc.build(contenu)
+    return tampon.getvalue()

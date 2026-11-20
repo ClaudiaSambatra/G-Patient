@@ -17,10 +17,7 @@ import {
   INITIAL_EDIT_FORM,
   consultationToEditForm,
 } from "@/components/consultations/types"
-import {
-  handlePrintPrescription,
-  handlePrintExam,
-} from "@/components/consultations/printConsultationDocs"
+import { imprimerDemandeExamen, imprimerOrdonnance } from "@/lib/impressions"
 import { ConsultationsFilters } from "@/components/consultations/ConsultationsFilters"
 import { ConsultationsTable } from "@/components/consultations/ConsultationsTable"
 import { ConsultationDetailModal } from "@/components/consultations/ConsultationDetailModal"
@@ -249,10 +246,8 @@ export default function ConsultationsPage() {
         isUpdatePending={updateMutation.isPending}
         currentPrescriptions={currentPrescriptions}
         currentExamens={currentExamens}
-        onPrintPrescription={(ord) =>
-          handlePrintPrescription(ord, selectedConsultation)
-        }
-        onPrintExam={(exam) => handlePrintExam(exam, selectedConsultation)}
+        onPrintPrescription={imprimerOrdonnance}
+        onPrintExam={imprimerDemandeExamen}
         onOpenFactureMedModal={(ord) => {
           if (!selectedConsultation) return
           setFactureMedModal({

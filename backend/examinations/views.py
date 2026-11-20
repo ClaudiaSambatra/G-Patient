@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from accounts.permissions import IsMedecin, IsSecretaireOuMedecinOuAdmin
 from .models import DemandeExamen, DemandeExamenHistorique
+from .pdf import generer_demande_examen_pdf
 from .serializers import DemandeExamenSerializer
 from config.parametres import param_identifiant, param_date
 
@@ -102,6 +104,14 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
         raise ValidationError(
             {"detail": "La suppression physique d'une demande d'examen est interdite afin de préserver l'historique médico-légal. Veuillez procéder à une annulation motivée."}
         )
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """Document A4 à imprimer ou à remettre au patient."""
+        instance = self.get_object()
+        response = HttpResponse(generer_demande_examen_pdf(instance), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="demande_examens_{instance.numero or instance.pk}.pdf"'
+        return response
 
     @action(detail=True, methods=['post'], url_path='annuler')
     def annuler(self, request, pk=None):

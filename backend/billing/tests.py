@@ -551,6 +551,7 @@ def test_recu_refuse_pour_facture_impayee_et_accepte_si_payee(api_client, test_d
     assert res_payee.status_code == status.HTTP_200_OK
     assert res_payee['Content-Type'] == 'application/pdf'
     assert res_payee.content.startswith(b'%PDF')
+    assert b'/MediaBox [ 0 0 226.7717' in res_payee.content  # ticket de 80 mm de large
 
 
 # 14. Création de la facture MEDICAMENTS liée à l'ordonnance
@@ -604,3 +605,42 @@ def test_medecin_ne_peut_pas_encaisser(api_client, test_data):
     url = reverse('facture-encaisser', args=[facture.id])
     res = api_client.post(url, format='json')
     assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+# Reçu de médicaments au format ticket : une ligne par médicament délivré par le cabinet
+@pytest.mark.django_db
+def test_recu_medicaments_ticket_detaille(api_client, test_data):
+    from prescriptions.models import LigneOrdonnance
+    from pharmacie.models import StockMedicament
+    from billing.pdf import generate_recu_pdf
+
+    rdv = RendezVous.objects.create(
+        patient=test_data['patient'], medecin=test_data['medecin1'],
+        date_heure=timezone.now() - timedelta(hours=1), statut=RendezVous.Statut.TERMINE,
+    )
+    consultation = Consultation.objects.create(
+        patient=test_data['patient'], medecin=test_data['medecin1_user'], rendez_vous=rdv,
+        motif='Douleur', observations='RAS', diagnostic='Céphalée',
+    )
+    ordonnance = Ordonnance.objects.create(consultation=consultation)
+    stock = StockMedicament.objects.create(nom='Paracétamol', dosage='500 mg', forme='Comprimé',
+                                           prix_unitaire=Decimal('2500'), quantite=10)
+    LigneOrdonnance.objects.create(ordonnance=ordonnance, medicament='Paracétamol', medicament_stock=stock, quantite=2)
+    LigneOrdonnance.objects.create(ordonnance=ordonnance, medicament='Amlodipine', dosage='10 mg')
+    facture = Facture.objects.create(
+        patient=test_data['patient'], type=Facture.Type.MEDICAMENTS, ordonnance=ordonnance,
+        montant=Decimal('5000'), statut=Facture.StatutPaiement.PAYEE, date_paiement=timezone.now(),
+        encaisse_par=test_data['secretaire'],
+    )
+
+    court = generate_recu_pdf(facture)
+    LigneOrdonnance.objects.create(ordonnance=ordonnance, medicament='Paracétamol', medicament_stock=stock, quantite=1)
+    long = generate_recu_pdf(facture)
+
+    assert court.startswith(b'%PDF') and b'/MediaBox [ 0 0 226.7717' in court
+    # La hauteur du ticket suit le nombre de lignes
+    assert hauteur_ticket(long) > hauteur_ticket(court)
+
+
+def hauteur_ticket(pdf):
+    return float(pdf.split(b'/MediaBox [ 0 0 226.7717 ')[1].split(b' ]')[0])
