@@ -1,0 +1,64 @@
+name: Sauvegarde de la base
+
+# Sauvegarde nocturne de la base de production (Neon), hors de l'hébergeur :
+# pg_dump, test de restauration dans une base jetable, chiffrement AES-256, conservation 30 jours.
+# En cas d'échec, GitHub envoie un e-mail. Restauration : infra/sauvegardes/restaurer.sh (voir README).
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 23 h UTC = 2 h à Antananarivo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+jobs:
+  sauvegarde:
+    name: Sauvegarde chiffrée et test de restauration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Sauvegarder, vérifier et chiffrer
+        id: sauvegarde
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          SAUVEGARDE_PHRASE_SECRETE: ${{ secrets.SAUVEGARDE_PHRASE_SECRETE }}
+          DOSSIER_SAUVEGARDES: sauvegardes
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$SAUVEGARDE_PHRASE_SECRETE" ]; then
+            echo "::error::Secrets NEON_DATABASE_URL et SAUVEGARDE_PHRASE_SECRETE à configurer (Settings › Secrets and variables › Actions)."
+            exit 1
+          fi
+          ./infra/sauvegardes/sauvegarder.sh
+
+      - name: Conserver la sauvegarde chiffrée (30 jours)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: sauvegarde-${{ steps.sauvegarde.outputs.fichier }}
+          path: sauvegardes/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Résumé
+        env:
+          FICHIER: ${{ steps.sauvegarde.outputs.fichier }}
+          VERSION: ${{ steps.sauvegarde.outputs.version }}
+          TABLES: ${{ steps.sauvegarde.outputs.tables }}
+          TAILLE: ${{ steps.sauvegarde.outputs.taille }}
+        run: |
+          {
+            echo "### Sauvegarde de la base"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Fichier | \`$FICHIER\` |"
+            echo "| PostgreSQL | $VERSION |"
+            echo "| Tables restaurées et vérifiées | $TABLES |"
+            echo "| Taille (chiffrée) | $TAILLE |"
+            echo "| Conservation | 30 jours |"
+          } >> "$GITHUB_STEP_SUMMARY"
