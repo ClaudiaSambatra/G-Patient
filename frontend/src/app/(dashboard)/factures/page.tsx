@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
+import { imprimerRecu } from "@/lib/impressions"
 import { CurrentUser } from "@/components/sidebar"
 import { CreditCard, Plus, CheckCircle2, AlertCircle } from "lucide-react"
 import { Facture, Patient, RdvOption } from "@/components/factures/types"
@@ -138,7 +139,7 @@ export default function FacturesPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       refetch()
       showNotification("success", "Facture encaissée avec succès. Le rendez-vous associé est confirmé.")
-      handlePrintRecu(id)
+      void imprimerRecu(id)
     },
     onError: (err) => {
       const msg = extractErrorMessage(err, "Impossible d'encaisser cette facture.")
@@ -146,12 +147,6 @@ export default function FacturesPage() {
     },
   })
 
-  function handlePrintRecu(factureId: number) {
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null
-    const baseURL = apiClient.defaults.baseURL || "http://localhost:8000/api"
-    const recuUrl = `${baseURL}/billing/factures/${factureId}/recu/${token ? `?token=${encodeURIComponent(token)}` : ""}`
-    window.open(recuUrl, "_blank")
-  }
 
   const handleOpenCreateModal = () => {
     setForm({
@@ -229,7 +224,7 @@ export default function FacturesPage() {
           isSecretaireOrAdmin={Boolean(isSecretaireOrAdmin)}
           isPendingEncaisser={encaisserMutation.isPending}
           onEncaisser={(id) => encaisserMutation.mutate(id)}
-          onPrintRecu={handlePrintRecu}
+          onPrintRecu={imprimerRecu}
         />
       </main>
 

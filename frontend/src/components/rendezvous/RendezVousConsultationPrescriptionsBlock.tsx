@@ -4,7 +4,7 @@ import Link from "next/link"
 import { FileSignature, Plus, Printer, FlaskConical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConsultationData } from "./types"
-import { handlePrintPrescription, handlePrintExam } from "./printRdvDocuments"
+import { imprimerDemandeExamen, imprimerOrdonnance } from "@/lib/impressions"
 
 interface RendezVousConsultationPrescriptionsBlockProps {
   existingConsultation: ConsultationData
@@ -81,7 +81,7 @@ export function RendezVousConsultationPrescriptionsBlock({
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => handlePrintPrescription(ord, existingConsultation)}
+                    onClick={() => imprimerOrdonnance(ord)}
                     className="h-6 text-[11px] px-2 gap-1 rounded-lg"
                   >
                     <Printer className="size-3" /> Imprimer
@@ -196,7 +196,7 @@ export function RendezVousConsultationPrescriptionsBlock({
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => handlePrintExam(exam, existingConsultation)}
+                    onClick={() => imprimerDemandeExamen(exam)}
                     className="h-6 text-[11px] px-2 gap-1 rounded-lg border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
                   >
                     <Printer className="size-3" /> Imprimer

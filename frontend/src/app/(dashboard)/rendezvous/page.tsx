@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { CheckCircle2, AlertCircle } from "lucide-react"
-import { handlePrintRecu } from "@/components/rendezvous/printRdvDocuments"
+import { imprimerRecu } from "@/lib/impressions"
 import { RendezVousHeader } from "@/components/rendezvous/RendezVousHeader"
 import { RendezVousFilters } from "@/components/rendezvous/RendezVousFilters"
 import { RendezVousTableView } from "@/components/rendezvous/RendezVousTableView"
@@ -266,7 +266,7 @@ export default function RendezVousPage() {
         setEncaissementModal={modalState.setEncaissementModal}
         onEncaisser={(factureId) => encaisserModalMutation.mutate(factureId)}
         isEncaisserPending={encaisserModalMutation.isPending}
-        onPrintRecu={handlePrintRecu}
+        onPrintRecu={imprimerRecu}
         onRefetchRdv={refetchRdv}
         consultationOrigineModal={modalState.consultationOrigineModal}
         setConsultationOrigineModal={modalState.setConsultationOrigineModal}

@@ -16,7 +16,7 @@ import {
   LigneOrdonnance,
   DEFAULT_LIGNE,
 } from "@/components/ordonnances/types"
-import { handlePrintOrdonnance } from "@/components/ordonnances/printOrdonnance"
+import { imprimerOrdonnance } from "@/lib/impressions"
 import { OrdonnanceFilters } from "@/components/ordonnances/OrdonnanceFilters"
 import { OrdonnancesTable } from "@/components/ordonnances/OrdonnancesTable"
 import { OrdonnanceCreateModal } from "@/components/ordonnances/OrdonnanceCreateModal"
@@ -226,7 +226,7 @@ export default function OrdonnancesPage() {
           setExpandedOrdId={setExpandedOrdId}
           isDoctor={isDoctor}
           currentUserId={currentUser?.id}
-          onPrint={handlePrintOrdonnance}
+          onPrint={imprimerOrdonnance}
           onOpenHistory={(ord) => setHistoryModal({ isOpen: true, ordonnance: ord })}
           onOpenEdit={openEditModal}
           onOpenCancel={(ord) => setCancelModal({ isOpen: true, ordonnance: ord, motif: "" })}

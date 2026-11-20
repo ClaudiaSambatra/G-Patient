@@ -259,6 +259,12 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 # Tarif de consultation (par défaut 20 000 Ar)
 TARIF_CONSULTATION = config('TARIF_CONSULTATION', default=20000, cast=int)
 
+# Identité du cabinet imprimée sur les reçus, ordonnances et demandes d'examens
+CABINET_NOM = config('CABINET_NOM', default='CENTRE MÉDICAL GESTION PATIENTS')
+CABINET_ADRESSE = config('CABINET_ADRESSE', default='Antananarivo, Madagascar')
+CABINET_TELEPHONE = config('CABINET_TELEPHONE', default='+261 34 00 000 00')
+CABINET_VILLE = config('CABINET_VILLE', default='Antananarivo')
+
 # Journaux applicatifs sur la sortie standard, collectés par Alloy puis Loki
 LOGGING = {
     'version': 1,

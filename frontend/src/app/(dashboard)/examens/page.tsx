@@ -12,7 +12,7 @@ import {
   computeExamenStats,
   filterDemandes,
 } from "@/components/examens/types"
-import { handlePrintDemandeExamen } from "@/components/examens/printExamenDemande"
+import { imprimerDemandeExamen } from "@/lib/impressions"
 import { ExamenHeader } from "@/components/examens/ExamenHeader"
 import { ExamenFilters } from "@/components/examens/ExamenFilters"
 import { ExamensTable } from "@/components/examens/ExamensTable"
@@ -178,7 +178,7 @@ export default function ExamensPage() {
           currentUser={currentUser}
           onResetFilters={resetFilters}
           onPreview={setPreviewDemande}
-          onPrint={handlePrintDemandeExamen}
+          onPrint={imprimerDemandeExamen}
           onOpenHistory={(demande) => setHistoryModal({ isOpen: true, demande })}
           onOpenEdit={(demande) => {
             setEditModal({
@@ -196,7 +196,7 @@ export default function ExamensPage() {
       <ExamenPreviewModal
         demande={previewDemande}
         onClose={() => setPreviewDemande(null)}
-        onPrint={handlePrintDemandeExamen}
+        onPrint={imprimerDemandeExamen}
       />
 
       <ExamenCreateModal

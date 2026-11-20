@@ -492,3 +492,21 @@ def test_protect_on_delete_consultation_or_patient(test_data):
 
     with pytest.raises(models.ProtectedError):
         test_data['patient'].delete()
+
+
+@pytest.mark.django_db
+def test_pdf_demande_examens_a5_groupee_par_categorie(api_client, test_data):
+    demande = DemandeExamen.objects.create(
+        consultation=test_data['consultation1'], patient=test_data['patient'], medecin=test_data['medecin1_user'],
+        renseignements_cliniques='Fièvre & toux depuis 3 jours',
+    )
+    LigneDemandeExamen.objects.create(demande=demande, nom_examen='NFS', categorie='BIOLOGIE', instructions='À jeun')
+    LigneDemandeExamen.objects.create(demande=demande, nom_examen='Radiographie thoracique', categorie='IMAGERIE')
+    api_client.force_authenticate(user=test_data['secretaire'])
+
+    res = api_client.get(reverse('demandes-examens-pdf', args=[demande.id]))
+
+    assert res.status_code == status.HTTP_200_OK
+    assert res['Content-Type'] == 'application/pdf'
+    assert b'/MediaBox [ 0 0 419.5276 595.2756 ]' in res.content
+    assert f'demande_examens_{demande.numero}.pdf' in res['Content-Disposition']
