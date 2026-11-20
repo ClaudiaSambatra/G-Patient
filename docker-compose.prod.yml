@@ -114,6 +114,30 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
       - /dev/disk/:/dev/disk:ro
 
+  loki:
+    image: grafana/loki:3.7.10
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/loki-config.yml:ro,z
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.22.0
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    security_opt:
+      - label=disable   # accès au socket Docker sous SELinux (Fedora)
+    volumes:
+      - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana:11.2.0
     restart: unless-stopped
@@ -133,6 +157,7 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro,z
     depends_on:
       - prometheus
+      - loki
 
 volumes:
   postgres_data:
@@ -140,3 +165,4 @@ volumes:
   media_volume:
   prometheus_data:
   grafana_data:
+  loki_data:

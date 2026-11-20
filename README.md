@@ -172,7 +172,7 @@ gestion-patients/
   consultations…) avec shadcn/ui
 - Étape 5 : pipeline CI (GitHub Actions — lint + tests à chaque push)
 - Étape 6 : conteneurisation de prod et CD (Docker Hub / GHCR)
-- Étape 7 : supervision (Prometheus/Grafana), sécurité (Trivy, OWASP ZAP)
+- Étape 7 : supervision (Prometheus/Grafana), journaux (Loki), sécurité (Trivy, OWASP ZAP)
 
 ## Récupération de mot de passe par Email
 
@@ -189,14 +189,67 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 - Illustration des écrans de connexion : « Patient waiting for visit doctor illustration concept » par Abdur Razzaq sur [Vecteezy.com](https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept) (licence gratuite Vecteezy, attribution obligatoire).
 - Police : [IBM Plex Sans](https://github.com/IBM/plex) (SIL Open Font License).
 
+## Centralisation des journaux (Grafana Loki)
+
+Les journaux de tous les conteneurs du projet (backend Django, frontend, PostgreSQL, Nginx, Grafana…) sont centralisés dans **Grafana Loki** :
+
+```
+conteneurs Docker ──stdout/stderr──▶ Grafana Alloy ──push──▶ Loki ◀──requêtes LogQL── Grafana
+```
+
+- **Alloy** (`infra/alloy/config.alloy`) découvre les conteneurs via le socket Docker, ne garde que ceux du projet Compose `gestion-patients` (variable `PROJET_COMPOSE` pour un autre nom), ajoute les étiquettes `service`, `container` et `level` (debug, info, warning, error, critical).
+- **Loki** (`infra/loki/loki-config.yml`) stocke les journaux 15 jours, comme Prometheus pour les métriques.
+- **Django** écrit ses journaux sur la sortie standard au format `date NIVEAU module message` (niveau réglable avec `DJANGO_LOG_LEVEL`).
+- **Grafana** : source de données « Loki » et tableau de bord **Journaux applicatifs** (volume par service, erreurs et avertissements, recherche plein texte).
+
+Lancement avec la supervision : `docker compose -f docker-compose.monitoring.yml up -d`, puis Grafana sur http://localhost:3001 → *Supervision › Journaux applicatifs*, ou *Explore* avec par exemple `{service="backend", level="error"}`.
+
+## Tests de l'API (Postman / Newman)
+
+La collection `postman/gestion-patients.postman_collection.json` déroule un **parcours métier complet** sur l'API, en 41 requêtes et 155 assertions :
+
+| Dossier | Ce qui est vérifié |
+|---|---|
+| 00 · Santé | API en ligne, erreurs 404 en JSON |
+| 01 · Authentification | jetons JWT, renouvellement, refus sans jeton ou avec un mauvais mot de passe |
+| 02 · Utilisateurs et rôles | création des comptes médecin et secrétaire, mot de passe robuste imposé, accès interdit selon le rôle |
+| 03 · Patients | champs obligatoires, création, âge calculé, recherche paginée, mise à jour |
+| 04 · Rendez-vous | créneaux libres de 15 min, prise de RDV, double réservation et date passée refusées, transitions de statut |
+| 05 · Pharmacie | stock initial, alerte de seuil, réception de livraison, traçabilité des mouvements |
+| 06 · Suppressions et nettoyage | suppressions réservées à l'administrateur, médicament avec historique désactivé et non supprimé, comptes de test désactivés |
+
+Chaque réponse est aussi contrôlée sur son **format JSON** et son **temps de réponse**. Le seuil est de 300 ms, l'exigence de performance du cahier des charges, et passe à 1 s pour les seules opérations qui hachent un mot de passe avec Argon2, un algorithme lent par conception. Les données de test portent un suffixe unique, si bien que la collection peut tourner plusieurs fois sur la même base.
+
+- **En CI** : le job « Tests d'API (Postman / Newman) » démarre une API jetable (PostgreSQL vierge), lance la collection avec l'image Docker Newman épinglée par son empreinte, affiche un résumé dans l'onglet *Summary* et publie le rapport JUnit (artefact `rapport-newman`). La construction des images attend ce job.
+- **En local**, contre une API qui tourne sur le port 8000 :
+
+  ```bash
+  docker run --rm --network host -v "$PWD/postman:/etc/newman:ro,z" postman/newman:6.1.3-alpine \
+    run gestion-patients.postman_collection.json -e ci.postman_environment.json \
+    --env-var baseUrl=http://localhost:8000 \
+    --env-var adminUsername=<admin> --env-var adminPassword=<mot de passe>
+  ```
+
+- **Dans Postman** : *Import* de la collection et de l'environnement `postman/ci.postman_environment.json`, puis renseigner `adminPassword`.
+
 ## Sécurité de la chaîne CI/CD
 
 Mesures appliquées (suite à l'incident de code malveillant de novembre 2026 et aux analyses SonarCloud et OWASP ZAP) :
 
 - **Actions GitHub épinglées sur un SHA** de commit et **image OWASP ZAP épinglée par son empreinte** (digest).
 - **`npm ci --ignore-scripts`** : aucun script d'installation de dépendance n'est exécuté (CI et Dockerfile).
-- **`pip install --only-binary :all:`** : uniquement des paquets précompilés, aucun script `setup.py` exécuté ; versions exactes dans `requirements.txt`.
+- **`pip install --only-binary :all: --require-hashes`** : uniquement des paquets précompilés (aucun script `setup.py` exécuté), dont **toutes** les versions, dépendances indirectes comprises, sont verrouillées avec leur empreinte SHA-256 dans `backend/requirements.lock` (et `requirements-dev.lock`). Un paquet modifié sur PyPI est refusé à l'installation (CI, Dockerfile, Render).
+  Après une modification de `requirements.txt` ou `requirements-dev.txt`, régénérer les fichiers verrouillés :
+
+  ```bash
+  docker run --rm -v "$PWD/backend:/w:z" -w /w python:3.12-slim sh -c '
+    pip install -q --only-binary :all: pip-tools==7.5.2 &&
+    for f in requirements requirements-dev; do
+      pip-compile -q --generate-hashes --allow-unsafe --strip-extras --no-header --annotation-style=line -o $f.lock $f.txt
+    done'
+  ```
 - Job « Sécurité » : blocage du code caché (lignes anormalement longues, signatures connues, tâches VS Code automatiques) et des fichiers `.env` versionnés.
+- Tests d'API **Postman / Newman** (image épinglée par son empreinte, rapport JSON contenant les secrets jamais publié).
 - Scan dynamique **OWASP ZAP** de l'API (règles classées dans `.zap/rules.tsv`), scan **Trivy** des images, analyse **SonarCloud**.
 
 Alertes SonarCloud acceptées, avec justification :
