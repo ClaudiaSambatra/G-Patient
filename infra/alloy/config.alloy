@@ -1,0 +1,68 @@
+// Grafana Alloy — collecte des journaux des conteneurs Docker vers Loki
+// (remplaçant officiel de Promtail, arrivé en fin de vie en mars 2026)
+
+// 1. Découverte des conteneurs du projet Compose (et d'eux seuls) via le socket Docker
+//    Le nom du projet peut être changé avec la variable d'environnement PROJET_COMPOSE.
+discovery.docker "conteneurs" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "label"
+    values = [format("com.docker.compose.project=%s", coalesce(sys.env("PROJET_COMPOSE"), "gestion-patients"))]
+  }
+}
+
+// 2. Étiquettes lisibles : nom du conteneur et service Compose
+discovery.relabel "conteneurs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "projet"
+  }
+}
+
+// 3. Lecture des journaux (stdout / stderr) des conteneurs du projet
+loki.source.docker "conteneurs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.conteneurs.targets
+  relabel_rules = discovery.relabel.conteneurs.rules
+  forward_to    = [loki.process.niveau.receiver]
+}
+
+// 4. Extraction du niveau de gravité (INFO, WARNING, ERROR…) en étiquette
+loki.process "niveau" {
+  stage.regex {
+    expression = "(?i)\\b(?P<level>debug|info|warning|warn|error|critical)\\b"
+  }
+
+  // Normalisation : minuscules, et « warn » devient « warning »
+  stage.template {
+    source   = "level"
+    template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else }}{{ $l }}{{ end }}"
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+// 5. Envoi vers Loki
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

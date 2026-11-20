@@ -247,3 +247,28 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # Tarif de consultation (par défaut 20 000 Ar)
 TARIF_CONSULTATION = config('TARIF_CONSULTATION', default=20000, cast=int)
+
+# Journaux applicatifs sur la sortie standard, collectés par Alloy puis Loki
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': config('DJANGO_LOG_LEVEL', default='INFO'),
+    },
+    'loggers': {
+        'django.db.backends': {'level': 'WARNING'},
+    },
+}

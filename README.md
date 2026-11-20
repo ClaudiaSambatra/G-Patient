@@ -172,7 +172,7 @@ gestion-patients/
   consultations…) avec shadcn/ui
 - Étape 5 : pipeline CI (GitHub Actions — lint + tests à chaque push)
 - Étape 6 : conteneurisation de prod et CD (Docker Hub / GHCR)
-- Étape 7 : supervision (Prometheus/Grafana), sécurité (Trivy, OWASP ZAP)
+- Étape 7 : supervision (Prometheus/Grafana), journaux (Loki), sécurité (Trivy, OWASP ZAP)
 
 ## Récupération de mot de passe par Email
 
@@ -188,6 +188,21 @@ Le système intègre la récupération sécurisée de mot de passe par email :
 
 - Illustration des écrans de connexion : « Patient waiting for visit doctor illustration concept » par Abdur Razzaq sur [Vecteezy.com](https://www.vecteezy.com/vector-art/2805088-patient-waiting-for-visit-doctor-illustration-concept) (licence gratuite Vecteezy, attribution obligatoire).
 - Police : [IBM Plex Sans](https://github.com/IBM/plex) (SIL Open Font License).
+
+## Centralisation des journaux (Grafana Loki)
+
+Les journaux de tous les conteneurs du projet (backend Django, frontend, PostgreSQL, Nginx, Grafana…) sont centralisés dans **Grafana Loki** :
+
+```
+conteneurs Docker ──stdout/stderr──▶ Grafana Alloy ──push──▶ Loki ◀──requêtes LogQL── Grafana
+```
+
+- **Alloy** (`infra/alloy/config.alloy`) découvre les conteneurs via le socket Docker, ne garde que ceux du projet Compose `gestion-patients` (variable `PROJET_COMPOSE` pour un autre nom), ajoute les étiquettes `service`, `container` et `level` (debug, info, warning, error, critical).
+- **Loki** (`infra/loki/loki-config.yml`) stocke les journaux 15 jours, comme Prometheus pour les métriques.
+- **Django** écrit ses journaux sur la sortie standard au format `date NIVEAU module message` (niveau réglable avec `DJANGO_LOG_LEVEL`).
+- **Grafana** : source de données « Loki » et tableau de bord **Journaux applicatifs** (volume par service, erreurs et avertissements, recherche plein texte).
+
+Lancement avec la supervision : `docker compose -f docker-compose.monitoring.yml up -d`, puis Grafana sur http://localhost:3001 → *Supervision › Journaux applicatifs*, ou *Explore* avec par exemple `{service="backend", level="error"}`.
 
 ## Sécurité de la chaîne CI/CD
 
