@@ -149,23 +149,16 @@ class Command(BaseCommand):
             stock[nom] = med
 
         # --- Historique : uniquement du passé, donc rien ne « périme » ---
+        consultations = []
         for (cle, username, jours, heure, motif, observations, diagnostic, compte_rendu,
              constantes, lignes) in HISTORIQUE:
-            self.consultation_passee(
+            consultations.append(self.consultation_passee(
                 patients[cle], medecins[username], secretaire, stock, jour_passe(jours), heure,
                 motif, observations, diagnostic, compte_rendu, constantes, lignes,
-            )
+            ))
 
-        # Un rendez-vous annulé et un patient non venu : leur facture de consultation est annulée
-        for cle, username, jours, statut, motif in [
-            ('fanja', 'dr.rakoto', 35, RendezVous.Statut.ANNULE, 'Certificat médical'),
-            ('nomena', 'dr.rasoa', 15, RendezVous.Statut.NON_VENU, 'Vaccination'),
-        ]:
-            rdv = RendezVous.objects.create(
-                patient=patients[cle], medecin=medecins[username], date_heure=a(jour_passe(jours), 11),
-                type=RendezVous.Type.CONSULTATION, statut=statut, motif=motif,
-            )
-            Facture.objects.filter(rendez_vous=rdv).update(statut=Facture.StatutPaiement.ANNULEE)
+        # Suivi gratuit de Toky 7 jours après son bilan (moins de 15 jours : pas de facture)
+        self.suivi_passe(consultations[0])
 
     def consultation_passee(self, patient, medecin, secretaire, stock, jour, heure, motif,
                             observations, diagnostic, compte_rendu, constantes, lignes):
@@ -202,6 +195,31 @@ class Command(BaseCommand):
             )
             self.encaisser(facture, secretaire, a(jour, heure, 30))
             sortir_medicaments_facture(facture, secretaire)
+        return consultation
+
+    @staticmethod
+    def suivi_passe(origine):
+        jour = timezone.localdate(origine.date_consultation) + timedelta(days=7)
+        origine.date_suivi_recommandee = jour
+        origine.motif_suivi = 'Contrôle de la tension après ajustement du traitement'
+        origine.save()
+        rdv = RendezVous.objects.create(
+            patient=origine.patient, medecin=origine.rendez_vous.medecin, date_heure=a(jour, 9),
+            type=RendezVous.Type.CONTROLE, statut=RendezVous.Statut.TERMINE,
+            consultation_origine=origine, motif=origine.motif_suivi,
+        )
+        suivi = Consultation.objects.create(
+            patient=origine.patient, medecin=origine.medecin, rendez_vous=rdv, consultation_origine=origine,
+            date_consultation=a(jour, 9, 5), motif=origine.motif_suivi,
+            observations='TA 150/90, bonne tolérance du traitement. Glycémie à jeun 1,30 g/L.',
+            diagnostic='Hypertension en amélioration, diabète type 2',
+            compte_rendu='Traitement poursuivi sans changement, régime à maintenir.',
+        )
+        ConstantesVitales.objects.create(
+            consultation=suivi, temperature=Decimal('36.8'), poids=Decimal('85.50'),
+            taille=Decimal('172.0'), tension_arterielle='150/90', frequence_cardiaque=74,
+            date_prise=a(jour, 9, 5),
+        )
 
     @staticmethod
     def encaisser(facture, secretaire, quand):

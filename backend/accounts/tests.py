@@ -999,12 +999,19 @@ class TestChargerDemo:
 
         assert Utilisateur.objects.filter(role=Utilisateur.Role.MEDECIN).count() == 2
         assert Patient.objects.count() == 4
-        assert Consultation.objects.count() == 4
+        assert Consultation.objects.count() == 5
         # Rien dans le futur : les données restent valables quel que soit le jour de la démo
         assert not RendezVous.objects.filter(date_heure__gte=timezone.now()).exists()
         assert not RendezVous.objects.filter(statut__in=['PLANIFIE', 'CONFIRME']).exists()
         assert Facture.objects.filter(statut=Facture.StatutPaiement.PAYEE).count() == 7
-        assert Facture.objects.filter(statut=Facture.StatutPaiement.ANNULEE).count() == 2
+        assert not Facture.objects.filter(statut=Facture.StatutPaiement.ANNULEE).exists()
+        # Suivi gratuit de Toky, rattaché à son bilan, sans facture
+        suivi = RendezVous.objects.get(type=RendezVous.Type.CONTROLE)
+        assert suivi.patient.prenom == 'Toky' and suivi.statut == RendezVous.Statut.TERMINE
+        assert suivi.consultation_origine.motif == 'Bilan hypertension et diabète'
+        assert suivi.statut_paiement == 'GRATUIT'
+        assert not Facture.objects.filter(rendez_vous=suivi).exists()
+        assert suivi.consultation.consultation_origine == suivi.consultation_origine
         assert StockMedicament.objects.get(nom='Paracétamol').quantite == 45
         assert StockMedicament.objects.get(nom='Amoxicilline').quantite == 11
 
