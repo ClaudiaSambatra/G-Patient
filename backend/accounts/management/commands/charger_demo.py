@@ -12,12 +12,8 @@ from consultations.models import ConstantesVitales, Consultation
 from patients.models import Patient
 from pharmacie.models import MouvementStock, StockMedicament
 from pharmacie.services import enregistrer_mouvement, sortir_medicaments_facture
-from planning.models import AbsenceMedecin, HoraireMedecin
+from planning.models import HoraireMedecin
 from prescriptions.models import LigneOrdonnance, Ordonnance
-
-# Le délai de gratuité du contrôle est de 15 jours : au-delà de 10 jours d'avance,
-# la consultation passée créée ici ne rendrait plus le contrôle du jour de démo gratuit.
-AVANCE_MAX_JOURS = 10
 
 MEDECINS = [
     ('dr.rakoto', 'Jean', 'Rakoto', '034 12 345 67', 'Médecine générale', 'ONM-2015-0421'),
@@ -45,10 +41,11 @@ STOCK = [
 ]
 
 
-def jour_ouvre(jour):
-    """Le jour lui-même s'il tombe en semaine, sinon le lundi suivant."""
+def jour_passe(jours):
+    """Jour ouvré situé `jours` jours avant aujourd'hui (reculé au vendredi s'il tombe un week-end)."""
+    jour = timezone.localdate() - timedelta(days=jours)
     while jour.weekday() >= 5:
-        jour += timedelta(days=1)
+        jour -= timedelta(days=1)
     return jour
 
 
@@ -56,50 +53,64 @@ def a(jour, heure, minute=0):
     return timezone.make_aware(datetime.combine(jour, time(heure, minute)))
 
 
+# Consultations passées : (patient, médecin, il y a N jours, heure, motif, observations, diagnostic,
+# compte rendu, constantes (température, poids, taille, tension, pouls), lignes d'ordonnance)
+# Une ligne d'ordonnance est (médicament du stock ou None, nom, dosage, forme, quantité, dose, fréquence, durée).
+HISTORIQUE = [
+    ('toky', 'dr.rakoto', 60, 9, 'Bilan hypertension et diabète',
+     'TA élevée au repos, pas de signe de complication. Glycémie à jeun 1,45 g/L.',
+     'Hypertension artérielle mal équilibrée, diabète type 2',
+     'Ajustement du traitement antihypertenseur, régime pauvre en sel et en sucres rapides.',
+     ('36.9', '86.00', '172.0', '160/95', 78),
+     [(None, 'Amlodipine', '10 mg', 'Comprimé', 1, '1 comprimé', '1 fois par jour, le matin', '30 jours'),
+      (None, 'Metformine', '850 mg', 'Comprimé', 1, '1 comprimé', '2 fois par jour, aux repas', '30 jours')]),
+    ('toky', 'dr.rakoto', 30, 10, 'Contrôle tension',
+     'Amélioration nette, TA 140/85. Le patient suit le régime.',
+     'Hypertension en cours d\'équilibration, diabète type 2 stable',
+     'Poursuite du traitement, contrôle dans un mois.',
+     ('36.7', '84.50', '172.0', '140/85', 72),
+     [('Paracétamol', 'Paracétamol', '500 mg', 'Comprimé', 2, '1 comprimé',
+       'Si douleur, maximum 3 fois par jour', '5 jours')]),
+    ('nomena', 'dr.rasoa', 45, 9, 'Fièvre et toux depuis 3 jours',
+     'Fièvre à 38,9 °C, tympans normaux, gorge rouge, auscultation pulmonaire normale.',
+     'Angine érythémateuse',
+     'Antibiothérapie 6 jours, antipyrétique si fièvre. Revoir si pas d\'amélioration sous 48 h.',
+     ('38.9', '22.00', '118.0', '100/60', 110),
+     [('Amoxicilline', 'Amoxicilline', '500 mg', 'Gélule', 1, '1 gélule', '2 fois par jour', '6 jours'),
+      ('Paracétamol', 'Paracétamol', '500 mg', 'Comprimé', 1, '1/2 comprimé',
+       'Si fièvre, toutes les 6 heures', '3 jours')]),
+    ('fanja', 'dr.rakoto', 20, 15, 'Douleurs lombaires',
+     'Contracture paravertébrale lombaire, pas de déficit neurologique.',
+     'Lombalgie commune',
+     'Repos relatif, antalgiques, reprise progressive de l\'activité.',
+     ('36.8', '61.00', '160.0', '120/75', 70),
+     [('Paracétamol', 'Paracétamol', '500 mg', 'Comprimé', 2, '1 comprimé', '3 fois par jour', '7 jours')]),
+]
+
+
 class Command(BaseCommand):
-    help = "Charge un jeu de données de démonstration (médecins, patients, stock, RDV, historique)."
+    help = "Charge un jeu de données de démonstration durable (comptes, patients, stock, historique)."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            '--jour', type=str, default=None,
-            help="Jour de la démo, AAAA-MM-JJ (défaut : prochain jour ouvré après aujourd'hui).",
-        )
         parser.add_argument(
             '--mot-de-passe', default='Demo2026!',
             help="Mot de passe des comptes de démonstration (défaut : Demo2026!).",
         )
 
     def handle(self, *args, **options):
-        aujourdhui = timezone.localdate()
-        if options['jour']:
-            try:
-                jour = datetime.strptime(options['jour'], '%Y-%m-%d').date()
-            except ValueError:
-                raise CommandError("Date invalide (format attendu : AAAA-MM-JJ).")
-        else:
-            jour = aujourdhui + timedelta(days=1)
-        jour = jour_ouvre(jour)
-        if jour < aujourdhui:
-            raise CommandError("Le jour de démo ne peut pas être dans le passé.")
-        if (jour - aujourdhui).days > AVANCE_MAX_JOURS:
-            raise CommandError(
-                f"Lancez la commande au plus {AVANCE_MAX_JOURS} jours avant la démo "
-                "(sinon le contrôle gratuit de la démo ne serait plus éligible)."
-            )
         if Utilisateur.objects.filter(username='dr.rakoto').exists():
             raise CommandError("Les données de démonstration sont déjà chargées (le compte dr.rakoto existe).")
 
         with transaction.atomic():
-            self.charger(jour, aujourdhui, options['mot_de_passe'])
+            self.charger(options['mot_de_passe'])
 
         self.stdout.write(self.style.SUCCESS(
-            f"Données de démonstration chargées : rendez-vous le {jour:%d/%m/%Y}. "
+            "Données de démonstration chargées. "
             f"Comptes dr.rakoto, dr.rasoa, secretaire (mot de passe : {options['mot_de_passe']})."
         ))
 
-    def charger(self, jour, aujourdhui, mot_de_passe):
+    def charger(self, mot_de_passe):
         admin = Utilisateur.objects.filter(is_superuser=True).first()
-
         # --- Utilisateurs (le signal post_save crée le profil Medecin) ---
         medecins = {}
         for username, prenom, nom, tel, specialite, numero in MEDECINS:
@@ -118,16 +129,11 @@ class Command(BaseCommand):
         )
         rakoto, rasoa = medecins['dr.rakoto'], medecins['dr.rasoa']
 
-        # --- Planning : horaires en semaine, absence de Dr Rasoanirina juste après la démo ---
+        # --- Planning : horaires hebdomadaires (sans date, ils restent valables) ---
         for j in range(5):
             HoraireMedecin.objects.create(medecin=rakoto, jour=j, heure_debut=time(8), heure_fin=time(12))
             HoraireMedecin.objects.create(medecin=rakoto, jour=j, heure_debut=time(14), heure_fin=time(17))
             HoraireMedecin.objects.create(medecin=rasoa, jour=j, heure_debut=time(8), heure_fin=time(12))
-        debut_absence = jour_ouvre(jour + timedelta(days=1))
-        AbsenceMedecin.objects.create(
-            medecin=rasoa, date_debut=debut_absence, date_fin=debut_absence + timedelta(days=1),
-            type=AbsenceMedecin.Type.FORMATION, motif='Séminaire pédiatrie', creee_par=admin,
-        )
 
         # --- Patients ---
         patients = {cle: Patient.objects.create(**donnees) for cle, donnees in PATIENTS.items()}
@@ -142,58 +148,60 @@ class Command(BaseCommand):
             enregistrer_mouvement(med, MouvementStock.Type.ENTREE, quantite, admin, motif='Stock initial')
             stock[nom] = med
 
-        # --- Historique : Toky a consulté il y a 2 jours (payé), ce qui rend son contrôle gratuit ---
-        passe = aujourdhui - timedelta(days=2)
-        rdv_passe = RendezVous.objects.create(
-            patient=patients['toky'], medecin=rakoto, date_heure=a(passe, 9, 30),
-            type=RendezVous.Type.CONSULTATION, statut=RendezVous.Statut.TERMINE, motif='Contrôle tension',
+        # --- Historique : uniquement du passé, donc rien ne « périme » ---
+        for (cle, username, jours, heure, motif, observations, diagnostic, compte_rendu,
+             constantes, lignes) in HISTORIQUE:
+            self.consultation_passee(
+                patients[cle], medecins[username], secretaire, stock, jour_passe(jours), heure,
+                motif, observations, diagnostic, compte_rendu, constantes, lignes,
+            )
+
+        # Un rendez-vous annulé et un patient non venu : leur facture de consultation est annulée
+        for cle, username, jours, statut, motif in [
+            ('fanja', 'dr.rakoto', 35, RendezVous.Statut.ANNULE, 'Certificat médical'),
+            ('nomena', 'dr.rasoa', 15, RendezVous.Statut.NON_VENU, 'Vaccination'),
+        ]:
+            rdv = RendezVous.objects.create(
+                patient=patients[cle], medecin=medecins[username], date_heure=a(jour_passe(jours), 11),
+                type=RendezVous.Type.CONSULTATION, statut=statut, motif=motif,
+            )
+            Facture.objects.filter(rendez_vous=rdv).update(statut=Facture.StatutPaiement.ANNULEE)
+
+    def consultation_passee(self, patient, medecin, secretaire, stock, jour, heure, motif,
+                            observations, diagnostic, compte_rendu, constantes, lignes):
+        rdv = RendezVous.objects.create(
+            patient=patient, medecin=medecin, date_heure=a(jour, heure),
+            type=RendezVous.Type.CONSULTATION, statut=RendezVous.Statut.TERMINE, motif=motif,
         )
-        self.encaisser(rdv_passe.facture, secretaire, a(passe, 9, 15))
+        self.encaisser(rdv.facture, secretaire, a(jour, heure) - timedelta(minutes=10))
         consultation = Consultation.objects.create(
-            patient=patients['toky'], medecin=rakoto.utilisateur, rendez_vous=rdv_passe,
-            date_consultation=a(passe, 9, 35), motif='Contrôle tension artérielle et glycémie',
-            observations='TA élevée au repos, pas de signe de complication. Glycémie à jeun 1,45 g/L.',
-            diagnostic='Hypertension artérielle mal équilibrée, diabète type 2',
-            compte_rendu='Ajustement du traitement antihypertenseur, régime pauvre en sel et en sucres rapides.',
-            suivi_recommande=True, date_suivi_recommandee=jour_ouvre(passe + timedelta(days=10)),
-            motif_suivi='Réévaluation de la tension après ajustement du traitement',
+            patient=patient, medecin=medecin.utilisateur, rendez_vous=rdv, date_consultation=a(jour, heure, 5),
+            motif=motif, observations=observations, diagnostic=diagnostic, compte_rendu=compte_rendu,
         )
+        temperature, poids, taille, tension, pouls = constantes
         ConstantesVitales.objects.create(
-            consultation=consultation, temperature=Decimal('36.9'), poids=Decimal('84.50'),
-            taille=Decimal('172.0'), tension_arterielle='160/95', frequence_cardiaque=78,
-            date_prise=a(passe, 9, 35),
+            consultation=consultation, temperature=Decimal(temperature), poids=Decimal(poids),
+            taille=Decimal(taille), tension_arterielle=tension, frequence_cardiaque=pouls,
+            date_prise=a(jour, heure, 5),
         )
         ordonnance = Ordonnance.objects.create(consultation=consultation)
-        LigneOrdonnance.objects.create(
-            ordonnance=ordonnance, medicament='Amlodipine', dosage='10 mg', forme='Comprimé',
-            dose_par_prise='1 comprimé', frequence='1 fois par jour, le matin', duree='30 jours', ordre=1,
-        )
-        LigneOrdonnance.objects.create(
-            ordonnance=ordonnance, medicament='Paracétamol', medicament_stock=stock['Paracétamol'],
-            quantite=2, dosage='500 mg', forme='Comprimé', dose_par_prise='1 comprimé',
-            frequence='Si douleur, maximum 3 fois par jour', duree='5 jours', ordre=2,
-        )
-        facture_med = Facture.objects.create(
-            patient=patients['toky'], type=Facture.Type.MEDICAMENTS, ordonnance=ordonnance,
-            designation=f"Médicaments — ordonnance {ordonnance.numero}",
-            montant=Decimal(2 * 2500),
-        )
-        self.encaisser(facture_med, secretaire, a(passe, 10, 0))
-        sortir_medicaments_facture(facture_med, secretaire)
-
-        # --- Rendez-vous du jour de démo (facture de consultation créée par le signal, impayée) ---
-        RendezVous.objects.create(
-            patient=patients['aina'], medecin=rakoto, date_heure=a(jour, 9, 0),
-            type=RendezVous.Type.CONSULTATION, motif='Toux persistante',
-        )
-        RendezVous.objects.create(
-            patient=patients['nomena'], medecin=rasoa, date_heure=a(jour, 10, 0),
-            type=RendezVous.Type.CONSULTATION, motif='Fièvre',
-        )
-        RendezVous.objects.create(
-            patient=patients['fanja'], medecin=rakoto, date_heure=a(jour, 14, 0),
-            type=RendezVous.Type.CONSULTATION, motif='Douleurs lombaires',
-        )
+        montant = Decimal(0)
+        for ordre, (du_stock, nom, dosage, forme, quantite, dose, frequence, duree) in enumerate(lignes, 1):
+            med = stock[du_stock] if du_stock else None
+            LigneOrdonnance.objects.create(
+                ordonnance=ordonnance, medicament=nom, medicament_stock=med, quantite=quantite,
+                dosage=dosage, forme=forme, dose_par_prise=dose, frequence=frequence, duree=duree, ordre=ordre,
+            )
+            if med:
+                montant += quantite * med.prix_unitaire
+        # Médicaments délivrés par le cabinet : facture payée et sortie de stock
+        if montant:
+            facture = Facture.objects.create(
+                patient=patient, type=Facture.Type.MEDICAMENTS, ordonnance=ordonnance,
+                designation=f"Médicaments — ordonnance {ordonnance.numero}", montant=montant,
+            )
+            self.encaisser(facture, secretaire, a(jour, heure, 30))
+            sortir_medicaments_facture(facture, secretaire)
 
     @staticmethod
     def encaisser(facture, secretaire, quand):
