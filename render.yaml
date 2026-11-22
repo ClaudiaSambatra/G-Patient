@@ -1,20 +1,25 @@
 # Blueprint Render pour le déploiement continu de Cabinet Médical
 # Documentation : https://render.com/docs/blueprint-spec
+#
+# Les deux services tournent à partir des images publiées sur GHCR par la CI (job « images »),
+# testées et scannées par Trivy. Le job « deploy » de la CI demande à Render, par Deploy Hook,
+# l'image exacte du commit (étiquette = SHA) : un service image ne se redéploie pas tout seul.
+# Base de données : PostgreSQL chez Neon (DATABASE_URL).
 version: "1"
 
 services:
   # --- Service Backend (Django REST Framework) ------------------------------
+  # Au démarrage, entrypoint.sh applique les migrations, collecte les fichiers statiques
+  # et crée l'administrateur, puis lance Gunicorn sur $PORT.
   - type: web
-    name: cabinet-medical-backend
-    runtime: python
+    name: gestion-patients-backend
+    runtime: image
+    image:
+      url: ghcr.io/claudiasambatra/g-patient-backend:latest
     region: frankfurt
     plan: free
-    rootDir: backend
-    buildCommand: ./build.sh
-    startCommand: python manage.py migrate --noinput && python manage.py setup_admin && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health/
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_SECRET_KEY
@@ -31,18 +36,15 @@ services:
         sync: false
 
   # --- Service Frontend (Next.js) --------------------------------------------
+  # L'adresse de l'API est figée au build de l'image : variable de dépôt GitHub
+  # NEXT_PUBLIC_API_URL (https://gestion-patients-backend.onrender.com/api).
   - type: web
-    name: cabinet-medical
-    runtime: node
+    name: cabinet-medical-by-EJLogiciel
+    runtime: image
+    image:
+      url: ghcr.io/claudiasambatra/g-patient-frontend:latest
     region: frankfurt
     plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start -- -p $PORT
     envVars:
-      - key: NODE_VERSION
-        value: 20.18.0
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-      - key: BACKEND_URL
-        sync: false
+      - key: HOSTNAME
+        value: 0.0.0.0

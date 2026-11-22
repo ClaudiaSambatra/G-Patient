@@ -447,6 +447,10 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: true
+          # Adresse de l'API figée dans le frontend au build : celle du backend Render si la
+          # variable de dépôt NEXT_PUBLIC_API_URL est définie, sinon /api (derrière Nginx).
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || '/api' }}
           tags: |
             ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:latest
             ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
@@ -465,20 +469,32 @@ jobs:
           format: table
 
   # ---------------------------------------------------------------- DEPLOY
-  # Render redéploie depuis GHCR/GitHub ; un serveur se déploie avec Ansible (infra/ansible).
+  # Render déploie l'image GHCR de ce commit, celle qui vient d'être testée et scannée par Trivy.
+  # Un serveur classique se déploie avec Ansible (infra/ansible).
   deploy:
-    name: Déploiement continu (Render)
+    name: Déploiement continu (Render, image ${{ matrix.service }})
     needs: [images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            hook_secret: RENDER_DEPLOY_HOOK_BACKEND
+          - service: frontend
+            hook_secret: RENDER_DEPLOY_HOOK_FRONTEND
     steps:
-      - name: Déploiement continu sur Render
+      - name: Déployer l'image sur Render
+        env:
+          HOOK: ${{ secrets[matrix.hook_secret] }}
+          IMAGE: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
         run: |
-          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
-            echo "🚀 Déclenchement du déploiement automatique sur Render..."
-            curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" && echo "✅ Déploiement Render déclenché avec succès !" || echo "⚠️ Avertissement : impossible de contacter le Deploy Hook Render."
-          else
-            echo "ℹ️ Secret RENDER_DEPLOY_HOOK non configuré (Render se déploie automatiquement via son intégration GitHub ou via ce hook si renseigné)."
+          if [ -z "$HOOK" ]; then
+            echo "::warning::Secret ${{ matrix.hook_secret }} absent : déploiement Render ignoré."
+            exit 0
           fi
+          image_encodee=$(jq -rn --arg v "$IMAGE" '$v | @uri')
+          curl -fsS -o /dev/null -X POST "${HOOK}&imgURL=${image_encodee}"
+          echo "Déploiement de $IMAGE demandé à Render."
 
