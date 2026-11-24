@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { CurrentUser } from "@/components/sidebar"
@@ -9,16 +9,26 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, UserPlus, Search, CheckCircle2, AlertCircle } from "lucide-react"
 
-import { PatientListResponse } from "@/components/patients/types"
+import { Patient, PatientListResponse } from "@/components/patients/types"
 import { PatientsTable } from "@/components/patients/PatientsTable"
 import { PatientFormModal } from "@/components/patients/PatientFormModal"
 import { PatientDetailModal } from "@/components/patients/PatientDetailModal"
-import { PatientConsultationModal } from "@/components/patients/PatientConsultationModal"
 import { PatientDeleteModal } from "@/components/patients/PatientDeleteModal"
 import { usePatientMutations } from "@/components/patients/usePatientMutations"
 
 export default function PatientsPage() {
+  // useSearchParams impose une frontière Suspense (sinon le build Next échoue)
+  return (
+    <Suspense>
+      <PatientsContent />
+    </Suspense>
+  )
+}
+
+function PatientsContent() {
   const router = useRouter()
+  // Dossier ouvert directement depuis un tableau de bord : /patients?dossier=<id>
+  const dossierId = Number(useSearchParams().get("dossier")) || null
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
 
@@ -43,14 +53,9 @@ export default function PatientsPage() {
     setForm,
     editForm,
     setEditForm,
-    isConsultationModalOpen,
-    setIsConsultationModalOpen,
-    consultationForm,
-    setConsultationForm,
     createPatient,
     updatePatient,
     deletePatient,
-    createConsultation,
     handleEditInit,
   } = usePatientMutations(showNotification)
 
@@ -75,18 +80,24 @@ export default function PatientsPage() {
     retry: false,
   })
 
+  const { data: patientDuDossier } = useQuery({
+    queryKey: ["patient", dossierId],
+    queryFn: async () => (await apiClient.get<Patient>(`/patients/${dossierId}/`)).data,
+    enabled: dossierId !== null,
+  })
+  const patientAffiche = viewingPatient ?? (dossierId !== null ? patientDuDossier ?? null : null)
+
   const { data: consultationsData, isLoading: isLoadingConsultations } = useQuery({
-    queryKey: ["consultations", viewingPatient?.id],
+    queryKey: ["consultations", patientAffiche?.id],
     queryFn: async () => {
-      if (!viewingPatient) return null
-      const { data } = await apiClient.get(`/consultations/?patient=${viewingPatient.id}`)
+      if (!patientAffiche) return null
+      const { data } = await apiClient.get(`/consultations/?patient=${patientAffiche.id}`)
       return data.results || data
     },
-    enabled: !!viewingPatient,
+    enabled: !!patientAffiche,
   })
 
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.is_superuser
-  const isMedecin = currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN" || currentUser?.is_superuser
 
   if (isError) {
     return (
@@ -201,10 +212,11 @@ export default function PatientsPage() {
 
       {/* Modal 3 : Voir Détails */}
       <PatientDetailModal
-        patient={viewingPatient}
-        onClose={() => setViewingPatient(null)}
-        isMedecin={Boolean(isMedecin)}
-        onOpenConsultationModal={() => setIsConsultationModalOpen(true)}
+        patient={patientAffiche}
+        onClose={() => {
+          setViewingPatient(null)
+          if (dossierId !== null) router.replace("/patients")
+        }}
         consultationsData={consultationsData}
         isLoadingConsultations={isLoadingConsultations}
       />
@@ -215,17 +227,6 @@ export default function PatientsPage() {
         onClose={() => setDeletingPatient(null)}
         onConfirm={() => deletePatient.mutate()}
         isPending={deletePatient.isPending}
-      />
-
-      {/* Modal 5 : Nouvelle Consultation */}
-      <PatientConsultationModal
-        isOpen={isConsultationModalOpen}
-        patient={viewingPatient}
-        onClose={() => setIsConsultationModalOpen(false)}
-        onSubmit={() => createConsultation.mutate()}
-        isPending={createConsultation.isPending}
-        form={consultationForm}
-        setForm={setConsultationForm}
       />
     </div>
   )

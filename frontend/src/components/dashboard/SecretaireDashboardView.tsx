@@ -75,7 +75,7 @@ export function SecretaireDashboardView({
                         </td>
                         <td className="py-3 px-4">
                           <Link
-                            href={`/patients/${rdv.patient_id}`}
+                            href={`/patients?dossier=${rdv.patient_id}`}
                             className="font-medium text-foreground hover:text-primary hover:underline"
                           >
                             {rdv.patient_nom}
@@ -181,7 +181,7 @@ export function SecretaireDashboardView({
                 {stats.derniers_patients.map((patient) => (
                   <Link
                     key={patient.id}
-                    href={`/patients/${patient.id}`}
+                    href={`/patients?dossier=${patient.id}`}
                     className="p-3.5 flex items-center justify-between hover:bg-muted/30 transition-colors group"
                   >
                     <div className="flex flex-col gap-0.5">

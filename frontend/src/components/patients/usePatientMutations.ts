@@ -38,13 +38,6 @@ export function usePatientMutations(
     groupe_sanguin: "",
   })
 
-  const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false)
-  const [consultationForm, setConsultationForm] = useState({
-    motif: "",
-    observations: "",
-    diagnostic: "",
-  })
-
   const createPatient = useMutation({
     mutationFn: async () => apiClient.post("/patients/", form),
     onSuccess: () => {
@@ -103,25 +96,6 @@ export function usePatientMutations(
     },
   })
 
-  const createConsultation = useMutation({
-    mutationFn: async () => {
-      if (!viewingPatient) return
-      return apiClient.post("/consultations/", {
-        ...consultationForm,
-        patient: viewingPatient.id,
-      })
-    },
-    onSuccess: () => {
-      setConsultationForm({ motif: "", observations: "", diagnostic: "" })
-      setIsConsultationModalOpen(false)
-      queryClient.invalidateQueries({ queryKey: ["consultations", viewingPatient?.id] })
-      showNotification("success", "Consultation enregistrée avec succès.")
-    },
-    onError: () => {
-      showNotification("error", "Erreur lors de l'enregistrement de la consultation.")
-    },
-  })
-
   const handleEditInit = (p: Patient) => {
     setEditingPatient(p)
     setEditForm({
@@ -150,14 +124,9 @@ export function usePatientMutations(
     setForm,
     editForm,
     setEditForm,
-    isConsultationModalOpen,
-    setIsConsultationModalOpen,
-    consultationForm,
-    setConsultationForm,
     createPatient,
     updatePatient,
     deletePatient,
-    createConsultation,
     handleEditInit,
   }
 }
