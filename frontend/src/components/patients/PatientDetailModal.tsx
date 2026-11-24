@@ -1,12 +1,10 @@
 import { Button } from "@/components/ui/button"
-import { Eye, XCircle, FileText, Stethoscope, Plus, RefreshCw } from "lucide-react"
+import { Eye, XCircle, FileText, Stethoscope, RefreshCw } from "lucide-react"
 import { Patient, Consultation, computeAgeFallback } from "./types"
 
 interface PatientDetailModalProps {
   patient: Patient | null
   onClose: () => void
-  isMedecin: boolean
-  onOpenConsultationModal: () => void
   consultationsData?: Consultation[] | null
   isLoadingConsultations: boolean
 }
@@ -14,8 +12,6 @@ interface PatientDetailModalProps {
 export function PatientDetailModal({
   patient,
   onClose,
-  isMedecin,
-  onOpenConsultationModal,
   consultationsData,
   isLoadingConsultations,
 }: PatientDetailModalProps) {
@@ -120,15 +116,7 @@ export function PatientDetailModal({
                 <span className="text-sm font-bold uppercase text-primary flex items-center gap-2">
                   <FileText className="size-4" /> Historique des Consultations
                 </span>
-                {isMedecin && (
-                  <Button
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground h-8"
-                    onClick={onOpenConsultationModal}
-                  >
-                    <Plus className="size-4 mr-1" /> Nouvelle consultation
-                  </Button>
-                )}
+                {/* Une consultation se crée depuis la page Rendez-vous (bouton « Consulter »), sur un RDV confirmé */}
               </div>
 
               {isLoadingConsultations ? (

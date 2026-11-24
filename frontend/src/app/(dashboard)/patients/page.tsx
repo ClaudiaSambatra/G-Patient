@@ -13,7 +13,6 @@ import { PatientListResponse } from "@/components/patients/types"
 import { PatientsTable } from "@/components/patients/PatientsTable"
 import { PatientFormModal } from "@/components/patients/PatientFormModal"
 import { PatientDetailModal } from "@/components/patients/PatientDetailModal"
-import { PatientConsultationModal } from "@/components/patients/PatientConsultationModal"
 import { PatientDeleteModal } from "@/components/patients/PatientDeleteModal"
 import { usePatientMutations } from "@/components/patients/usePatientMutations"
 
@@ -43,14 +42,9 @@ export default function PatientsPage() {
     setForm,
     editForm,
     setEditForm,
-    isConsultationModalOpen,
-    setIsConsultationModalOpen,
-    consultationForm,
-    setConsultationForm,
     createPatient,
     updatePatient,
     deletePatient,
-    createConsultation,
     handleEditInit,
   } = usePatientMutations(showNotification)
 
@@ -86,7 +80,6 @@ export default function PatientsPage() {
   })
 
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.is_superuser
-  const isMedecin = currentUser?.role === "MEDECIN" || currentUser?.role === "ADMIN" || currentUser?.is_superuser
 
   if (isError) {
     return (
@@ -203,8 +196,6 @@ export default function PatientsPage() {
       <PatientDetailModal
         patient={viewingPatient}
         onClose={() => setViewingPatient(null)}
-        isMedecin={Boolean(isMedecin)}
-        onOpenConsultationModal={() => setIsConsultationModalOpen(true)}
         consultationsData={consultationsData}
         isLoadingConsultations={isLoadingConsultations}
       />
@@ -215,17 +206,6 @@ export default function PatientsPage() {
         onClose={() => setDeletingPatient(null)}
         onConfirm={() => deletePatient.mutate()}
         isPending={deletePatient.isPending}
-      />
-
-      {/* Modal 5 : Nouvelle Consultation */}
-      <PatientConsultationModal
-        isOpen={isConsultationModalOpen}
-        patient={viewingPatient}
-        onClose={() => setIsConsultationModalOpen(false)}
-        onSubmit={() => createConsultation.mutate()}
-        isPending={createConsultation.isPending}
-        form={consultationForm}
-        setForm={setConsultationForm}
       />
     </div>
   )
