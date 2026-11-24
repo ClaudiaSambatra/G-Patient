@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import axios from "axios"
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react"
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { AuthIllustration } from "@/components/auth/AuthIllustration"
 
@@ -11,6 +11,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [envoiImpossible, setEnvoiImpossible] = useState(false)
 
   const defaultBaseURL =
     process.env.NODE_ENV === "production"
@@ -25,7 +26,9 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     try {
       // Branchement sur l'API Django de réinitialisation existante
-      await axios.post(`${baseURL}/auth/request-otp/`, { email })
+      const { data } = await axios.post(`${baseURL}/auth/request-otp/`, { email })
+      // « simulation » : le code a été généré mais l'e-mail n'est pas parti (aucun serveur d'e-mail joignable)
+      setEnvoiImpossible(Boolean(data?.simulation))
     } catch (err) {
       // Message de confirmation sécurisé affiché même si l'adresse n'est pas trouvée
       console.warn("Demande de réinitialisation :", err)
@@ -53,7 +56,28 @@ export default function ForgotPasswordPage() {
           </p>
 
           {/* Message de confirmation après envoi */}
-          {submitted ? (
+          {submitted && envoiImpossible ? (
+            <div className="mt-5 flex flex-col items-center gap-3 text-center">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs sm:text-sm text-red-700 font-medium flex items-center gap-2">
+                <AlertCircle className="size-4.5 shrink-0" />
+                <span>L&apos;e-mail n&apos;a pas pu être envoyé (serveur d&apos;e-mail indisponible). Réessayez plus tard ou contactez l&apos;administrateur du cabinet.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSubmitted(false); setEnvoiImpossible(false) }}
+                className="text-xs text-[var(--accent)] hover:underline font-medium cursor-pointer"
+              >
+                Réessayer
+              </button>
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--background-dark)] transition-colors"
+              >
+                <ArrowLeft className="size-4" />
+                Retour à la connexion
+              </Link>
+            </div>
+          ) : submitted ? (
             <div className="mt-5 flex flex-col items-center gap-3 text-center">
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs sm:text-sm text-primary font-medium flex items-center gap-2">
                 <CheckCircle2 className="size-4.5 shrink-0 text-primary" />

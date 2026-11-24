@@ -50,7 +50,12 @@ export function ResetPasswordForm() {
 
     setResendLoading(true)
     try {
-      await axios.post(`${baseURL}/auth/request-otp/`, { email: email.trim() })
+      const { data } = await axios.post(`${baseURL}/auth/request-otp/`, { email: email.trim() })
+      // « simulation » : le code a été généré mais l'e-mail n'est pas parti (aucun serveur d'e-mail joignable)
+      if (data?.simulation) {
+        setError("L'e-mail n'a pas pu être envoyé (serveur d'e-mail indisponible). Réessayez plus tard ou contactez l'administrateur du cabinet.")
+        return
+      }
       setResendSuccess(`Un nouveau code a été envoyé à ${email.trim()}.`)
       setCooldown(60)
       setTimeout(() => setResendSuccess(null), 8000)
