@@ -17,6 +17,12 @@ interface MedecinDashboardViewProps {
   stats: MedecinDashboardData
 }
 
+// Date du jour au format AAAA-MM-JJ (heure locale), pour filtrer la page Rendez-vous
+function dateDuJour() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
 export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -107,13 +113,25 @@ export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
                             Voir acte
                           </Button>
                         </Link>
-                      ) : (
-                        <Link href={`/rendezvous?search=${encodeURIComponent(item.patient_nom)}`}>
+                      ) : item.en_attente ? (
+                        <Link href={`/rendezvous?search=${encodeURIComponent(item.patient_nom)}&date=${dateDuJour()}`}>
                           <Button size="sm" className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground shadow-xs">
                             <Stethoscope size={14} weight="duotone" />
                             Démarrer consultation
                           </Button>
                         </Link>
+                      ) : (
+                        // Le bouton « Consulter » n'existe qu'une fois le RDV confirmé par la secrétaire
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled
+                          className="h-8 text-xs gap-1.5"
+                          title="La secrétaire doit d'abord confirmer la présence du patient (ou encaisser la consultation)"
+                        >
+                          <ClockCountdown size={14} weight="duotone" />
+                          {item.statut === "PLANIFIE" ? "En attente de confirmation" : item.statut_display}
+                        </Button>
                       )}
                     </div>
                   </div>

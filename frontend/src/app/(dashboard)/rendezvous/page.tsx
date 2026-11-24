@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 import { imprimerRecu } from "@/lib/impressions"
 import { RendezVousHeader } from "@/components/rendezvous/RendezVousHeader"
@@ -14,15 +15,29 @@ import { useRendezVousConsultationMutations } from "@/components/rendezvous/useR
 import { useRendezVousModalState } from "@/components/rendezvous/useRendezVousModalState"
 
 export default function RendezVousPage() {
+  // useSearchParams impose une frontière Suspense (sinon le build Next échoue)
+  return (
+    <Suspense>
+      <RendezVousContent />
+    </Suspense>
+  )
+}
+
+function RendezVousContent() {
+  // Filtres de départ lus dans l'URL, ex. depuis le tableau de bord médecin :
+  // /rendezvous?search=Rabe%20Toky&date=2026-11-24
+  const searchParams = useSearchParams()
+  const dateParam = searchParams.get("date") ?? ""
+
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list")
   const [calendarView, setCalendarView] = useState<"day" | "week">("day")
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
 
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [statutFilter, setStatutFilter] = useState<string>("ALL")
   const [medecinFilter, setMedecinFilter] = useState<string>("ALL")
-  const [dateFilterMode, setDateFilterMode] = useState<"none" | "single" | "range">("none")
-  const [singleDate, setSingleDate] = useState<string>("")
+  const [dateFilterMode, setDateFilterMode] = useState<"none" | "single" | "range">(dateParam ? "single" : "none")
+  const [singleDate, setSingleDate] = useState<string>(dateParam)
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [currentPage, setCurrentPage] = useState<number>(1)
