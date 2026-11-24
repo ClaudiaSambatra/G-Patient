@@ -1,0 +1,64 @@
+# Déploiement léger sur une petite VM (ex. Google Cloud e2-micro, 1 Go de mémoire).
+# Les images sont publiées par la CI (GitHub Actions) sur GHCR.
+#
+# Différences avec docker-compose.prod.yml :
+#   - base de données externe (Neon) via DATABASE_URL, pas de PostgreSQL local ;
+#   - Caddy remplace Nginx : HTTPS automatique avec Let's Encrypt (certificat obtenu et renouvelé seul) ;
+#   - pas de pile de supervision (Prometheus, Loki, Grafana) : trop lourde pour 1 Go, elle reste en local.
+#
+# Lancement sur le serveur (dossier du projet, avec un fichier .env) :
+#   docker compose -f docker-compose.vm.yml pull
+#   docker compose -f docker-compose.vm.yml up -d
+
+services:
+  backend:
+    image: ghcr.io/claudiasambatra/g-patient-backend:latest
+    restart: unless-stopped
+    env_file: .env
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  frontend:
+    image: ghcr.io/claudiasambatra/g-patient-frontend:latest
+    restart: unless-stopped
+    environment:
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAINE: ${APP_DOMAINE}
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - static_volume:/srv/static:ro
+      - media_volume:/srv/media:ro
+      - caddy_data:/data        # certificats Let's Encrypt : à conserver
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+volumes:
+  static_volume:
+  media_volume:
+  caddy_data:
+  caddy_config:

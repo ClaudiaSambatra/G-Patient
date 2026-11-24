@@ -26,22 +26,22 @@
   no_log: true
 
 - name: Télécharger les images publiées par la CI (GHCR)
-  ansible.builtin.command: docker compose -f docker-compose.prod.yml pull --quiet
+  ansible.builtin.command: docker compose -f {{ app_compose_fichier }} pull --quiet
   args:
     chdir: "{{ app_dossier }}"
   changed_when: false
 
 - name: Lancer ou mettre à jour la pile
-  ansible.builtin.command: docker compose -f docker-compose.prod.yml up -d --wait --remove-orphans
+  ansible.builtin.command: docker compose -f {{ app_compose_fichier }} up -d --wait --remove-orphans
   args:
     chdir: "{{ app_dossier }}"
   register: application_compose
   # Compose n'affiche « Created », « Recreated » ou « Started » que s'il a réellement changé quelque chose
   changed_when: application_compose.stderr is search('Created|Recreated|Started')
 
-- name: L'API répond derrière Nginx
+- name: L'API répond derrière le proxy (Nginx, ou Caddy en HTTPS)
   ansible.builtin.uri:
-    url: http://localhost/api/health/
+    url: "{{ 'https://' ~ app_domaine if app_https | bool else 'http://localhost' }}/api/health/"
     return_content: true
   register: application_sante
   until: application_sante.status == 200 and (application_sante.json.status | default('')) == 'ok'

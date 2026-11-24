@@ -9,3 +9,5 @@ socle_ports_ouverts:
   - "22/tcp"    # SSH
   - "80/tcp"    # application (Nginx)
   - "443/tcp"   # HTTPS
+# Fichier d'échange (swap) en Mo : utile sur une petite VM (1 Go de mémoire). 0 = aucun.
+socle_swap_mo: 0

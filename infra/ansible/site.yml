@@ -8,7 +8,7 @@
   become: true
 
   pre_tasks:
-    - name: Vérifier que les secrets sont fournis
+    - name: Vérifier que les secrets sont fournis (pile complète)
       ansible.builtin.assert:
         that:
           - app_django_secret_key | length >= 32
@@ -18,6 +18,19 @@
           Secrets manquants ou trop courts : définir APP_DJANGO_SECRET_KEY, APP_POSTGRES_PASSWORD
           et APP_GRAFANA_PASSWORD dans l'environnement (ou dans un fichier chiffré avec ansible-vault).
         quiet: true
+      when: not app_https | bool
+
+    - name: Vérifier que les secrets sont fournis (pile légère, base Neon)
+      ansible.builtin.assert:
+        that:
+          - app_django_secret_key | length >= 32
+          - app_database_url is match('postgres(ql)?://')
+          - app_domaine not in ['localhost', '127.0.0.1']
+        fail_msg: >-
+          Définir APP_DJANGO_SECRET_KEY et APP_DATABASE_URL (chaîne de connexion Neon) dans
+          l'environnement, et app_domaine (nom de domaine public) dans l'inventaire.
+        quiet: true
+      when: app_https | bool
 
   roles:
     - socle

@@ -40,6 +40,13 @@ if render_host:
 if 'https://*.onrender.com' not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append('https://*.onrender.com')
 
+# Derrière un proxy HTTPS (Caddy sur la VM) : le proxy transmet le schéma d'origine,
+# pour que Django génère des liens en https:// et n'envoie les cookies qu'en HTTPS.
+if config('DJANGO_DERRIERE_PROXY_HTTPS', default=False, cast=bool):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # --- Applications ------------------------------------------------------------
 INSTALLED_APPS = [

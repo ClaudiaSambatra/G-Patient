@@ -9,5 +9,17 @@ app_django_secret_key: "{{ lookup('ansible.builtin.env', 'APP_DJANGO_SECRET_KEY'
 app_postgres_password: "{{ lookup('ansible.builtin.env', 'APP_POSTGRES_PASSWORD') }}"
 app_grafana_password: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_PASSWORD') }}"
 
+# Pile déployée :
+#   docker-compose.prod.yml : pile complète (PostgreSQL local, Nginx, supervision), HTTP ;
+#   docker-compose.vm.yml   : pile légère pour petite VM (base Neon, Caddy + Let's Encrypt).
+app_compose_fichier: docker-compose.prod.yml
+app_https: "{{ app_compose_fichier == 'docker-compose.vm.yml' }}"
+app_schema: "{{ 'https' if app_https | bool else 'http' }}"
+
+# Pile légère uniquement : base externe (Neon), et envoi des e-mails par SMTP (facultatif)
+app_database_url: "{{ lookup('ansible.builtin.env', 'APP_DATABASE_URL') }}"
+app_email_utilisateur: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_USER') }}"
+app_email_mot_de_passe: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_PASSWORD') }}"
+
 # Racine du dépôt Git (les fichiers de la pile y sont pris)
 depot_racine: "{{ playbook_dir }}/../.."

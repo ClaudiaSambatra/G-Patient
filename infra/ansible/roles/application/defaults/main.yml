@@ -1,5 +1,11 @@
 # Fichiers de la pile copiés depuis le dépôt (chemins relatifs à la racine du dépôt)
-application_fichiers:
+application_fichiers: "{{ application_fichiers_vm if app_https | bool else application_fichiers_prod }}"
+
+application_fichiers_vm:
+  - docker-compose.vm.yml
+  - infra/Caddyfile
+
+application_fichiers_prod:
   - docker-compose.prod.yml
   - infra/nginx.conf
   - infra/prometheus/prometheus.yml
