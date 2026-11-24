@@ -465,7 +465,7 @@ jobs:
           format: table
 
   # ---------------------------------------------------------------- DEPLOY
-  # Render redéploie depuis GHCR/GitHub ; un serveur se déploie avec Ansible (infra/ansible).
+  # Render redéploie depuis GHCR/GitHub ; la VM Google Cloud est déployée avec Ansible (job deploy-gcp).
   deploy:
     name: Déploiement continu (Render)
     needs: [images]
@@ -482,3 +482,75 @@ jobs:
             echo "ℹ️ Secret RENDER_DEPLOY_HOOK non configuré (Render se déploie automatiquement via son intégration GitHub ou via ce hook si renseigné)."
           fi
 
+
+  # VM Google Cloud (https://gestion-patients.abrdns.com) : le playbook Ansible y déploie les
+  # images qui viennent d'être publiées. Sans les secrets GCP_* (fork, dépôt copié), l'étape est sautée.
+  deploy-gcp:
+    name: Déploiement continu (VM Google Cloud)
+    needs: [images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Deux fusions rapprochées : les déploiements passent l'un après l'autre, jamais en même temps
+    concurrency:
+      group: deploiement-gcp
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: infra/ansible
+    env:
+      ANSIBLE_FORCE_COLOR: "0"
+      ANSIBLE_NOCOLOR: "1"
+      GCP_SSH_PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+      GCP_SSH_KNOWN_HOSTS: ${{ secrets.GCP_SSH_KNOWN_HOSTS }}
+      APP_DJANGO_SECRET_KEY: ${{ secrets.APP_DJANGO_SECRET_KEY }}
+      APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
+      APP_EMAIL_HOST_USER: ${{ secrets.APP_EMAIL_HOST_USER }}
+      APP_EMAIL_HOST_PASSWORD: ${{ secrets.APP_EMAIL_HOST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Secrets présents ?
+        id: secrets
+        run: |
+          if [ -n "$GCP_SSH_PRIVATE_KEY" ] && [ -n "$GCP_SSH_KNOWN_HOSTS" ] && [ -n "$APP_DATABASE_URL" ]; then
+            echo "pret=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Secrets GCP_SSH_PRIVATE_KEY, GCP_SSH_KNOWN_HOSTS ou APP_DATABASE_URL absents : déploiement GCP sauté."
+          fi
+
+      - name: Clé SSH de déploiement et empreinte de la VM
+        if: steps.secrets.outputs.pret == '1'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$GCP_SSH_PRIVATE_KEY" > ~/.ssh/deploiement
+          chmod 600 ~/.ssh/deploiement
+          # Empreinte fixée : une VM usurpée (autre clé d'hôte) fait échouer la connexion
+          printf '%s\n' "$GCP_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Déploiement Ansible sur la VM
+        if: steps.secrets.outputs.pret == '1'
+        run: |
+          ansible-playbook site.yml --limit gcp \
+            -e ansible_user=github-deploy \
+            -e ansible_ssh_private_key_file=~/.ssh/deploiement | tee ../../deploiement-gcp.log
+
+      - name: Le site répond en HTTPS
+        if: steps.secrets.outputs.pret == '1'
+        run: |
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://gestion-patients.abrdns.com/api/health/
+          curl -fsS -o /dev/null -w "Page de connexion : %{http_code}\n" https://gestion-patients.abrdns.com/login
+
+      - name: Résumé
+        if: always() && steps.secrets.outputs.pret == '1'
+        working-directory: .
+        run: |
+          {
+            echo "### Déploiement continu (VM Google Cloud)"
+            echo ""
+            echo "https://gestion-patients.abrdns.com"
+            echo ""
+            echo '```'
+            grep -A1 'PLAY RECAP' deploiement-gcp.log 2>/dev/null || echo "Playbook non exécuté"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
