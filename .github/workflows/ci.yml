@@ -507,6 +507,12 @@ jobs:
       APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
       APP_EMAIL_HOST_USER: ${{ secrets.APP_EMAIL_HOST_USER }}
       APP_EMAIL_HOST_PASSWORD: ${{ secrets.APP_EMAIL_HOST_PASSWORD }}
+      # Supervision Grafana Cloud (facultatif : sans ces secrets, Alloy ne démarre pas)
+      APP_GRAFANA_CLOUD_PROM_URL: ${{ secrets.APP_GRAFANA_CLOUD_PROM_URL }}
+      APP_GRAFANA_CLOUD_PROM_USER: ${{ secrets.APP_GRAFANA_CLOUD_PROM_USER }}
+      APP_GRAFANA_CLOUD_LOKI_URL: ${{ secrets.APP_GRAFANA_CLOUD_LOKI_URL }}
+      APP_GRAFANA_CLOUD_LOKI_USER: ${{ secrets.APP_GRAFANA_CLOUD_LOKI_USER }}
+      APP_GRAFANA_CLOUD_TOKEN: ${{ secrets.APP_GRAFANA_CLOUD_TOKEN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 

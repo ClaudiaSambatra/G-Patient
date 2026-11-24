@@ -4,6 +4,7 @@ application_fichiers: "{{ application_fichiers_vm if app_https | bool else appli
 application_fichiers_vm:
   - docker-compose.vm.yml
   - infra/Caddyfile
+  - infra/alloy/config-vm.alloy
 
 application_fichiers_prod:
   - docker-compose.prod.yml

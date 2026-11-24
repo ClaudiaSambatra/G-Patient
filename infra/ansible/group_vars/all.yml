@@ -21,5 +21,16 @@ app_database_url: "{{ lookup('ansible.builtin.env', 'APP_DATABASE_URL') }}"
 app_email_utilisateur: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_USER') }}"
 app_email_mot_de_passe: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_PASSWORD') }}"
 
+# Pile légère uniquement : supervision via Grafana Cloud (facultatif). Si tout est fourni,
+# Alloy démarre sur la VM (profil Compose « supervision ») et y envoie métriques et journaux.
+app_grafana_cloud_prom_url: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_CLOUD_PROM_URL') }}"
+app_grafana_cloud_prom_user: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_CLOUD_PROM_USER') }}"
+app_grafana_cloud_loki_url: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_CLOUD_LOKI_URL') }}"
+app_grafana_cloud_loki_user: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_CLOUD_LOKI_USER') }}"
+app_grafana_cloud_token: "{{ lookup('ansible.builtin.env', 'APP_GRAFANA_CLOUD_TOKEN') }}"
+app_supervision_cloud: >-
+  {{ [app_grafana_cloud_prom_url, app_grafana_cloud_prom_user, app_grafana_cloud_loki_url,
+      app_grafana_cloud_loki_user, app_grafana_cloud_token] | select | list | length == 5 }}
+
 # Racine du dépôt Git (les fichiers de la pile y sont pris)
 depot_racine: "{{ playbook_dir }}/../.."
