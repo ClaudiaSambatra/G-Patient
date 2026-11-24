@@ -73,7 +73,7 @@ export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Link
-                            href={`/patients/${item.patient_id}`}
+                            href={`/patients?dossier=${item.patient_id}`}
                             className="font-semibold text-foreground hover:text-primary hover:underline text-sm sm:text-base"
                           >
                             {item.patient_nom}
@@ -99,7 +99,7 @@ export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      <Link href={`/patients/${item.patient_id}`}>
+                      <Link href={`/patients?dossier=${item.patient_id}`}>
                         <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" title="Consulter le dossier médical">
                           <Eye size={14} weight="duotone" />
                           Dossier
@@ -162,7 +162,7 @@ export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
                     <div key={suivi.id} className="p-3 flex items-center justify-between text-xs">
                       <div className="flex flex-col">
                         <Link
-                          href={`/patients/${suivi.patient_id}`}
+                          href={`/patients?dossier=${suivi.patient_id}`}
                           className="font-medium text-foreground hover:text-primary hover:underline"
                         >
                           {suivi.patient_nom}
@@ -200,7 +200,7 @@ export function MedecinDashboardView({ stats }: MedecinDashboardViewProps) {
                     <div key={item.consultation_id} className="p-3 flex flex-col gap-1 text-xs">
                       <div className="flex items-center justify-between">
                         <Link
-                          href={`/patients/${item.patient_id}`}
+                          href={`/patients?dossier=${item.patient_id}`}
                           className="font-medium text-foreground hover:text-primary hover:underline"
                         >
                           {item.patient_nom}
