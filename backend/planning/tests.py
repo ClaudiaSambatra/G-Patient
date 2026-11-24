@@ -148,14 +148,31 @@ def test_plages_qui_se_chevauchent_refusees(api_client, data):
 # ==============================================================================
 
 @pytest.mark.django_db
-def test_medecin_gere_son_planning_mais_pas_celui_des_autres(api_client, data):
+def test_medecin_consulte_son_planning_sans_le_modifier(api_client, data):
+    HoraireMedecin.objects.create(medecin=data['rado'], jour=0, heure_debut=time(8), heure_fin=time(12))
     api_client.force_authenticate(user=data['rado_user'])
-    url = reverse('absence-medecin-list')
-    ok = api_client.post(url, {'medecin': data['rado'].id, 'date_debut': '2026-12-24', 'date_fin': '2026-12-26'})
-    assert ok.status_code == status.HTTP_201_CREATED
-    ko = api_client.post(url, {'medecin': data['bema'].id, 'date_debut': '2026-12-24', 'date_fin': '2026-12-26'})
-    assert ko.status_code == status.HTTP_403_FORBIDDEN
+    res = api_client.get(reverse('horaire-medecin-list'), {'medecin': data['rado'].id})
+    assert res.status_code == status.HTTP_200_OK and len(res.data) == 1
+    for nom, donnees in (
+        ('absence-medecin-list', {'medecin': data['rado'].id, 'date_debut': '2026-12-24', 'date_fin': '2026-12-26'}),
+        ('horaire-medecin-list', {'medecin': data['rado'].id, 'jour': 1, 'heure_debut': '08:00', 'heure_fin': '12:00'}),
+        ('garde-medecin-list', {'medecin': data['rado'].id, 'date': '2026-12-24',
+                                'heure_debut': '18:00', 'heure_fin': '08:00'}),
+    ):
+        assert api_client.post(reverse(nom), donnees).status_code == status.HTTP_403_FORBIDDEN, nom
+    horaire = HoraireMedecin.objects.get(medecin=data['rado'])
+    url = reverse('horaire-medecin-detail', args=[horaire.pk])
+    assert api_client.delete(url).status_code == status.HTTP_403_FORBIDDEN
     assert api_client.get(reverse('rdv-a-reaffecter-list')).status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_secretaire_gere_le_planning_de_tous_les_medecins(api_client, data):
+    api_client.force_authenticate(user=data['secretaire'])
+    for medecin in (data['rado'], data['bema']):
+        res = api_client.post(reverse('absence-medecin-list'),
+                              {'medecin': medecin.id, 'date_debut': '2026-12-24', 'date_fin': '2026-12-26'})
+        assert res.status_code == status.HTTP_201_CREATED
 
 
 # ==============================================================================
@@ -389,7 +406,7 @@ def test_garde_refusee_si_le_medecin_est_absent(api_client, data):
 
 
 @pytest.mark.django_db
-def test_medecin_ne_cree_pas_de_garde_pour_un_autre(api_client, data):
+def test_medecin_ne_cree_pas_de_garde(api_client, data):
     api_client.force_authenticate(user=data['rado_user'])
     res = api_client.post(reverse('garde-medecin-list'), {
         'medecin': data['bema'].id, 'date': prochain(2, 0).date().isoformat(),

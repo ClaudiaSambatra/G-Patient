@@ -29,7 +29,7 @@ def gere_le_planning(user):
 class _PlanningMedecinMixin:
     """
     Lecture : tout utilisateur connecté (pour savoir quand un médecin consulte).
-    Écriture : secrétaire et admin pour tous les médecins ; un médecin pour son propre planning.
+    Écriture : secrétaire et admin uniquement (le médecin consulte son planning sans le modifier).
     Filtre : ?medecin=<id>
     """
     permission_classes = [IsAuthenticated]
@@ -42,12 +42,8 @@ class _PlanningMedecinMixin:
         return queryset
 
     def _verifier_droit(self, medecin):
-        user = self.request.user
-        if gere_le_planning(user):
-            return
-        if getattr(user, 'medecin_profile', None) and user.medecin_profile.pk == medecin.pk:
-            return
-        raise PermissionDenied("Vous ne pouvez modifier que votre propre planning.")
+        if not gere_le_planning(self.request.user):
+            raise PermissionDenied("Le planning des médecins est géré par le secrétariat.")
 
     def perform_create(self, serializer):
         self._verifier_droit(serializer.validated_data['medecin'])

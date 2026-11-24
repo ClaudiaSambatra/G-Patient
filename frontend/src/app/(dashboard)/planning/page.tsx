@@ -35,10 +35,10 @@ export default function PlanningPage() {
     },
   })
 
-  // Un médecin voit et gère son propre planning ; la secrétaire et l'admin choisissent le médecin.
+  // Le secrétariat (secrétaire, admin) gère le planning de tous ; un médecin voit le sien en lecture seule.
   const medecinId = gereLePlanning ? (medecinChoisi ?? medecins[0]?.id ?? null) : (user?.medecin_id ?? null)
   const medecin = medecins.find((m) => m.id === medecinId)
-  const peutModifier = gereLePlanning || (user?.medecin_id != null && user.medecin_id === medecinId)
+  const peutModifier = gereLePlanning
 
   return (
     <div className="flex flex-1 flex-col">
@@ -93,6 +93,11 @@ export default function PlanningPage() {
               <p className="-mb-2 text-sm font-medium text-foreground">
                 Dr. {medecin.nom} {medecin.prenom}
                 {medecin.specialite && <span className="text-muted-foreground"> · {medecin.specialite}</span>}
+                {!peutModifier && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    (lecture seule : le planning est géré par le secrétariat)
+                  </span>
+                )}
               </p>
             )}
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
