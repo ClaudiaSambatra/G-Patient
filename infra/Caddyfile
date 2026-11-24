@@ -1,0 +1,40 @@
+# Reverse proxy HTTPS (docker-compose.vm.yml) : même rôle que infra/nginx.conf,
+# avec en plus le certificat Let's Encrypt obtenu et renouvelé automatiquement par Caddy
+# pour le domaine APP_DOMAINE (qui doit pointer vers l'IP publique du serveur).
+# Le port 80 redirige vers HTTPS.
+
+{$APP_DOMAINE} {
+	encode zstd gzip
+
+	# Taille maximale des requêtes (photos de profil, documents médicaux)
+	request_body {
+		max_size 10MB
+	}
+
+	# Fichiers statiques Django
+	handle /static/* {
+		root * /srv
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	# Fichiers médias (photos de profil, documents médicaux)
+	handle /media/* {
+		root * /srv
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	# API Django REST Framework et admin Django
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/* {
+		reverse_proxy backend:8000
+	}
+
+	# Application Next.js
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

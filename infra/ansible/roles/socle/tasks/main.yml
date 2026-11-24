@@ -36,3 +36,41 @@
   ansible.builtin.command: ufw --force enable
   changed_when: true
   when: "socle_pare_feu | bool and 'Status: active' not in socle_ufw.stdout"
+
+- name: Fichier d'échange (swap) pour les petites VM
+  when: socle_swap_mo | int > 0
+  block:
+    - name: Swap — le fichier existe-t-il ?
+      ansible.builtin.stat:
+        path: /swapfile
+      register: socle_swapfile
+
+    - name: Swap — créer le fichier
+      ansible.builtin.command: fallocate -l {{ socle_swap_mo }}M /swapfile
+      when: not socle_swapfile.stat.exists
+      changed_when: true
+
+    - name: Swap — droits restreints
+      ansible.builtin.file:
+        path: /swapfile
+        mode: "0600"
+
+    - name: Swap — formater le fichier
+      ansible.builtin.command: mkswap /swapfile
+      when: not socle_swapfile.stat.exists
+      changed_when: true
+
+    - name: Swap — activé au démarrage
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "/swapfile none swap sw 0 0"
+
+    - name: Swap — est-il actif ?
+      ansible.builtin.command: swapon --show=NAME --noheadings
+      register: socle_swap_actif
+      changed_when: false
+
+    - name: Swap — activer maintenant
+      ansible.builtin.command: swapon /swapfile
+      when: "'/swapfile' not in socle_swap_actif.stdout"
+      changed_when: true
