@@ -69,7 +69,8 @@ class RendezVousViewSet(viewsets.ModelViewSet):
         if date_fin:
             queryset = queryset.filter(date_heure__date__lte=date_fin)
 
-        return queryset
+        # Les rendez-vous les plus récents en haut de la liste
+        return queryset.order_by('-date_heure', '-id')
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

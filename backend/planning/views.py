@@ -72,7 +72,8 @@ class AbsenceMedecinViewSet(_PlanningMedecinMixin, viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if self.request.query_params.get('a_venir') in ('1', 'true'):
             queryset = queryset.filter(date_fin__gte=timezone.localdate())
-        return queryset
+        # Les absences les plus récentes en haut de la liste
+        return queryset.order_by('-date_debut', '-id')
 
     def perform_create(self, serializer):
         self._verifier_droit(serializer.validated_data['medecin'])
