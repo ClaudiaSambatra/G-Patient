@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.conf import settings
 from django.utils import timezone
 
-from .models import AbsenceMedecin, HoraireMedecin
+from .models import AbsenceMedecin, GardeMedecin, HoraireMedecin
 
 STATUTS_ACTIFS = ('PLANIFIE', 'CONFIRME')
 
@@ -61,12 +61,51 @@ def dans_les_horaires(medecin, dt):
     return horaires.filter(jour=local.weekday(), heure_debut__lte=local.time(), heure_fin__gte=fin.time()).exists()
 
 
+def gardes_autour(medecin, jour):
+    """Gardes du médecin qui commencent ce jour-là ou la veille (une garde de nuit déborde sur le lendemain)."""
+    return GardeMedecin.objects.filter(medecin=medecin, date__gte=jour - timedelta(days=1), date__lte=jour)
+
+
+def garde_qui_couvre(medecin, dt):
+    """Garde couvrant tout le créneau (début → début + durée), si le médecin n'est pas absent ce jour de garde."""
+    fin = dt + duree_rdv()
+    for garde in gardes_autour(medecin, date_locale(dt)):
+        if garde.debut <= dt and fin <= garde.fin and not est_absent(medecin, garde.date):
+            return garde
+    return None
+
+
+def medecins_de_garde_a(dt, exclure=None):
+    """Médecins dont une garde couvre le créneau qui commence à dt (pour les proposer à la prise de RDV)."""
+    jour = date_locale(dt)
+    gardes = GardeMedecin.objects.filter(
+        date__gte=jour - timedelta(days=1), date__lte=jour, medecin__utilisateur__is_active=True,
+    ).select_related('medecin__utilisateur')
+    if exclure:
+        gardes = gardes.exclude(medecin=exclure)
+    medecins = {g.medecin for g in gardes if garde_qui_couvre(g.medecin, dt) == g}
+    return sorted(medecins, key=lambda m: m.utilisateur.last_name)
+
+
+def gardes_en_cours(maintenant=None):
+    """Gardes en cours à l'instant donné (plusieurs médecins peuvent être de garde en même temps)."""
+    maintenant = maintenant or timezone.now()
+    jour = date_locale(maintenant)
+    candidates = GardeMedecin.objects.filter(
+        date__gte=jour - timedelta(days=1), date__lte=jour, medecin__utilisateur__is_active=True,
+    ).select_related('medecin__utilisateur')
+    return [g for g in candidates if g.debut <= maintenant < g.fin]
+
+
 def nom_court(medecin):
     return f"Dr. {medecin.utilisateur.last_name or medecin.utilisateur.username}"
 
 
 def indisponibilite(medecin, dt):
     """Raison pour laquelle le médecin ne peut pas recevoir à dt, ou None s'il est disponible."""
+    # Une garde rend le médecin disponible, même en dehors de ses horaires habituels
+    if garde_qui_couvre(medecin, dt):
+        return None
     jour = date_locale(dt)
     absence = absence_du_jour(medecin, jour)
     if absence:
@@ -74,7 +113,9 @@ def indisponibilite(medecin, dt):
         detail = f" ({absence.get_type_display().lower()})" if absence.type != AbsenceMedecin.Type.AUTRE else ""
         return f"{nom_court(medecin)} est absent {quand}{detail}."
     if not dans_les_horaires(medecin, dt):
-        return f"En dehors des horaires de consultation de {nom_court(medecin)}."
+        de_garde = medecins_de_garde_a(dt, exclure=medecin)
+        suggestion = f" De garde à cette heure : {', '.join(nom_court(m) for m in de_garde)}." if de_garde else ""
+        return f"En dehors des horaires de consultation de {nom_court(medecin)}.{suggestion}"
     return None
 
 
@@ -112,28 +153,34 @@ def remplacants_possibles(rdv):
 def creneaux_libres(medecin, jour):
     """
     Heures de début libres (pas de DUREE_RDV_MINUTES) pour un médecin un jour donné :
-    dans ses plages horaires (ou 8h-17h s'il n'en a pas), hors absence, sans chevauchement
-    avec un RDV actif, et pas dans le passé.
+    dans ses plages horaires (ou 8h-17h s'il n'en a pas) et ses gardes, hors absence,
+    sans chevauchement avec un RDV actif, et pas dans le passé.
     """
-    if est_absent(medecin, jour):
-        return []
-    plages = [(h.heure_debut, h.heure_fin) for h in HoraireMedecin.objects.filter(medecin=medecin, jour=jour.weekday())]
-    if not plages and not HoraireMedecin.objects.filter(medecin=medecin).exists():
-        plages = [JOURNEE_PAR_DEFAUT]
-
     debut_jour = timezone.make_aware(datetime.combine(jour, time.min))
+    fin_jour = debut_jour + timedelta(days=1)
+
+    plages = []
+    if not est_absent(medecin, jour):
+        horaires = [(h.heure_debut, h.heure_fin) for h in HoraireMedecin.objects.filter(medecin=medecin, jour=jour.weekday())]
+        if not horaires and not HoraireMedecin.objects.filter(medecin=medecin).exists():
+            horaires = [JOURNEE_PAR_DEFAUT]
+        plages += [(timezone.make_aware(datetime.combine(jour, debut)), timezone.make_aware(datetime.combine(jour, fin)))
+                   for debut, fin in horaires]
+    # Gardes du jour et garde de nuit commencée la veille, ramenées à cette journée
+    plages += [(max(g.debut, debut_jour), min(g.fin, fin_jour))
+               for g in gardes_autour(medecin, jour) if not est_absent(medecin, g.date)]
+
     occupes = list(rdv_qui_chevauchent_journee(medecin, debut_jour))
     maintenant = timezone.now()
     pas = duree_rdv()
-    libres = []
-    for heure_debut, heure_fin in sorted(plages):
-        dt = timezone.make_aware(datetime.combine(jour, heure_debut))
-        fin_plage = timezone.make_aware(datetime.combine(jour, heure_fin))
+    libres = set()
+    for debut_plage, fin_plage in plages:
+        dt = debut_plage
         while dt + pas <= fin_plage:
             if dt > maintenant and not any(abs(o - dt) < pas for o in occupes):
-                libres.append(timezone.localtime(dt).strftime('%H:%M'))
+                libres.add(dt)
             dt += pas
-    return libres
+    return [timezone.localtime(dt).strftime('%H:%M') for dt in sorted(libres)]
 
 
 def rdv_qui_chevauchent_journee(medecin, debut_jour):

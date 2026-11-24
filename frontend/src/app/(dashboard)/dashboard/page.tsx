@@ -26,6 +26,7 @@ import {
 import { SecretaireDashboardView } from "@/components/dashboard/SecretaireDashboardView"
 import { MedecinDashboardView } from "@/components/dashboard/MedecinDashboardView"
 import { AdminDashboardView } from "@/components/dashboard/AdminDashboardView"
+import { GardesEnCours } from "@/components/planning/GardesEnCours"
 
 export default function DashboardPage() {
   const queryClient = useQueryClient()
@@ -171,6 +172,8 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+
+        <GardesEnCours />
 
         {/* RENDU SELON LE RÔLE */}
         {user?.role === "SECRETAIRE" && stats?.role === "SECRETAIRE" && (

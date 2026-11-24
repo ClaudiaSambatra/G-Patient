@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
@@ -11,9 +13,13 @@ from accounts.models import Medecin, Utilisateur
 from accounts.permissions import IsSecretaireOuAdmin
 from appointments.models import RendezVous
 from config.parametres import param_date, param_identifiant
-from .models import AbsenceMedecin, HoraireMedecin
-from .serializers import AbsenceMedecinSerializer, HoraireMedecinSerializer, ReaffectationSerializer, nom_medecin
-from .services import absence_du_jour, creneaux_libres, indisponibilite, rdv_a_reaffecter, remplacants_possibles
+from .models import AbsenceMedecin, GardeMedecin, HoraireMedecin
+from .serializers import (
+    AbsenceMedecinSerializer, GardeMedecinSerializer, HoraireMedecinSerializer, ReaffectationSerializer, nom_medecin,
+)
+from .services import (
+    absence_du_jour, creneaux_libres, gardes_en_cours, indisponibilite, rdv_a_reaffecter, remplacants_possibles,
+)
 
 
 def gere_le_planning(user):
@@ -78,6 +84,42 @@ class AbsenceMedecinViewSet(_PlanningMedecinMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         self._verifier_droit(serializer.validated_data['medecin'])
         serializer.save(creee_par=self.request.user)
+
+
+class GardeMedecinViewSet(_PlanningMedecinMixin, viewsets.ModelViewSet):
+    """
+    Gardes ponctuelles (nuit, week-end, jour férié). ?a_venir=1 : gardes pas encore terminées.
+    GET /api/planning/gardes/en-cours/ : médecins de garde en ce moment.
+    """
+    queryset = GardeMedecin.objects.all()
+    serializer_class = GardeMedecinSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.query_params.get('a_venir') in ('1', 'true'):
+            # la veille incluse : une garde de nuit commencée hier peut être encore en cours
+            queryset = queryset.filter(date__gte=timezone.localdate() - timedelta(days=1))
+        # Les gardes les plus récentes en haut de la liste
+        return queryset.order_by('-date', '-heure_debut', '-id')
+
+    def list(self, request, *args, **kwargs):
+        # Une garde de la veille déjà terminée n'est plus « à venir »
+        if request.query_params.get('a_venir') in ('1', 'true'):
+            maintenant = timezone.now()
+            gardes = [g for g in self.filter_queryset(self.get_queryset()) if g.fin > maintenant]
+            page = self.paginate_queryset(gardes)
+            if page is not None:
+                return self.get_paginated_response(self.get_serializer(page, many=True).data)
+            return Response(self.get_serializer(gardes, many=True).data)
+        return super().list(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        self._verifier_droit(serializer.validated_data['medecin'])
+        serializer.save(creee_par=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='en-cours', pagination_class=None)
+    def en_cours(self, request):
+        return Response(self.get_serializer(gardes_en_cours(), many=True).data)
 
 
 class RdvAReaffecterViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

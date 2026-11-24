@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from accounts.models import Utilisateur
 from appointments.models import RendezVous
 from patients.models import Patient
-from .models import AbsenceMedecin, HoraireMedecin
+from .models import AbsenceMedecin, GardeMedecin, HoraireMedecin
 
 
 def prochain(jour_semaine, heure, minute=0, semaines=1):
@@ -319,3 +319,105 @@ def test_non_venu_ne_peut_etre_que_corrige_en_confirme(api_client, data):
     api_client.force_authenticate(user=data['secretaire'])
     res = api_client.patch(reverse('rendezvous-detail', args=[rdv.id]), {'statut': 'PLANIFIE'}, format='json')
     assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ==============================================================================
+# GARDES
+# ==============================================================================
+
+def garde(medecin, debut_dt, heure_fin, motif='Garde de nuit'):
+    return GardeMedecin.objects.create(medecin=medecin, date=debut_dt.date(), heure_debut=debut_dt.time(),
+                                       heure_fin=time(heure_fin), motif=motif)
+
+
+@pytest.mark.django_db
+def test_garde_de_nuit_autorise_un_rdv_hors_horaires(api_client, data):
+    HoraireMedecin.objects.create(medecin=data['rado'], jour=5, heure_debut=time(8), heure_fin=time(12))
+    garde(data['rado'], prochain(5, 18), 8)  # samedi 18h → dimanche 8h
+    assert creer_rdv_api(api_client, data, data['rado'], prochain(5, 20)).status_code == status.HTTP_201_CREATED
+    # après minuit, toujours pendant la garde
+    dimanche_2h = prochain(5, 2) + timedelta(days=1)
+    assert creer_rdv_api(api_client, data, data['rado'], dimanche_2h).status_code == status.HTTP_201_CREATED
+    # après la fin de la garde : de nouveau hors horaires
+    res = creer_rdv_api(api_client, data, data['rado'], prochain(5, 9) + timedelta(days=1))
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_hors_horaires_propose_le_medecin_de_garde(api_client, data):
+    for m in (data['rado'], data['bema']):
+        HoraireMedecin.objects.create(medecin=m, jour=5, heure_debut=time(8), heure_fin=time(12))
+    garde(data['bema'], prochain(5, 18), 23)
+    res = creer_rdv_api(api_client, data, data['rado'], prochain(5, 20))
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'De garde à cette heure : Dr. Bema' in str(res.data['date_heure'])
+
+
+@pytest.mark.django_db
+def test_plusieurs_medecins_de_garde_en_meme_temps(api_client, data):
+    debut = prochain(6, 8)
+    garde(data['rado'], debut, 20)
+    garde(data['kanto'], debut, 20)
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.get(reverse('garde-medecin-list'), {'a_venir': 1})
+    assert res.status_code == status.HTTP_200_OK
+    assert {g['medecin'] for g in res.data['results']} == {data['rado'].id, data['kanto'].id}
+
+
+@pytest.mark.django_db
+def test_garde_qui_chevauche_une_autre_garde_du_meme_medecin_refusee(api_client, data):
+    garde(data['rado'], prochain(4, 20), 8)  # vendredi 20h → samedi 8h
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.post(reverse('garde-medecin-list'), {
+        'medecin': data['rado'].id, 'date': (prochain(4, 0) + timedelta(days=1)).date().isoformat(),
+        'heure_debut': '06:00', 'heure_fin': '12:00',
+    }, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'chevauche' in str(res.data['heure_debut'])
+
+
+@pytest.mark.django_db
+def test_garde_refusee_si_le_medecin_est_absent(api_client, data):
+    jour = prochain(2, 0).date()
+    AbsenceMedecin.objects.create(medecin=data['rado'], date_debut=jour, date_fin=jour, type='CONGE')
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.post(reverse('garde-medecin-list'), {
+        'medecin': data['rado'].id, 'date': jour.isoformat(), 'heure_debut': '18:00', 'heure_fin': '08:00',
+    }, format='json')
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert 'date' in res.data
+
+
+@pytest.mark.django_db
+def test_medecin_ne_cree_pas_de_garde_pour_un_autre(api_client, data):
+    api_client.force_authenticate(user=data['rado_user'])
+    res = api_client.post(reverse('garde-medecin-list'), {
+        'medecin': data['bema'].id, 'date': prochain(2, 0).date().isoformat(),
+        'heure_debut': '18:00', 'heure_fin': '08:00',
+    }, format='json')
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_creneaux_libres_incluent_la_garde_et_la_fin_de_la_garde_de_la_veille(api_client, data):
+    HoraireMedecin.objects.create(medecin=data['rado'], jour=5, heure_debut=time(8), heure_fin=time(9))
+    garde(data['rado'], prochain(5, 22), 2)  # samedi 22h → dimanche 2h
+    api_client.force_authenticate(user=data['secretaire'])
+    samedi, dimanche = prochain(5, 0).date(), prochain(5, 0).date() + timedelta(days=1)
+    res = api_client.get(reverse('creneaux-libres'), {'medecin': data['rado'].id, 'date': samedi.isoformat()})
+    assert '08:00' in res.data['creneaux'] and '22:00' in res.data['creneaux']
+    assert '20:00' not in res.data['creneaux']
+    res = api_client.get(reverse('creneaux-libres'), {'medecin': data['rado'].id, 'date': dimanche.isoformat()})
+    assert '00:00' in res.data['creneaux'] and '02:00' not in res.data['creneaux']
+
+
+@pytest.mark.django_db
+def test_gardes_en_cours(api_client, data):
+    # garde commencée il y a une heure, qui finit dans deux heures (passe minuit si besoin)
+    debut = (timezone.localtime() - timedelta(hours=1)).replace(second=0, microsecond=0)
+    garde(data['rado'], debut, (debut + timedelta(hours=3)).hour, motif='Garde en cours')
+    garde(data['bema'], prochain(2, 18), 23, motif='Garde à venir')
+    api_client.force_authenticate(user=data['secretaire'])
+    res = api_client.get(reverse('garde-medecin-en-cours'))
+    assert res.status_code == status.HTTP_200_OK
+    assert [g['medecin'] for g in res.data] == [data['rado'].id]

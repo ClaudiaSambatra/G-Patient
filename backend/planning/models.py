@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -72,3 +74,62 @@ class AbsenceMedecin(models.Model):
 
     def __str__(self):
         return f"{self.medecin} — {self.get_type_display()} du {self.date_debut:%d/%m/%Y} au {self.date_fin:%d/%m/%Y}"
+
+
+class GardeMedecin(models.Model):
+    """
+    Garde ponctuelle d'un médecin (nuit, week-end, jour férié…), en plus de ses horaires habituels.
+    Une heure de fin inférieure ou égale à l'heure de début signifie que la garde finit le lendemain
+    (ex. 18h → 8h). Plusieurs médecins peuvent être de garde en même temps.
+    """
+
+    medecin = models.ForeignKey('accounts.Medecin', on_delete=models.CASCADE, related_name='gardes')
+    date = models.DateField(help_text="Jour où la garde commence")
+    heure_debut = models.TimeField()
+    heure_fin = models.TimeField()
+    motif = models.CharField(max_length=255, blank=True, default='', help_text="Ex : garde de nuit, week-end")
+    creee_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='gardes_declarees'
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'heure_debut']
+        verbose_name = "Garde de médecin"
+        verbose_name_plural = "Gardes de médecins"
+
+    @property
+    def finit_le_lendemain(self):
+        return self.heure_fin <= self.heure_debut
+
+    @property
+    def debut(self):
+        from django.utils import timezone
+        return timezone.make_aware(datetime.combine(self.date, self.heure_debut))
+
+    @property
+    def fin(self):
+        from django.utils import timezone
+        jour_fin = self.date + timedelta(days=1) if self.finit_le_lendemain else self.date
+        return timezone.make_aware(datetime.combine(jour_fin, self.heure_fin))
+
+    def clean(self):
+        if not (self.medecin_id and self.date and self.heure_debut and self.heure_fin):
+            return
+        if self.heure_debut == self.heure_fin:
+            raise ValidationError({'heure_fin': "L'heure de fin doit être différente de l'heure de début."})
+        # Une garde ne peut pas chevaucher une autre garde du même médecin (y compris celle de la veille)
+        voisines = GardeMedecin.objects.filter(
+            medecin_id=self.medecin_id,
+            date__gte=self.date - timedelta(days=1), date__lte=self.date + timedelta(days=1),
+        ).exclude(pk=self.pk)
+        if any(g.debut < self.fin and g.fin > self.debut for g in voisines):
+            raise ValidationError({'heure_debut': "Cette garde chevauche une autre garde de ce médecin."})
+        absent = AbsenceMedecin.objects.filter(
+            medecin_id=self.medecin_id, date_debut__lte=self.date, date_fin__gte=self.date
+        ).exists()
+        if absent:
+            raise ValidationError({'date': "Ce médecin est absent ce jour-là : il ne peut pas être de garde."})
+
+    def __str__(self):
+        return f"{self.medecin} — garde du {self.date:%d/%m/%Y} {self.heure_debut:%H:%M}-{self.heure_fin:%H:%M}"
