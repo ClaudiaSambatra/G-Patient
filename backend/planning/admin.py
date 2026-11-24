@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AbsenceMedecin, HoraireMedecin
+from .models import AbsenceMedecin, GardeMedecin, HoraireMedecin
 
 
 @admin.register(HoraireMedecin)
@@ -13,3 +13,10 @@ class HoraireMedecinAdmin(admin.ModelAdmin):
 class AbsenceMedecinAdmin(admin.ModelAdmin):
     list_display = ('medecin', 'type', 'date_debut', 'date_fin', 'motif')
     list_filter = ('type', 'medecin')
+
+
+@admin.register(GardeMedecin)
+class GardeMedecinAdmin(admin.ModelAdmin):
+    list_display = ('medecin', 'date', 'heure_debut', 'heure_fin', 'motif')
+    list_filter = ('medecin',)
+    date_hierarchy = 'date'

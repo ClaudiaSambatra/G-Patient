@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AbsenceMedecin, HoraireMedecin
+from .models import AbsenceMedecin, GardeMedecin, HoraireMedecin
 
 
 def nom_medecin(medecin):
@@ -54,6 +54,23 @@ class AbsenceMedecinSerializer(_ValidationModeleMixin, serializers.ModelSerializ
             statut__in=['PLANIFIE', 'CONFIRME'],
             date_heure__date__gte=obj.date_debut, date_heure__date__lte=obj.date_fin,
         ).count()
+
+
+class GardeMedecinSerializer(_ValidationModeleMixin, serializers.ModelSerializer):
+    medecin_nom = serializers.SerializerMethodField()
+    medecin_specialite = serializers.CharField(source='medecin.specialite', read_only=True)
+    finit_le_lendemain = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = GardeMedecin
+        fields = [
+            'id', 'medecin', 'medecin_nom', 'medecin_specialite', 'date', 'heure_debut', 'heure_fin',
+            'finit_le_lendemain', 'motif', 'date_creation',
+        ]
+        read_only_fields = ['id', 'date_creation']
+
+    def get_medecin_nom(self, obj):
+        return nom_medecin(obj.medecin)
 
 
 class ReaffectationSerializer(serializers.Serializer):

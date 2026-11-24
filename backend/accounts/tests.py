@@ -1015,6 +1015,31 @@ class TestChargerDemo:
         assert StockMedicament.objects.get(nom='Paracétamol').quantite == 45
         assert StockMedicament.objects.get(nom='Amoxicilline').quantite == 11
 
+    def test_garde_demo_cree_les_gardes_et_se_relance_sans_doublon(self):
+        from datetime import datetime, time, timedelta
+        from django.core.management import call_command
+        from django.utils import timezone
+        from planning.models import GardeMedecin
+        from planning.services import indisponibilite
+
+        call_command('charger_demo')  # appelle garde_demo
+        assert GardeMedecin.objects.count() == 3
+        call_command('garde_demo')
+        assert GardeMedecin.objects.count() == 3
+        # Dr Rasoanirina, qui ne consulte que le matin, est disponible l'après-midi grâce à sa garde
+        rasoa = Utilisateur.objects.get(username='dr.rasoa').medecin_profile
+        demain = timezone.localdate() + timedelta(days=1)
+        call_command('garde_demo', date=demain.isoformat())
+        apres_midi = timezone.make_aware(datetime.combine(demain, time(15)))
+        assert indisponibilite(rasoa, apres_midi) is None
+
+    def test_garde_demo_exige_les_comptes_de_demo(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with pytest.raises(CommandError):
+            call_command('garde_demo')
+
     def test_refuse_un_second_chargement(self):
         from django.core.management import call_command
         from django.core.management.base import CommandError

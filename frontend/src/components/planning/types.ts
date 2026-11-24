@@ -75,3 +75,19 @@ export function aujourdhuiISO() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
+
+export interface Garde {
+  id: number
+  medecin: number
+  medecin_nom: string
+  medecin_specialite: string
+  date: string
+  heure_debut: string
+  heure_fin: string
+  finit_le_lendemain: boolean
+  motif: string
+}
+
+// « 18:00 → 08:00 (lendemain) » à partir des heures renvoyées par l'API (HH:MM:SS)
+export const plageGarde = (g: Garde) =>
+  `${g.heure_debut.slice(0, 5)} → ${g.heure_fin.slice(0, 5)}${g.finit_le_lendemain ? " (lendemain)" : ""}`
