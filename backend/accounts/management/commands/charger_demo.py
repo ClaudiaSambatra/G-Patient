@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -103,6 +104,8 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             self.charger(options['mot_de_passe'])
+        # Gardes autour d'aujourd'hui : datées, donc à relancer avant une démo (python manage.py garde_demo)
+        call_command('garde_demo', stdout=self.stdout)
 
         self.stdout.write(self.style.SUCCESS(
             "Données de démonstration chargées. "
