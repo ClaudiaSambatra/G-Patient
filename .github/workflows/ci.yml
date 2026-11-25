@@ -505,6 +505,7 @@ jobs:
       GCP_SSH_KNOWN_HOSTS: ${{ secrets.GCP_SSH_KNOWN_HOSTS }}
       APP_DJANGO_SECRET_KEY: ${{ secrets.APP_DJANGO_SECRET_KEY }}
       APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
+      APP_ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
       APP_EMAIL_HOST_USER: ${{ secrets.APP_EMAIL_HOST_USER }}
       APP_EMAIL_HOST_PASSWORD: ${{ secrets.APP_EMAIL_HOST_PASSWORD }}
       # Supervision Grafana Cloud (facultatif : sans ces secrets, Alloy ne démarre pas)

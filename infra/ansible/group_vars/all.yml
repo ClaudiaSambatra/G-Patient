@@ -18,6 +18,8 @@ app_schema: "{{ 'https' if app_https | bool else 'http' }}"
 
 # Pile légère uniquement : base externe (Neon), et envoi des e-mails par SMTP (facultatif)
 app_database_url: "{{ lookup('ansible.builtin.env', 'APP_DATABASE_URL') }}"
+# Mot de passe du compte « admin » de l'application (facultatif : sans lui, le compte n'est pas modifié)
+app_admin_mot_de_passe: "{{ lookup('ansible.builtin.env', 'APP_ADMIN_PASSWORD') }}"
 app_email_utilisateur: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_USER') }}"
 app_email_mot_de_passe: "{{ lookup('ansible.builtin.env', 'APP_EMAIL_HOST_PASSWORD') }}"
 

@@ -9,11 +9,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = config("ADMIN_USERNAME", default="admin")
         email = config("ADMIN_EMAIL", default="admin@example.com")
-        password = config("ADMIN_PASSWORD", default="Admin1234!")
+        # Aucun mot de passe par défaut : il serait public (dépôt GitHub) et remplacerait
+        # celui de l'administrateur à chaque démarrage du conteneur.
+        password = config("ADMIN_PASSWORD", default="")
 
         if not password:
             self.stdout.write(
-                "ADMIN_PASSWORD non défini, aucun compte créé automatiquement."
+                "ADMIN_PASSWORD non défini : compte administrateur inchangé."
             )
             return
 
