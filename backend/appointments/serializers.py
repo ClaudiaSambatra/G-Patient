@@ -9,7 +9,7 @@ class RendezVousSerializer(serializers.ModelSerializer):
     patient_contact = serializers.CharField(source='patient.contact', read_only=True)
     patient_allergies = serializers.CharField(source='patient.allergies', read_only=True)
     patient_antecedents = serializers.CharField(source='patient.antecedents', read_only=True)
-    medecin_absent_aujourdhui = serializers.BooleanField(source='medecin.absent_aujourdhui', read_only=True)
+    medecin_absent_aujourdhui = serializers.SerializerMethodField()
     consultation_id = serializers.SerializerMethodField()
     statut_paiement = serializers.CharField(read_only=True)
     facture_id = serializers.SerializerMethodField(read_only=True)
@@ -23,6 +23,13 @@ class RendezVousSerializer(serializers.ModelSerializer):
 
     def get_medecin_nom(self, obj):
         return f"Dr. {obj.medecin.utilisateur.last_name} {obj.medecin.utilisateur.first_name}"
+
+    def get_medecin_absent_aujourdhui(self, obj):
+        # Calculé une fois par médecin pour toute la liste, et non une fois par rendez-vous
+        absents = self.context.setdefault('medecins_absents_aujourdhui', {})
+        if obj.medecin_id not in absents:
+            absents[obj.medecin_id] = obj.medecin.absent_aujourdhui
+        return absents[obj.medecin_id]
 
     def get_consultation_id(self, obj):
         return obj.consultation.id if hasattr(obj, 'consultation') and obj.consultation else None

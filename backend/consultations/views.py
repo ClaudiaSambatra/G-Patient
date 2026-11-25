@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import action
@@ -60,6 +61,20 @@ class IsAuteurMedecin(permissions.BasePermission):
         return False
 
 
+def prefetch_documents(chemin):
+    """Ordonnances et demandes d'examens d'une consultation (ou de sa consultation d'origine)."""
+    from prescriptions.models import Ordonnance
+    from examinations.models import DemandeExamen
+    return [
+        Prefetch(f'{chemin}ordonnances', queryset=Ordonnance.objects.select_related(
+            'consultation__patient', 'consultation__medecin__medecin_profile', 'facture'
+        ).prefetch_related('lignes__medicament_stock', 'historique__auteur')),
+        Prefetch(f'{chemin}demandes_examens', queryset=DemandeExamen.objects.select_related(
+            'patient', 'medecin__medecin_profile'
+        ).prefetch_related('lignes', 'historique__auteur')),
+    ]
+
+
 class ConsultationViewSet(viewsets.ModelViewSet):
     """
     CRUD sécurisé pour les consultations médicales.
@@ -80,9 +95,19 @@ class ConsultationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Tout ce que le sérialiseur affiche est chargé en quelques requêtes groupées,
+        # quel que soit le nombre de lignes (la base est distante : chaque requête coûte).
         queryset = Consultation.objects.all().select_related(
-            'patient', 'medecin', 'rendez_vous', 'constantes'
-        ).prefetch_related('historique__auteur')
+            'patient', 'medecin', 'rendez_vous__facture', 'constantes',
+            'consultation_origine__medecin', 'consultation_origine__constantes',
+            'rendez_vous__consultation_origine__medecin',
+            'rendez_vous__consultation_origine__constantes',
+        ).prefetch_related(
+            'historique__auteur',
+            *prefetch_documents(''),
+            *prefetch_documents('consultation_origine__'),
+            *prefetch_documents('rendez_vous__consultation_origine__'),
+        )
 
         if user.role == 'MEDECIN' and self.action == 'list':
             from django.db.models import Q

@@ -920,3 +920,44 @@ def test_consultation_suivi_details_origine(api_client, setup_data):
     assert details['diagnostic'] == 'Angine bactérienne'
     assert details['observations'] == 'Amydales cryptiques, fièvre 39°C, tension 12/8'
     assert details['compte_rendu'] == 'Traitement amoxicilline 1g x2/j pendant 6 jours'
+
+
+def _consultation_complete(setup_data, stock, jours):
+    """Consultation avec RDV (facture créée par signal), ordonnance (ligne du catalogue) et demande d'examen."""
+    from prescriptions.models import Ordonnance, LigneOrdonnance
+    from examinations.models import DemandeExamen, LigneDemandeExamen
+    rdv = RendezVous.objects.create(
+        patient=setup_data['patient'], medecin=setup_data['medecin'],
+        date_heure=make_aware(datetime.now() - timedelta(days=jours)), statut='TERMINE'
+    )
+    consult = Consultation.objects.create(
+        patient=setup_data['patient'], medecin=setup_data['medecin_user'], rendez_vous=rdv, motif='Contrôle'
+    )
+    ordonnance = Ordonnance.objects.create(consultation=consult, numero=Ordonnance.generer_numero())
+    LigneOrdonnance.objects.create(ordonnance=ordonnance, medicament=stock.nom, medicament_stock=stock, ordre=1)
+    demande = DemandeExamen.objects.create(
+        consultation=consult, patient=setup_data['patient'], medecin=setup_data['medecin_user']
+    )
+    LigneDemandeExamen.objects.create(demande=demande, nom_examen='NFS')
+
+
+@pytest.mark.django_db
+def test_liste_consultations_nombre_de_requetes_constant(api_client, setup_data):
+    """La base est distante : la liste ne doit pas refaire des requêtes pour chaque consultation."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from pharmacie.models import StockMedicament
+    stock = StockMedicament.objects.create(nom='Paracétamol', prix_unitaire=500, quantite=10, seuil_alerte=2)
+    api_client.force_authenticate(user=setup_data['secretaire'])
+    url = reverse('consultation-list')
+
+    _consultation_complete(setup_data, stock, 1)
+    with CaptureQueriesContext(connection) as une:
+        assert api_client.get(url).status_code == status.HTTP_200_OK
+
+    for jours in range(2, 6):
+        _consultation_complete(setup_data, stock, jours)
+    with CaptureQueriesContext(connection) as cinq:
+        assert len(api_client.get(url).data['results']) == 5
+
+    assert len(cinq) == len(une)

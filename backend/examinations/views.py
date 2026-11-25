@@ -23,7 +23,7 @@ class DemandeExamenViewSet(viewsets.ModelViewSet):
         'consultation__patient',
         'consultation__medecin',
         'patient',
-        'medecin'
+        'medecin__medecin_profile'
     ).prefetch_related(
         'lignes',
         'historique__auteur'

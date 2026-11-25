@@ -28,10 +28,10 @@ class OrdonnanceViewSet(viewsets.ModelViewSet):
     """
     queryset = Ordonnance.objects.all().select_related(
         'consultation__patient',
-        'consultation__medecin',
+        'consultation__medecin__medecin_profile',
         'facture'
     ).prefetch_related(
-        'lignes',
+        'lignes__medicament_stock',
         'historique__auteur'
     )
     serializer_class = OrdonnanceSerializer

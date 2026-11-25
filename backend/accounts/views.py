@@ -225,7 +225,7 @@ class MedecinViewSet(viewsets.ReadOnlyModelViewSet):
     Sert à peupler les listes déroulantes de praticiens lors de la création de rendez-vous.
     Permet également la mise à jour de la présence du jour.
     """
-    queryset = Medecin.objects.all().order_by('utilisateur__last_name', 'utilisateur__first_name')
+    queryset = Medecin.objects.select_related('utilisateur').order_by('utilisateur__last_name', 'utilisateur__first_name')
     serializer_class = MedecinSerializer
     permission_classes = [IsAuthenticated]
 
