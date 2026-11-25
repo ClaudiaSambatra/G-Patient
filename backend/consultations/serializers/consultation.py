@@ -62,7 +62,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
     def get_ordonnances(self, obj):
         try:
             from prescriptions.serializers import OrdonnanceSerializer
-            ords = obj.ordonnances.all().prefetch_related('lignes')
+            ords = obj.ordonnances.all()
             return OrdonnanceSerializer(ords, many=True).data
         except Exception:
             return []
@@ -70,7 +70,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
     def get_examens(self, obj):
         try:
             from examinations.serializers import DemandeExamenSerializer
-            demandes = obj.demandes_examens.all().prefetch_related('lignes')
+            demandes = obj.demandes_examens.all()
             return DemandeExamenSerializer(demandes, many=True).data
         except Exception:
             return []
@@ -87,13 +87,13 @@ class ConsultationSerializer(serializers.ModelSerializer):
             ords_data = []
             try:
                 from prescriptions.serializers import OrdonnanceSerializer
-                ords_data = OrdonnanceSerializer(orig.ordonnances.all().prefetch_related('lignes'), many=True).data
+                ords_data = OrdonnanceSerializer(orig.ordonnances.all(), many=True).data
             except Exception:
                 pass
             examens_data = []
             try:
                 from examinations.serializers import DemandeExamenSerializer
-                examens_data = DemandeExamenSerializer(orig.demandes_examens.all().prefetch_related('lignes'), many=True).data
+                examens_data = DemandeExamenSerializer(orig.demandes_examens.all(), many=True).data
             except Exception:
                 pass
             return {

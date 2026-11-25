@@ -11,7 +11,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     Recherche multicritères (module 14) via ?search=.
     """
     # Les patients enregistrés le plus récemment en haut de la liste
-    queryset = Patient.objects.all().order_by('-date_creation', '-id')
+    queryset = Patient.objects.prefetch_related('documents').order_by('-date_creation', '-id')
     serializer_class = PatientSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['nom', 'prenom', 'contact']
