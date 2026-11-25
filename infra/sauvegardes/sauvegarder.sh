@@ -52,12 +52,14 @@ echo "    $(du -h "$TRAVAIL/$FICHIER" | cut -f1), $(wc -l < "$TRAVAIL/source.txt
 
 echo "3/4 Test de restauration dans une base jetable"
 docker run -d --name "$CONTENEUR_TEST" -e POSTGRES_PASSWORD=test -v "$TRAVAIL:/travail:ro,z" "postgres:${VERSION}-alpine" >/dev/null
-for _ in $(seq 1 30); do
-  docker exec "$CONTENEUR_TEST" pg_isready -U postgres -q 2>/dev/null && break
+# L'image lance d'abord un serveur provisoire (socket seulement) pour s'initialiser, puis le
+# redémarre : on attend le serveur définitif, le seul à écouter en TCP, et on s'y connecte en TCP.
+for _ in $(seq 1 60); do
+  docker exec "$CONTENEUR_TEST" pg_isready -h 127.0.0.1 -U postgres -q 2>/dev/null && break
   sleep 1
 done
-docker exec "$CONTENEUR_TEST" pg_restore -U postgres -d postgres --no-owner --no-privileges --exit-on-error "/travail/$FICHIER"
-docker exec "$CONTENEUR_TEST" psql -U postgres -tAX -c "$REQUETE_COMPTAGE" > "$TRAVAIL/restauree.txt"
+docker exec "$CONTENEUR_TEST" pg_restore -h 127.0.0.1 -U postgres -d postgres --no-owner --no-privileges --exit-on-error "/travail/$FICHIER"
+docker exec "$CONTENEUR_TEST" psql -h 127.0.0.1 -U postgres -tAX -c "$REQUETE_COMPTAGE" > "$TRAVAIL/restauree.txt"
 if ! diff -u "$TRAVAIL/source.txt" "$TRAVAIL/restauree.txt" > "$TRAVAIL/ecarts.txt"; then
   # Des écarts de lignes sont possibles si l'application a écrit pendant la sauvegarde ;
   # une table absente, en revanche, signale une sauvegarde incomplète
