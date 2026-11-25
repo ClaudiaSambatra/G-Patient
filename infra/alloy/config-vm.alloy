@@ -1,0 +1,115 @@
+// Grafana Alloy sur la VM Google Cloud (docker-compose.vm.yml, profil « supervision »)
+// La VM (1 Go) ne peut pas héberger Prometheus, Loki et Grafana : Alloy, seul sur la VM,
+// envoie métriques et journaux vers Grafana Cloud (offre gratuite), où sont les tableaux de bord.
+// Identifiants lus dans l'environnement (fichier .env généré par Ansible, jamais versionné).
+
+// ---------------------------------------------------------------- MÉTRIQUES
+// 1. Métriques du système de la VM (CPU, mémoire, disque, réseau) : Node Exporter intégré à Alloy
+prometheus.exporter.unix "vm" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/rootfs"
+}
+
+prometheus.scrape "vm" {
+  targets         = prometheus.exporter.unix.vm.targets
+  job_name        = "integrations/node_exporter"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
+// 2. Métriques de l'application Django (prometheus_client, comme en local)
+prometheus.scrape "backend" {
+  targets         = [{"__address__" = "backend:8000"}]
+  metrics_path    = "/api/metrics/"
+  job_name        = "backend"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
+// Nom lisible de la machine dans Grafana
+prometheus.relabel "instance" {
+  rule {
+    target_label = "instance"
+    replacement  = "vm-gcp"
+  }
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROM_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}
+
+// ---------------------------------------------------------------- JOURNAUX
+// 3. Journaux des conteneurs du projet Compose (et d'eux seuls), comme infra/alloy/config.alloy
+discovery.docker "conteneurs" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "label"
+    values = [string.format("com.docker.compose.project=%s", coalesce(sys.env("PROJET_COMPOSE"), "gestion-patients"))]
+  }
+}
+
+discovery.relabel "conteneurs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "vm-gcp"
+  }
+}
+
+loki.source.docker "conteneurs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.conteneurs.targets
+  relabel_rules = discovery.relabel.conteneurs.rules
+  forward_to    = [loki.process.niveau.receiver]
+}
+
+// Niveau de gravité (INFO, WARNING, ERROR…) en étiquette, comme en local
+loki.process "niveau" {
+  stage.regex {
+    expression = "(?i)\\b(?P<level>debug|info|warning|warn|error|critical)\\b"
+  }
+
+  stage.template {
+    source   = "level"
+    template = "{{ $l := ToLower .Value }}{{ if eq $l \"warn\" }}warning{{ else }}{{ $l }}{{ end }}"
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = string.format("%s/loki/api/v1/push", sys.env("GRAFANA_CLOUD_LOKI_URL"))
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}

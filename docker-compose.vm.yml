@@ -4,7 +4,8 @@
 # Différences avec docker-compose.prod.yml :
 #   - base de données externe (Neon) via DATABASE_URL, pas de PostgreSQL local ;
 #   - Caddy remplace Nginx : HTTPS automatique avec Let's Encrypt (certificat obtenu et renouvelé seul) ;
-#   - pas de pile de supervision (Prometheus, Loki, Grafana) : trop lourde pour 1 Go, elle reste en local.
+#   - pas de Prometheus, Loki ni Grafana (trop lourds pour 1 Go) : Alloy seul envoie métriques et
+#     journaux vers Grafana Cloud (profil « supervision », facultatif).
 #
 # Lancement sur le serveur (dossier du projet, avec un fichier .env) :
 #   docker compose -f docker-compose.vm.yml pull
@@ -57,7 +58,37 @@ services:
       frontend:
         condition: service_started
 
+  # Supervision : Alloy seul sur la VM, envoie métriques et journaux vers Grafana Cloud.
+  # Démarré seulement avec le profil « supervision » (COMPOSE_PROFILES, posé par Ansible
+  # quand les identifiants Grafana Cloud sont fournis).
+  alloy:
+    image: grafana/alloy:v1.22.0
+    profiles: ["supervision"]
+    restart: unless-stopped
+    mem_limit: 192m
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      GRAFANA_CLOUD_PROM_URL: ${GRAFANA_CLOUD_PROM_URL:-}
+      GRAFANA_CLOUD_PROM_USER: ${GRAFANA_CLOUD_PROM_USER:-}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_TOKEN: ${GRAFANA_CLOUD_TOKEN:-}
+    volumes:
+      - ./infra/alloy/config-vm.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - backend
+
 volumes:
+  alloy_data:
   static_volume:
   media_volume:
   caddy_data:
