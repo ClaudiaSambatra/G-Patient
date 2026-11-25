@@ -241,7 +241,7 @@ La collection `postman/gestion-patients.postman_collection.json` déroule un **p
 
 Chaque réponse est aussi contrôlée sur son **format JSON** et son **temps de réponse**. Le seuil est de 300 ms, l'exigence de performance du cahier des charges, et passe à 1 s pour les seules opérations qui hachent un mot de passe avec Argon2, un algorithme lent par conception. Les données de test portent un suffixe unique, si bien que la collection peut tourner plusieurs fois sur la même base.
 
-- **En CI** : le job « Tests d'API (Postman / Newman) » démarre une API jetable (PostgreSQL vierge), lance la collection avec l'image Docker Newman épinglée par son empreinte, affiche un résumé dans l'onglet *Summary* et publie le rapport JUnit (artefact `rapport-newman`). La construction des images attend ce job.
+- **En CI** : le job « Tests d'API » démarre une API jetable (PostgreSQL vierge), lance la collection avec l'image Docker Newman épinglée par son empreinte, affiche un résumé dans l'onglet *Summary* et publie le rapport JUnit (artefact `rapport-newman`). La construction des images attend ce job.
 - **En local**, contre une API qui tourne sur le port 8000 :
 
   ```bash
@@ -323,7 +323,7 @@ Changer d'hébergeur revient à changer l'adresse dans l'inventaire et à relanc
 
 ### Test en CI
 
-Le job **« Infrastructure (Ansible) »** applique le playbook à chaque modification sur la machine virtuelle jetable de GitHub Actions, un Ubuntu neuf, comme sur un vrai serveur. Il :
+Le job **« Infrastructure »** applique le playbook à chaque modification sur la machine virtuelle jetable de GitHub Actions, un Ubuntu neuf, comme sur un vrai serveur. Il :
 
 1. vérifie la syntaxe ;
 2. fait une **1re passe** : préparation et déploiement complet ;

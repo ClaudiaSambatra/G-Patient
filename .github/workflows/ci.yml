@@ -16,7 +16,7 @@ jobs:
   # Bloque le pipeline si du code caché réapparaît (malware déjà retrouvé
   # dans postcss.config.mjs, frontend/init et de faux fichiers de polices).
   securite:
-    name: Sécurité (code caché)
+    name: Sécurité
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
@@ -49,7 +49,7 @@ jobs:
 
   # ---------------------------------------------------------------- BACKEND
   backend:
-    name: Backend (flake8 + pytest)
+    name: Backend
     needs: [securite]
     runs-on: ubuntu-latest
     defaults:
@@ -102,7 +102,7 @@ jobs:
   # Analyse statique SonarCloud : bugs, vulnérabilités, code dupliqué, dette
   # technique et couverture des tests. Ignorée tant que SONAR_TOKEN n'est pas configuré.
   sonarcloud:
-    name: Qualité du code (SonarCloud)
+    name: Qualité du code
     needs: [backend]
     runs-on: ubuntu-latest
     env:
@@ -129,7 +129,7 @@ jobs:
   # base vide, e-mails désactivés, connexion en administrateur pour couvrir les
   # routes protégées par JWT. Le rapport est publié en artefact et dans le résumé.
   zap:
-    name: Sécurité API (OWASP ZAP)
+    name: Sécurité API
     needs: [backend]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -235,7 +235,7 @@ jobs:
 
   # ------------------------------------------------------- TESTS D'API (POSTMAN)
   api-tests:
-    name: Tests d'API (Postman / Newman)
+    name: Tests d'API
     needs: [backend]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -329,7 +329,7 @@ jobs:
   # Le playbook est appliqué sur la machine virtuelle jetable du runner (un Ubuntu neuf),
   # comme sur un vrai serveur, puis relancé : la 2e passe doit être sans aucun changement.
   infra:
-    name: Infrastructure (Ansible)
+    name: Infrastructure
     needs: [securite]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -398,7 +398,7 @@ jobs:
 
   # --------------------------------------------------------------- FRONTEND
   frontend:
-    name: Frontend (eslint + tsc + build)
+    name: Frontend
     needs: [securite]
     runs-on: ubuntu-latest
     defaults:
@@ -419,7 +419,7 @@ jobs:
 
   # ------------------------------------------- BUILD + PUSH GHCR + TRIVY
   images:
-    name: Image ${{ matrix.service }} (build, push, Trivy)
+    name: Image ${{ matrix.service }}
     needs: [backend, frontend, zap, api-tests, infra]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -471,7 +471,7 @@ jobs:
   # VM Google Cloud (https://gestion-patients.abrdns.com) : le playbook Ansible y déploie les
   # images qui viennent d'être publiées. Sans les secrets GCP_* (fork, dépôt copié), l'étape est sautée.
   deploy-gcp:
-    name: Déploiement continu (VM Google Cloud)
+    name: Déploiement continu
     needs: [images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

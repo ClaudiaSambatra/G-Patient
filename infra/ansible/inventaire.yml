@@ -5,7 +5,7 @@
 #     ansible-playbook site.yml --limit serveurs
 #
 # ci : la machine virtuelle jetable de GitHub Actions, sur laquelle le playbook est testé
-#   à chaque modification (job « Infrastructure (Ansible) »).
+#   à chaque modification (job « Infrastructure »).
 all:
   children:
     serveurs:
